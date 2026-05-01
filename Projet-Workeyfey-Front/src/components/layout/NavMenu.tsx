@@ -5,10 +5,14 @@ type NavMenuProps = {
     onClose: () => void;
 };
 
-const items: { to: string; label: string }[] = [
-    { to: '/', label: 'Home' },
-    { to: '/projects', label: 'Projects' },
-    { to: '/contacts', label: 'Contacts' },
+type NavItem =
+    | { kind: 'route'; to: string; label: string }
+    | { kind: 'mailto'; href: string; label: string };
+
+const items: NavItem[] = [
+    { kind: 'route', to: '/', label: 'Home' },
+    { kind: 'route', to: '/projects', label: 'Projects' },
+    { kind: 'mailto', href: 'mailto:hello@workify.com', label: 'Contact' },
 ];
 
 export default function NavMenu({ onClose }: NavMenuProps) {
@@ -30,16 +34,27 @@ export default function NavMenu({ onClose }: NavMenuProps) {
                 className="NavMenu-list"
                 onClick={(e) => e.stopPropagation()}
             >
-                {items.map((item) => (
-                    <Link
-                        key={item.to}
-                        to={item.to}
-                        className="NavMenu-item"
-                        onClick={onClose}
-                    >
-                        {item.label}
-                    </Link>
-                ))}
+                {items.map((item) =>
+                    item.kind === 'route' ? (
+                        <Link
+                            key={item.to}
+                            to={item.to}
+                            className="NavMenu-item"
+                            onClick={onClose}
+                        >
+                            {item.label}
+                        </Link>
+                    ) : (
+                        <a
+                            key={item.href}
+                            href={item.href}
+                            className="NavMenu-item"
+                            onClick={onClose}
+                        >
+                            {item.label}
+                        </a>
+                    )
+                )}
             </nav>
         </div>
     );

@@ -1,10 +1,9 @@
 .Footer {
-    --bg: #FFFFFF;
-    --bg-soft: #F5F5F7;
-    --ink: #000000;
-    --ink-soft: rgba(0, 0, 0, 0.65);
-    --line: rgba(0, 0, 0, 0.12);
-    --line-strong: rgba(0, 0, 0, 0.85);
+    --bg: var(--color-white);
+    --ink: var(--color-black);
+    --ink-soft: rgba(var(--color-black-rgb), 0.65);
+    --line: rgba(var(--color-black-rgb), 0.12);
+    --line-strong: rgba(var(--color-black-rgb), 0.85);
 
     position: relative;
     width: 100%;
@@ -20,8 +19,8 @@
     position: absolute;
     inset: 0;
     background:
-        radial-gradient(60% 40% at 50% 0%, rgba(0, 0, 0, 0.03), transparent 70%),
-        radial-gradient(120% 80% at 50% 100%, rgba(255, 255, 255, 1) 40%, rgba(255, 255, 255, 0) 100%);
+        radial-gradient(60% 40% at 50% 0%, rgba(var(--color-black-rgb), 0.03), transparent 70%),
+        radial-gradient(120% 80% at 50% 100%, rgba(var(--color-white-rgb), 1) 40%, rgba(var(--color-white-rgb), 0) 100%);
     pointer-events: none;
     z-index: 0;
 }
@@ -42,8 +41,8 @@
     width: 100%;
     height: 100%;
     background:
-        radial-gradient(45% 60% at 50% 50%, rgba(0, 0, 0, 0.04), transparent 70%);
-    outline: 1px dashed rgba(0, 0, 0, 0.08);
+        radial-gradient(45% 60% at 50% 50%, rgba(var(--color-black-rgb), 0.04), transparent 70%);
+    outline: 1px dashed rgba(var(--color-black-rgb), 0.08);
     outline-offset: -24px;
 }
 
@@ -52,9 +51,9 @@
     inset: 0;
     background: linear-gradient(
         to bottom,
-        rgba(255, 255, 255, 0) 0%,
-        rgba(255, 255, 255, 0.35) 55%,
-        rgba(255, 255, 255, 0.92) 88%,
+        rgba(var(--color-white-rgb), 0) 0%,
+        rgba(var(--color-white-rgb), 0.35) 55%,
+        rgba(var(--color-white-rgb), 0.92) 88%,
         var(--bg) 100%
     );
     backdrop-filter: blur(2px);
@@ -117,11 +116,11 @@
     letter-spacing: 0.01em;
     color: var(--ink);
     cursor: pointer;
-    background: #FFFFFF;
+    background: var(--color-white);
     border: 1px solid var(--line-strong);
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.6),
-        0 0 0 0 rgba(0, 0, 0, 0);
+        inset 0 1px 0 rgba(var(--color-white-rgb), 0.6),
+        0 0 0 0 rgba(var(--color-black-rgb), 0);
     transition:
         transform 220ms ease,
         border-color 220ms ease,
@@ -132,10 +131,10 @@
 
 .Footer-cta-primary:hover {
     transform: translateY(-1px);
-    background: #000000;
-    color: #FFFFFF;
-    border-color: #000000;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    background: var(--color-black);
+    color: var(--color-white);
+    border-color: var(--color-black);
+    box-shadow: 0 8px 24px rgba(var(--color-black-rgb), 0.18);
 }
 
 .Footer-cta-arrow {

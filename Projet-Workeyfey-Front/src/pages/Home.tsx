@@ -1,5 +1,4 @@
 import { Suspense } from 'react';
-import { Link } from 'react-router-dom';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import Produit from '../components/canvas/Produit';
@@ -20,9 +19,9 @@ export default function Home() {
                 <OrbitControls />
             </Canvas>
 
-            <Link to="/contacts" className="Home-contact-btn">
+            <a href="mailto:hello@workify.com" className="Home-contact-btn">
                 Contact
-            </Link>
+            </a>
         </main>
     );
 }
