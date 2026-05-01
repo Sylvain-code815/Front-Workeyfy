@@ -1,17 +1,16 @@
 .Footer {
-    --abyss: #0A0F1D;
-    --abyss-soft: #0E1426;
-    --ink: #FFFFFF;
-    --slate: #94A3B8;
-    --cyan: #00E5FF;
-    --cyan-soft: rgba(0, 229, 255, 0.2);
-    --cyan-glow: rgba(0, 229, 255, 0.45);
+    --bg: #FFFFFF;
+    --bg-soft: #F5F5F7;
+    --ink: #000000;
+    --ink-soft: rgba(0, 0, 0, 0.65);
+    --line: rgba(0, 0, 0, 0.12);
+    --line-strong: rgba(0, 0, 0, 0.85);
 
     position: relative;
     width: 100%;
-    background-color: var(--abyss);
+    background-color: var(--bg);
     color: var(--ink);
-    font-family: 'Space Grotesk', 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-family-base);
     overflow: hidden;
     isolation: isolate;
 }
@@ -21,8 +20,8 @@
     position: absolute;
     inset: 0;
     background:
-        radial-gradient(60% 40% at 50% 0%, rgba(0, 229, 255, 0.08), transparent 70%),
-        radial-gradient(120% 80% at 50% 100%, rgba(10, 15, 29, 1) 40%, rgba(10, 15, 29, 0) 100%);
+        radial-gradient(60% 40% at 50% 0%, rgba(0, 0, 0, 0.03), transparent 70%),
+        radial-gradient(120% 80% at 50% 100%, rgba(255, 255, 255, 1) 40%, rgba(255, 255, 255, 0) 100%);
     pointer-events: none;
     z-index: 0;
 }
@@ -43,9 +42,8 @@
     width: 100%;
     height: 100%;
     background:
-        radial-gradient(45% 60% at 50% 50%, rgba(0, 229, 255, 0.10), transparent 70%);
-    /* placeholder hint until the <canvas> gets mounted by R3F */
-    outline: 1px dashed rgba(0, 229, 255, 0.12);
+        radial-gradient(45% 60% at 50% 50%, rgba(0, 0, 0, 0.04), transparent 70%);
+    outline: 1px dashed rgba(0, 0, 0, 0.08);
     outline-offset: -24px;
 }
 
@@ -54,10 +52,10 @@
     inset: 0;
     background: linear-gradient(
         to bottom,
-        rgba(10, 15, 29, 0) 0%,
-        rgba(10, 15, 29, 0.35) 55%,
-        rgba(10, 15, 29, 0.92) 88%,
-        var(--abyss) 100%
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.35) 55%,
+        rgba(255, 255, 255, 0.92) 88%,
+        var(--bg) 100%
     );
     backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
@@ -96,9 +94,6 @@
     color: var(--ink);
     max-width: 720px;
     margin: 0;
-    text-shadow:
-        0 0 24px rgba(0, 229, 255, 0.18),
-        0 0 80px rgba(0, 229, 255, 0.08);
 }
 
 .Footer-cta-row {
@@ -122,35 +117,25 @@
     letter-spacing: 0.01em;
     color: var(--ink);
     cursor: pointer;
-    background: linear-gradient(
-        135deg,
-        rgba(255, 255, 255, 0.08),
-        rgba(255, 255, 255, 0.02)
-    );
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    background: #FFFFFF;
+    border: 1px solid var(--line-strong);
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.08),
-        0 0 0 0 rgba(0, 229, 255, 0);
+        inset 0 1px 0 rgba(255, 255, 255, 0.6),
+        0 0 0 0 rgba(0, 0, 0, 0);
     transition:
         transform 220ms ease,
         border-color 220ms ease,
         box-shadow 320ms ease,
-        background 220ms ease;
+        background 220ms ease,
+        color 220ms ease;
 }
 
 .Footer-cta-primary:hover {
     transform: translateY(-1px);
-    border-color: var(--cyan);
-    background: linear-gradient(
-        135deg,
-        rgba(0, 229, 255, 0.14),
-        rgba(0, 229, 255, 0.04)
-    );
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.12),
-        0 0 32px var(--cyan-glow);
+    background: #000000;
+    color: #FFFFFF;
+    border-color: #000000;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 
 .Footer-cta-arrow {
@@ -161,30 +146,13 @@
     transform: translateX(4px);
 }
 
-.Footer-cta-mail {
-    font-size: 16px;
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    color: var(--slate);
-    text-decoration: none;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.25);
-    padding-bottom: 4px;
-    transition: color 220ms ease, border-color 220ms ease, text-shadow 220ms ease;
-}
-
-.Footer-cta-mail:hover {
-    color: var(--cyan);
-    border-color: var(--cyan);
-    text-shadow: 0 0 18px var(--cyan-glow);
-}
-
 /* — 3-col grid — */
 .Footer-grid {
     display: grid;
     grid-template-columns: 1.4fr 1fr 1fr;
     gap: 0;
-    border-top: 1px solid var(--cyan-soft);
-    border-bottom: 1px solid var(--cyan-soft);
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
 }
 
 .Footer-col {
@@ -195,7 +163,7 @@
 }
 
 .Footer-col + .Footer-col {
-    border-left: 1px solid var(--cyan-soft);
+    border-left: 1px solid var(--line);
 }
 
 .Footer-logo {
@@ -209,7 +177,7 @@
     margin: 0;
     font-size: 14px;
     line-height: 1.6;
-    color: var(--slate);
+    color: var(--ink-soft);
     max-width: 340px;
 }
 
@@ -218,7 +186,7 @@
     font-weight: 600;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--cyan);
+    color: var(--ink);
 }
 
 .Footer-col ul {
@@ -233,9 +201,9 @@
 .Footer-col a {
     position: relative;
     font-size: 15px;
-    color: var(--slate);
+    color: var(--ink-soft);
     text-decoration: none;
-    transition: color 220ms ease, text-shadow 220ms ease, padding-left 220ms ease;
+    transition: color 220ms ease, padding-left 220ms ease;
 }
 
 .Footer-col a::before {
@@ -245,16 +213,15 @@
     top: 50%;
     width: 8px;
     height: 1px;
-    background: var(--cyan);
+    background: var(--ink);
     transform: translateY(-50%) scaleX(0);
     transform-origin: left center;
     transition: transform 220ms ease;
 }
 
 .Footer-col a:hover {
-    color: var(--cyan);
+    color: var(--ink);
     padding-left: 14px;
-    text-shadow: 0 0 16px var(--cyan-glow);
 }
 
 .Footer-col a:hover::before {
@@ -269,28 +236,8 @@
     flex-wrap: wrap;
     gap: 16px;
     font-size: 13px;
-    color: var(--slate);
+    color: var(--ink-soft);
     letter-spacing: 0.02em;
-}
-
-.Footer-baseline-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.Footer-status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--cyan);
-    box-shadow: 0 0 10px var(--cyan-glow);
-    animation: footer-pulse 2.4s ease-in-out infinite;
-}
-
-@keyframes footer-pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50%      { opacity: 0.55; transform: scale(0.85); }
 }
 
 /* ──────────────────────────────────────────
@@ -306,7 +253,7 @@
     .Footer-col { padding: 32px 4px; }
     .Footer-col + .Footer-col {
         border-left: none;
-        border-top: 1px solid var(--cyan-soft);
+        border-top: 1px solid var(--line);
     }
 }
 

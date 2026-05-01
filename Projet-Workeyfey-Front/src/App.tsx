@@ -1,25 +1,22 @@
-import { Suspense } from "react";
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
-import Header from "./components/layout/Header";
-import Footer from "./components/layout/Footer";
-import Produit from "./components/canvas/Produit";
+import { Routes, Route } from 'react-router-dom';
+import Header from './components/layout/Header';
+import Footer from './components/layout/Footer';
+import Home from './pages/Home';
+import Projects from './pages/Projects';
+import Contacts from './pages/Contacts';
 
 function App() {
     return (
         <>
             <Header />
-            <Canvas style={{ width: "100vw", height: "100vh" }} camera={{ position: [0, 2, 5], fov: 50 }}>
-                <ambientLight intensity={0.6} />
-                <directionalLight position={[5, 5, 5]} intensity={1} />
-                <Suspense fallback={null}>
-                    <Produit />
-                </Suspense>
-                <OrbitControls />
-            </Canvas>
+            <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/projects" element={<Projects />} />
+                <Route path="/contacts" element={<Contacts />} />
+            </Routes>
             <Footer />
         </>
     );
 }
 
-export default App
+export default App;

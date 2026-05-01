@@ -1,12 +1,26 @@
-import './Header.css'
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import './Header.css';
+import NavMenu from './NavMenu';
 
 export default function Header() {
+    const [open, setOpen] = useState<boolean>(false);
+
     return (
-        <div className="Header">
-            <h1>Workeyfy</h1>
-            <button className="Nav-btn" onClick={() => {}}>
-                Menu
-            </button>
-        </div>
-    )
+        <>
+            <header className="Header">
+                <Link to="/" className="Header-logo-link">
+                    <h1 className="Header-logo">Workeyfy</h1>
+                </Link>
+                <button
+                    className="Header-nav-btn"
+                    onClick={() => setOpen(true)}
+                    aria-label="Ouvrir le menu"
+                >
+                    Menu
+                </button>
+            </header>
+            {open && <NavMenu onClose={() => setOpen(false)} />}
+        </>
+    );
 }

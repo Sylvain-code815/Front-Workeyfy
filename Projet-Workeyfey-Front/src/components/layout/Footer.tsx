@@ -18,10 +18,6 @@ export default function Footer() {
                             <span>Démarrer un projet</span>
                             <span className="Footer-cta-arrow" aria-hidden="true">→</span>
                         </button>
-
-                        <a href="mailto:hello@workify.com" className="Footer-cta-mail">
-                            hello@workify.com
-                        </a>
                     </div>
                 </section>
 
@@ -55,10 +51,6 @@ export default function Footer() {
 
                 <div className="Footer-baseline">
                     <span>© {new Date().getFullYear()} Workify — Tous droits réservés.</span>
-                    <span className="Footer-baseline-status">
-                        <span className="Footer-status-dot" aria-hidden="true" />
-                        Systèmes opérationnels
-                    </span>
                 </div>
             </div>
         </footer>
