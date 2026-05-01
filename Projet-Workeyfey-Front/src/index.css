@@ -1,0 +1,17 @@
+:root {
+    --color-white: #FAFAFA;
+    --color-black: #1A1A1A;
+    --color-white-rgb: 250, 250, 250;
+    --color-black-rgb: 26, 26, 26;
+
+    --font-family-base: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--color-black);
+    color: var(--color-white);
+    font-family: var(--font-family-base);
+}
