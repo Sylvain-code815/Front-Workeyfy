@@ -1,0 +1,61 @@
+.BackendTransition {
+    position: relative;
+    width: 100%;
+    height: 300vh;
+    background: #000000;
+}
+
+.BackendTransition-sticky {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    background: #000000;
+}
+
+.BackendTransition-canvas {
+    position: absolute !important;
+    inset: 0;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.BackendTransition-overlay {
+    position: absolute;
+    bottom: 12vh;
+    left: 0;
+    right: 0;
+    z-index: 2;
+    padding: 0 80px;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    align-items: flex-start;
+}
+
+.BackendTransition-title {
+    margin: 0;
+    font-family: 'Syne', system-ui, sans-serif;
+    font-size: clamp(32px, 4vw, 56px);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    color: var(--color-white);
+    max-width: 720px;
+    opacity: 0;
+    will-change: opacity, transform;
+    text-shadow: 0 0 30px rgba(0, 229, 255, 0.25);
+}
+
+.BackendTransition-details {
+    margin: 0;
+    font-family: var(--font-family-base);
+    font-size: clamp(15px, 1.4vw, 18px);
+    line-height: 1.6;
+    color: var(--color-white);
+    max-width: 540px;
+    opacity: 0;
+    will-change: opacity, transform;
+}
