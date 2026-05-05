@@ -145,10 +145,9 @@
     transform: translateX(4px);
 }
 
-/* — 3-col grid — */
 .Footer-grid {
     display: grid;
-    grid-template-columns: 1.4fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 0;
     border-top: 1px solid var(--line);
     border-bottom: 1px solid var(--line);
@@ -159,9 +158,16 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
+    align-items: center;
 }
 
-.Footer-col + .Footer-col {
+.Footer-col--brand {
+    grid-column: 1 / -1;
+    border-bottom: 1px solid var(--line);
+
+}
+
+.Footer-col--nav + .Footer-col--legal {
     border-left: 1px solid var(--line);
 }
 
@@ -250,7 +256,7 @@
 
     .Footer-grid { grid-template-columns: 1fr; }
     .Footer-col { padding: 32px 4px; }
-    .Footer-col + .Footer-col {
+    .Footer-col--nav + .Footer-col--legal {
         border-left: none;
         border-top: 1px solid var(--line);
     }

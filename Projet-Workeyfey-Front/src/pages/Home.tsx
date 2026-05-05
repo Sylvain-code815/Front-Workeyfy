@@ -1,22 +1,24 @@
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
-import Produit from '../components/canvas/Produit';
+import Scene from '../components/canvas/Scene';
 import './Home.css';
 
 export default function Home() {
+    const [started, setStarted] = useState(false);
+
     return (
         <main className="Home">
             <Canvas
                 className="Home-canvas"
-                camera={{ position: [0, 2, 5], fov: 50 }}
+                camera={{ position: [0.27, 1.529, -0.4], fov: 50 }}
             >
-                <ambientLight intensity={0.6} />
-                <directionalLight position={[5, 5, 5]} intensity={1} />
                 <Suspense fallback={null}>
-                    <Produit />
+                    <Scene
+                        started={started}
+                        onStart={() => setStarted(true)}
+                        onReset={() => setStarted(false)}
+                    />
                 </Suspense>
-                <OrbitControls />
             </Canvas>
 
             <a href="mailto:hello@workify.com" className="Home-contact-btn">

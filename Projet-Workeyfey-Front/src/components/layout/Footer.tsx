@@ -35,7 +35,6 @@ export default function Footer() {
                         <ul>
                             <li><a href="#projets">Projets</a></li>
                             <li><a href="#lab">Lab 3D</a></li>
-                            <li><a href="#ecosysteme">Écosystème</a></li>
                         </ul>
                     </nav>
 
