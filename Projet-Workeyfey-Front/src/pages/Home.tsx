@@ -1,32 +1,66 @@
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
+import gsap from 'gsap';
+import ScrollTrigger from 'gsap/ScrollTrigger';
 import Scene from '../components/canvas/Scene';
+import BackendTransition from '../components/sections/BackendTransition';
+import GameUniverseTransition from '../components/sections/GameUniverseTransition';
+import ProjectDeployed from '../components/sections/ProjectDeployed';
 import ContactButton from '../components/layout/ContactButton';
 import { usePageTheme } from '../contexts/PageThemeContext';
 import './Home.css';
 
+gsap.registerPlugin(ScrollTrigger);
+
 export default function Home() {
-    const [started, setStarted] = useState(false);
     const { setTheme } = usePageTheme();
+    const heroRef = useRef<HTMLElement>(null);
+    const sceneProgressRef = useRef<{ value: number }>({ value: 0 });
 
     useEffect(() => {
         setTheme('dark');
     }, [setTheme]);
 
+    useEffect(() => {
+        const el = heroRef.current;
+        if (!el) return;
+        const ctx = gsap.context(() => {
+            gsap.to(sceneProgressRef.current, {
+                value: 1,
+                ease: 'none',
+                scrollTrigger: {
+                    trigger: el,
+                    start: 'top top',
+                    end: 'bottom bottom',
+                    scrub: true,
+                },
+            });
+        }, el);
+        return () => ctx.revert();
+    }, []);
+
     return (
         <main className="Home">
-            <Canvas
-                className="Home-canvas"
-                camera={{ position: [0, 0.4, 0.85], fov: 50 }}
-            >
-                <Suspense fallback={null}>
-                    <Scene
-                        started={started}
-                        onStart={() => setStarted(true)}
-                        onReset={() => setStarted(false)}
-                    />
-                </Suspense>
-            </Canvas>
+            <section ref={heroRef} className="Home-hero">
+                <div className="Home-hero-sticky">
+                    <Canvas
+                        className="Home-canvas"
+                        camera={{ position: [0, 0, 0], fov: 25 }}
+                        dpr={[1, 1.5]}
+                        gl={{ antialias: false, powerPreference: 'high-performance' }}
+                    >
+                        <Suspense fallback={null}>
+                            <Scene progressRef={sceneProgressRef} />
+                        </Suspense>
+                    </Canvas>
+                </div>
+            </section>
+
+            <BackendTransition />
+
+            <GameUniverseTransition />
+
+            <ProjectDeployed />
 
             <ContactButton fixed />
         </main>

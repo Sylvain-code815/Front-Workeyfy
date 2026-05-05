@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import type { JSX } from 'react';
 import * as THREE from 'three';
 import type { GLTF } from 'three-stdlib';
+import { createScreenTexture } from './screenTexture';
 
 type OldComputerGLTF = GLTF & {
     nodes: {
@@ -16,9 +17,12 @@ type OldComputerGLTF = GLTF & {
 };
 
 const TARGET_HEIGHT = 1.0;
-const SCREEN_COLOR = '#f5f0e6';
 
-const screenMaterial = new THREE.MeshBasicMaterial({ color: SCREEN_COLOR });
+const screenTexture = createScreenTexture();
+const screenMaterial = new THREE.MeshBasicMaterial({
+    map: screenTexture,
+    toneMapped: true,
+});
 
 export default function OldComputer(props: JSX.IntrinsicElements['group']) {
     const gltf = useGLTF('/old_computer.glb') as unknown as OldComputerGLTF;
