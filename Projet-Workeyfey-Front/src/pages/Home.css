@@ -8,26 +8,3 @@
     height: 100%;
 }
 
-.Home-contact-btn {
-    position: fixed;
-    right: 32px;
-    bottom: 32px;
-    z-index: 100;
-    padding: 14px 28px;
-    background-color: var(--color-white);
-    color: var(--color-black);
-    font-family: var(--font-family-base);
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    text-decoration: none;
-    border-radius: 999px;
-    box-shadow: 0 8px 24px rgba(var(--color-black-rgb), 0.18);
-    transition: transform 200ms ease, box-shadow 200ms ease;
-}
-
-.Home-contact-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 32px rgba(var(--color-black-rgb), 0.25);
-}

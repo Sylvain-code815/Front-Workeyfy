@@ -13,10 +13,10 @@ interface SceneProps {
     onReset: () => void;
 }
 
-const SCREEN_CENTER = new THREE.Vector3(0.27, 1.529, -2.613);
+const HTML_BASE_SCALE = 0.001;
 
 export default function Scene({ started, onStart, onReset }: SceneProps) {
-    const lookAt = useRef(SCREEN_CENTER.clone());
+    const lookAt = useRef(new THREE.Vector3(0, 0.4, 0.25));
     const [animationSettled, setAnimationSettled] = useState(false);
 
     const ambient = useControls('Ambient light', {
@@ -43,29 +43,30 @@ export default function Scene({ started, onStart, onReset }: SceneProps) {
     const hero = useControls('Hero (old computer)', {
         position: { value: [0, 0, 0], step: 0.1 },
         rotation: { value: [0, 0, 0], step: 0.05 },
-        scale: { value: 1, min: 0.05, max: 5, step: 0.05 },
+        scale: { value: 0.6, min: 0.05, max: 5, step: 0.05 },
     });
 
     const cam = useControls('Camera', {
-        near: { value: [0.27, 1.529, -0.4], step: 0.1 },
+        near: { value: [0, 0.4, 0.85], step: 0.05 },
+        lookNear: { value: [0, 0.4, 0.25], step: 0.05 },
         far: { value: [0, 5, 6], step: 0.5 },
         lookFar: { value: [0, 2, -1], step: 0.5 },
         fov: { value: 50, min: 20, max: 120, step: 1 },
     });
 
     const overlay = useControls('Html overlay', {
-        position: { value: [0.27, 1.529, -2.45], step: 0.05 },
+        position: { value: [-0.12, 0.42, 0.25], step: 0.01 },
         rotation: { value: [0, 0, 0], step: 0.05 },
-        scale: { value: 0.005, min: 0.001, max: 0.05, step: 0.0005 },
-        bgColor: '#000000',
-        bgOpacity: { value: 0.85, min: 0, max: 1, step: 0.05 },
-        textColor: '#ffffff',
+        scale: { value: 10, min: 0.1, max: 10, step: 0.1 },
+        bgColor: '#f5f0e6',
+        bgOpacity: { value: 0, min: 0, max: 1, step: 0.05 },
+        textColor: '#1a1a1a',
     });
 
     useControls('Animation', {
         replay: button(() => {
             setAnimationSettled(false);
-            lookAt.current.copy(SCREEN_CENTER);
+            lookAt.current.set(...cam.lookNear);
             onReset();
         }),
         skip: button(() => {
@@ -75,6 +76,7 @@ export default function Scene({ started, onStart, onReset }: SceneProps) {
 
     const camNear = useMemo(() => new THREE.Vector3(...cam.near), [cam.near]);
     const camFar = useMemo(() => new THREE.Vector3(...cam.far), [cam.far]);
+    const camLookNear = useMemo(() => new THREE.Vector3(...cam.lookNear), [cam.lookNear]);
     const camLookFar = useMemo(() => new THREE.Vector3(...cam.lookFar), [cam.lookFar]);
 
     useFrame(({ camera }) => {
@@ -86,7 +88,7 @@ export default function Scene({ started, onStart, onReset }: SceneProps) {
         if (animationSettled) return;
 
         const targetPos = started ? camFar : camNear;
-        const targetLook = started ? camLookFar : SCREEN_CENTER;
+        const targetLook = started ? camLookFar : camLookNear;
 
         camera.position.lerp(targetPos, 0.04);
         lookAt.current.lerp(targetLook, 0.04);
@@ -129,7 +131,7 @@ export default function Scene({ started, onStart, onReset }: SceneProps) {
                     transform
                     position={overlay.position}
                     rotation={overlay.rotation}
-                    scale={overlay.scale}
+                    scale={overlay.scale * HTML_BASE_SCALE}
                     style={{ width: '360px', pointerEvents: 'auto' }}
                 >
                     <div
