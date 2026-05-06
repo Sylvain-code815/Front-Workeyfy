@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { EffectComposer, Bloom, DepthOfField } from '@react-three/postprocessing';
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import Cables from '../canvas/Cables';
+import { useCanvasFrameloop } from '../../hooks/useCanvasFrameloop';
 import './GameUniverseTransition.css';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -99,7 +100,7 @@ function CoreFlash({ progressRef }: { progressRef: ProgressRef }) {
     );
 }
 
-function ParticleBurst({ progressRef, count = 480 }: { progressRef: ProgressRef; count?: number }) {
+function ParticleBurst({ progressRef, count = 200 }: { progressRef: ProgressRef; count?: number }) {
     const pointsRef = useRef<THREE.Points>(null);
     const matRef = useRef<THREE.PointsMaterial>(null);
 
@@ -307,12 +308,7 @@ function Scene({ progressRef }: { progressRef: ProgressRef }) {
                     luminanceThreshold={0.18}
                     luminanceSmoothing={0.9}
                     mipmapBlur
-                    height={360}
-                />
-                <DepthOfField
-                    focusDistance={0.018}
-                    focalLength={0.04}
-                    bokehScale={3}
+                    height={240}
                 />
             </EffectComposer>
         </>
@@ -325,6 +321,7 @@ export default function GameUniverseTransition() {
     const techListRef = useRef<HTMLUListElement>(null);
     const hudRef = useRef<HTMLDivElement>(null);
     const progressRef = useRef<{ value: number }>({ value: 0 });
+    const frameloop = useCanvasFrameloop(sectionRef);
 
     useEffect(() => {
         const el = sectionRef.current;
@@ -402,7 +399,8 @@ export default function GameUniverseTransition() {
                     className="GameUniverse-canvas"
                     camera={{ position: [0, 0, 5], fov: 45 }}
                     gl={{ antialias: false, powerPreference: 'high-performance' }}
-                    dpr={[1, 1.5]}
+                    dpr={[1, 1]}
+                    frameloop={frameloop}
                 >
                     <Scene progressRef={progressRef} />
                 </Canvas>

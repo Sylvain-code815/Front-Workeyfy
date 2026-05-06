@@ -4,6 +4,7 @@ import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
+import { useCanvasFrameloop } from '../../hooks/useCanvasFrameloop';
 import './BackendTransition.css';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -349,6 +350,7 @@ export default function BackendTransition() {
     const titleRef = useRef<HTMLHeadingElement>(null);
     const detailsRef = useRef<HTMLParagraphElement>(null);
     const progressRef = useRef<{ value: number }>({ value: 0 });
+    const frameloop = useCanvasFrameloop(wrapperRef);
 
     useEffect(() => {
         const el = wrapperRef.current;
@@ -412,16 +414,18 @@ export default function BackendTransition() {
                 <Canvas
                     className="BackendTransition-canvas"
                     camera={{ position: [0, 0, 5], fov: 45 }}
-                    gl={{ antialias: true, powerPreference: 'high-performance' }}
-                    dpr={[1, 1.5]}
+                    gl={{ antialias: false, powerPreference: 'high-performance' }}
+                    dpr={[1, 1]}
+                    frameloop={frameloop}
                 >
                     <Scene progressRef={progressRef} />
-                    <EffectComposer>
+                    <EffectComposer multisampling={0} enableNormalPass={false}>
                         <Bloom
                             intensity={1.4}
                             luminanceThreshold={0.15}
                             luminanceSmoothing={0.9}
                             mipmapBlur
+                            height={240}
                         />
                     </EffectComposer>
                 </Canvas>

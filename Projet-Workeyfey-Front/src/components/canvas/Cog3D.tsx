@@ -89,7 +89,7 @@ export default function Cog3D({ onActivate, className, ariaLabel }: Cog3DProps) 
             }}
         >
             <Canvas
-                camera={{ position: [0, 0, 2.6], fov: 35 }}
+                camera={{ position: [0, 5, 2.6], fov: 35 }}
                 gl={{ alpha: true, antialias: true }}
                 dpr={[1, 2]}
             >

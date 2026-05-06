@@ -149,7 +149,8 @@
     justify-content: center;
 }
 
-.ProjectsBack-cog3d {
+.ProjectsBack-cog3d,
+.ProjectsBack-globe3d {
     width: 96px;
     height: 96px;
     cursor: pointer;
@@ -159,12 +160,14 @@
     filter: drop-shadow(0 0 16px rgba(94, 231, 231, 0.45));
 }
 
-.ProjectsBack-cog3d:hover {
+.ProjectsBack-cog3d:hover,
+.ProjectsBack-globe3d:hover {
     transform: translateY(-2px);
     filter: drop-shadow(0 0 22px rgba(94, 231, 231, 0.7));
 }
 
-.ProjectsBack-cog3d:focus-visible {
+.ProjectsBack-cog3d:focus-visible,
+.ProjectsBack-globe3d:focus-visible {
     box-shadow: 0 0 0 2px rgba(94, 231, 231, 0.8);
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import ContactButton from '../components/layout/ContactButton';
 import Cog3D from '../components/canvas/Cog3D';
+import Globe3D from '../components/canvas/Globe3D';
 import { usePageTheme, type Theme } from '../contexts/PageThemeContext';
 import './Projects.css';
 
@@ -106,26 +107,6 @@ function ExternalLinkIcon() {
                 strokeLinejoin="round"
                 fill="none"
             />
-        </svg>
-    );
-}
-
-function GlobeIcon() {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            width="20"
-            height="20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-        >
-            <circle cx="12" cy="12" r="9" />
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <path d="M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
         </svg>
     );
 }
@@ -245,14 +226,11 @@ export default function Projects() {
                             onActivate={() => setSection1View('back')}
                         />
                     ) : (
-                        <button
-                            type="button"
-                            className="ProjectsBack-corner-btn ProjectsBack-corner-btn--light"
-                            onClick={() => setSection1View('front')}
-                            aria-label="Voir la partie front"
-                        >
-                            <GlobeIcon />
-                        </button>
+                        <Globe3D
+                            className="ProjectsBack-globe3d"
+                            ariaLabel="Voir la partie front"
+                            onActivate={() => setSection1View('front')}
+                        />
                     )}
                 </div>
 

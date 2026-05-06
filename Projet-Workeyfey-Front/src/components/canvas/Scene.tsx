@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 // import { OrbitControls } from '@react-three/drei'; // disabled: scroll drives the camera, no manual orbit
-import { Html, SpotLight, useGLTF } from '@react-three/drei';
+import { Html, useGLTF } from '@react-three/drei';
 import { EffectComposer, Bloom, Noise } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
 import { useControls, button } from 'leva';
@@ -166,21 +166,17 @@ export default function Scene({ progressRef }: SceneProps) {
             <color attach="background" args={[fog.bg]} />
             <fog attach="fog" args={[fog.fogColor, fog.fogNear, fog.fogFar]} />
 
-            <SpotLight
+            <spotLight
                 position={cyanSpot.positionA}
                 angle={cyanSpot.angle}
-                attenuation={cyanSpot.attenuation}
-                anglePower={cyanSpot.anglePower}
                 intensity={cyanSpot.intensity}
                 distance={cyanSpot.distance}
                 color={cyanSpot.color}
                 penumbra={cyanSpot.penumbra}
             />
-            <SpotLight
+            <spotLight
                 position={cyanSpot.positionB}
                 angle={cyanSpot.angle}
-                attenuation={cyanSpot.attenuation}
-                anglePower={cyanSpot.anglePower}
                 intensity={cyanSpot.intensity}
                 distance={cyanSpot.distance}
                 color={cyanSpot.color}
@@ -248,7 +244,7 @@ export default function Scene({ progressRef }: SceneProps) {
                     luminanceThreshold={post.bloomThreshold}
                     luminanceSmoothing={post.bloomSmoothing}
                     mipmapBlur
-                    height={360}
+                    height={240}
                 />
                 <Noise
                     opacity={post.noiseOpacity}

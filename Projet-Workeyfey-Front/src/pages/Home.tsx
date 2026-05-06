@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import Scene from '../components/canvas/Scene';
+import { useCanvasFrameloop } from '../hooks/useCanvasFrameloop';
 import BackendTransition from '../components/sections/BackendTransition';
 import GameUniverseTransition from '../components/sections/GameUniverseTransition';
 import ProjectDeployed from '../components/sections/ProjectDeployed';
@@ -16,6 +17,7 @@ export default function Home() {
     const { setTheme } = usePageTheme();
     const heroRef = useRef<HTMLElement>(null);
     const sceneProgressRef = useRef<{ value: number }>({ value: 0 });
+    const heroFrameloop = useCanvasFrameloop(heroRef);
 
     useEffect(() => {
         setTheme('dark');
@@ -46,7 +48,8 @@ export default function Home() {
                     <Canvas
                         className="Home-canvas"
                         camera={{ position: [0, 0, 0], fov: 25 }}
-                        dpr={[1, 1.5]}
+                        dpr={[1, 1]}
+                        frameloop={heroFrameloop}
                         gl={{ antialias: false, powerPreference: 'high-performance' }}
                     >
                         <Suspense fallback={null}>
