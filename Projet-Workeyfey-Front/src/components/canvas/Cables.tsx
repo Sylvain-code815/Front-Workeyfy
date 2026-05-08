@@ -1,7 +1,10 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
-import { createBraidTexture } from './cableTexture';
+import diffuseUrl from '../../assets/faux_fur_geometric_1k/faux_fur_geometric_diff_1k.jpg';
+import normalUrl from '../../assets/faux_fur_geometric_1k/faux_fur_geometric_nor_gl_1k.jpg';
+import roughUrl from '../../assets/faux_fur_geometric_1k/faux_fur_geometric_rough_1k.jpg';
 
 interface CablesProps {
     pcPositions: [number, number, number][];
@@ -17,24 +20,59 @@ export default function Cables({
     heroPosition,
     linksPerPc = 2,
     linksToHero = 2,
-    radius = 0.025,
-    color = '#00d4ff',
+    radius = 0.032,
+    color = '#00E5FF',
 }: CablesProps) {
-    const braidTex = useMemo(() => createBraidTexture(), []);
+    // Textures de tressage : faux_fur_geometric_1k importé via Vite
+    // (les imports sont résolus en URL hashée par le bundler).
+    const cableTextures = useTexture({
+        diffuse: diffuseUrl,
+        normal: normalUrl,
+        rough: roughUrl,
+    });
 
-    const material = useMemo(
-        () =>
-            new THREE.MeshStandardMaterial({
-                color: '#001018',
-                emissive: new THREE.Color(color),
-                emissiveIntensity: 1.5,
-                emissiveMap: braidTex,
-                roughness: 0.4,
-                metalness: 0.2,
-                toneMapped: false,
-            }),
-        [braidTex, color],
-    );
+    // Repeat (10, 1) : tresses plus larges, donc visibles de loin sans
+    // ressembler à un blob uniforme.
+    useEffect(() => {
+        const list = [
+            cableTextures.diffuse,
+            cableTextures.normal,
+            cableTextures.rough,
+        ];
+        list.forEach((tex) => {
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            // 50 répétitions : maillage lisible, ni écrasé ni étalé.
+            tex.repeat.set(50, 1);
+            // Anisotropy max : tresses nettes même sur les câbles vus de profil.
+            tex.anisotropy = 16;
+            tex.minFilter = THREE.LinearMipMapLinearFilter;
+            tex.magFilter = THREE.LinearFilter;
+            tex.generateMipmaps = true;
+            tex.needsUpdate = true;
+        });
+    }, [cableTextures]);
+
+    const material = useMemo(() => {
+        const mat = new THREE.MeshStandardMaterial({
+            map: cableTextures.diffuse,
+            normalMap: cableTextures.normal,
+            // Relief discret : suggéré, plus de pixel crawl sur le tressage.
+            normalScale: new THREE.Vector2(0.5, 0.5),
+            roughnessMap: cableTextures.rough,
+            // Roughness élevée : casse les hautes fréquences qui scintillent.
+            roughness: 0.6,
+            metalness: 0.6,
+            emissive: new THREE.Color(color),
+            emissiveMap: cableTextures.diffuse,
+            // Emissive quasi-nul : c'est la PointLight inspecteur (Scene.tsx)
+            // qui doit révéler le relief en balayant le câble.
+            emissiveIntensity: 0.05,
+            toneMapped: false,
+        });
+        mat.color.set('#00E5FF');
+        return mat;
+    }, [cableTextures, color]);
 
     const curves = useMemo(() => {
         const result: THREE.CatmullRomCurve3[] = [];
@@ -95,17 +133,21 @@ export default function Cables({
 
     useFrame(({ clock }) => {
         const t = clock.elapsedTime;
-        material.emissiveIntensity = 1.4 + 0.4 * Math.sin(t * 0.7);
-        if (material.emissiveMap) {
-            material.emissiveMap.offset.y = -t * 0.08;
-        }
+        // Respiration imperceptible : 0.05 ± 0.02. Le câble reste sombre.
+        material.emissiveIntensity = 0.05 + 0.02 * Math.sin(t * 0.7);
+        if (material.map) material.map.offset.y = -t * 0.08;
+        if (material.emissiveMap) material.emissiveMap.offset.y = -t * 0.08;
+        if (material.normalMap) material.normalMap.offset.y = -t * 0.08;
+        if (material.roughnessMap) material.roughnessMap.offset.y = -t * 0.08;
     });
 
     return (
         <group>
             {curves.map((curve, i) => (
                 <mesh key={i} material={material}>
-                    <tubeGeometry args={[curve, 12, radius, 6, false]} />
+                    {/* 128 segments tubulaires + 12 radiaux : tube bien rond,
+                        courbes lisses, le normal map se déploie proprement. */}
+                    <tubeGeometry args={[curve, 128, radius, 12, false]} />
                 </mesh>
             ))}
         </group>

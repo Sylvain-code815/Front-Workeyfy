@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { EffectComposer, Bloom, DepthOfField } from '@react-three/postprocessing';
-import { SpotLight } from '@react-three/drei';
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
+import { SpotLight, useTexture, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
-import { createBraidTexture } from '../canvas/cableTexture';
 import { useCanvasFrameloop } from '../../hooks/useCanvasFrameloop';
+import diffuseUrl from '../../assets/faux_fur_geometric_1k/faux_fur_geometric_diff_1k.jpg';
+import normalUrl from '../../assets/faux_fur_geometric_1k/faux_fur_geometric_nor_gl_1k.jpg';
+import roughUrl from '../../assets/faux_fur_geometric_1k/faux_fur_geometric_rough_1k.jpg';
 import './GameUniverseTransition.css';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -248,25 +250,49 @@ function createWindowTexture(
 }
 
 function CityCables({ buildings }: { buildings: Building[] }) {
-    const braidTex = useMemo(() => {
-        const t = createBraidTexture();
-        t.repeat.set(2, 24);
-        return t;
-    }, []);
+    // Mêmes textures faux_fur_geometric que les câbles de la scène 1.
+    const cableTextures = useTexture({
+        diffuse: diffuseUrl,
+        normal: normalUrl,
+        rough: roughUrl,
+    });
 
-    const material = useMemo(
-        () =>
-            new THREE.MeshStandardMaterial({
-                color: '#000508',
-                emissive: new THREE.Color(CYAN),
-                emissiveIntensity: 1.7,
-                emissiveMap: braidTex,
-                roughness: 0.35,
-                metalness: 0.25,
-                toneMapped: false,
-            }),
-        [braidTex],
-    );
+    useEffect(() => {
+        const list = [
+            cableTextures.diffuse,
+            cableTextures.normal,
+            cableTextures.rough,
+        ];
+        list.forEach((tex) => {
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(50, 1);
+            tex.anisotropy = 16;
+            tex.minFilter = THREE.LinearMipMapLinearFilter;
+            tex.magFilter = THREE.LinearFilter;
+            tex.generateMipmaps = true;
+            tex.needsUpdate = true;
+        });
+    }, [cableTextures]);
+
+    const material = useMemo(() => {
+        const mat = new THREE.MeshStandardMaterial({
+            map: cableTextures.diffuse,
+            normalMap: cableTextures.normal,
+            // Relief discret : suggéré, pas criard. Plus de pixel crawl.
+            normalScale: new THREE.Vector2(0.5, 0.5),
+            roughnessMap: cableTextures.rough,
+            // Roughness élevée : casse les reflets nets qui scintillent.
+            roughness: 0.6,
+            metalness: 0.6,
+            emissive: new THREE.Color(CYAN),
+            emissiveMap: cableTextures.diffuse,
+            emissiveIntensity: 0.05,
+            toneMapped: false,
+        });
+        mat.color.set('#00E5FF');
+        return mat;
+    }, [cableTextures]);
 
     const curves = useMemo(() => {
         const result: THREE.CatmullRomCurve3[] = [];
@@ -336,17 +362,21 @@ function CityCables({ buildings }: { buildings: Building[] }) {
 
     useFrame(({ clock }) => {
         const t = clock.elapsedTime;
-        material.emissiveIntensity = 1.45 + 0.35 * Math.sin(t * 0.7);
-        if (material.emissiveMap) {
-            material.emissiveMap.offset.y = -t * 0.06;
-        }
+        material.emissiveIntensity = 0.05 + 0.02 * Math.sin(t * 0.7);
+        const offsetY = -t * 0.06;
+        if (material.map) material.map.offset.y = offsetY;
+        if (material.emissiveMap) material.emissiveMap.offset.y = offsetY;
+        if (material.normalMap) material.normalMap.offset.y = offsetY;
+        if (material.roughnessMap) material.roughnessMap.offset.y = offsetY;
     });
 
     return (
         <group>
             {curves.map((curve, i) => (
                 <mesh key={i} material={material}>
-                    <tubeGeometry args={[curve, 48, 0.04, 6, false]} />
+                    {/* 128 tubulaires + 12 radiaux : tube bien rond, courbes
+                        lisses, normal map déployée proprement. */}
+                    <tubeGeometry args={[curve, 128, 0.04, 12, false]} />
                 </mesh>
             ))}
         </group>
@@ -437,65 +467,84 @@ function GameCity({ progressRef }: { progressRef: ProgressRef }) {
 
     return (
         <group ref={groupRef}>
-            {/* Cool moonlight from above — no ambient, very subtle */}
+            {/* Mode Cinématique Noir : blackout total. Plus de moonlight,
+                plus de hemisphere fill. Seules les fenêtres et les 2 PointLights
+                cyan/magenta révèlent la scène. */}
             <directionalLight
                 position={[8, 18, 6]}
-                intensity={0.35}
+                intensity={0}
                 color="#5a78b8"
             />
             <hemisphereLight
-                args={['#1a2840', '#040608', 0.12]}
+                args={['#1a2840', '#040608', 0]}
             />
 
-            {/* Cyan volumetric god ray cutting from upper-left */}
+            {/* Cyan volumetric god ray — moody fog, plus blinding laser. */}
             <SpotLight
                 position={[-7, 14, -10]}
                 target-position={[-1, 2, -16]}
                 color={CYAN}
-                intensity={70}
+                intensity={12}
                 angle={0.42}
                 penumbra={0.55}
                 distance={42}
                 attenuation={6}
                 anglePower={5}
-                opacity={0.55}
+                opacity={0.15}
                 radiusTop={0.12}
                 radiusBottom={1.4}
                 volumetric
             />
 
-            {/* Magenta volumetric god ray from upper-right */}
+            {/* Magenta volumetric god ray — fog discret. */}
             <SpotLight
                 position={[7, 13, -22]}
                 target-position={[1, 1.5, -28]}
                 color={MAGENTA}
-                intensity={60}
+                intensity={8}
                 angle={0.4}
                 penumbra={0.6}
                 distance={42}
                 attenuation={6}
                 anglePower={5}
-                opacity={0.5}
+                opacity={0.12}
                 radiusTop={0.12}
                 radiusBottom={1.4}
                 volumetric
             />
 
-            {/* Cyan accent down the central corridor */}
+            {/* Cyan accent corridor — souffle d'ambiance, presque imperceptible. */}
             <SpotLight
                 position={[0, 9, -34]}
                 target-position={[0, 0.3, -8]}
                 color={CYAN}
-                intensity={55}
+                intensity={5}
                 angle={0.32}
                 penumbra={0.7}
                 distance={44}
                 attenuation={6}
                 anglePower={5}
-                opacity={0.32}
+                opacity={0.08}
                 radiusTop={0.06}
                 radiusBottom={0.6}
                 volumetric
+            />
+
+            {/* === Texture revealers : streetlights basses qui révèlent
+                 les tresses des câbles avec des hotspots locaux. === */}
+            <pointLight
+                position={[-2.8, 0.4, -12]}
+                color="#00E5FF"
+                intensity={8}
+                distance={8}
+                decay={2}
+            />
+            <pointLight
+                position={[2.8, 1.2, -22]}
+                color="#ff2a8a"
+                intensity={6}
+                distance={8}
+                decay={2}
             />
 
             <CityBuildings buildings={buildings} />
@@ -510,20 +559,41 @@ function GameCity({ progressRef }: { progressRef: ProgressRef }) {
                 />
             </mesh>
 
-            {/* Glowing center line */}
+            {/* Glowing center line — emissive doux pour ne pas cramer. */}
             <mesh position={[0, 0.011, -18]} rotation={[-Math.PI / 2, 0, 0]}>
                 <planeGeometry args={[0.14, 50]} />
-                <meshBasicMaterial color={CYAN} toneMapped={false} />
+                <meshStandardMaterial
+                    color="#04080c"
+                    emissive={CYAN}
+                    emissiveIntensity={0.4}
+                    roughness={0.6}
+                    metalness={0.2}
+                    toneMapped={false}
+                />
             </mesh>
 
-            {/* Side curb glow strips */}
+            {/* Side curb glow strips — même traitement, lueur calme. */}
             <mesh position={[-3.32, 0.011, -18]} rotation={[-Math.PI / 2, 0, 0]}>
                 <planeGeometry args={[0.06, 50]} />
-                <meshBasicMaterial color={CYAN} toneMapped={false} />
+                <meshStandardMaterial
+                    color="#04080c"
+                    emissive={CYAN}
+                    emissiveIntensity={0.4}
+                    roughness={0.6}
+                    metalness={0.2}
+                    toneMapped={false}
+                />
             </mesh>
             <mesh position={[3.32, 0.011, -18]} rotation={[-Math.PI / 2, 0, 0]}>
                 <planeGeometry args={[0.06, 50]} />
-                <meshBasicMaterial color={CYAN} toneMapped={false} />
+                <meshStandardMaterial
+                    color="#04080c"
+                    emissive={CYAN}
+                    emissiveIntensity={0.4}
+                    roughness={0.6}
+                    metalness={0.2}
+                    toneMapped={false}
+                />
             </mesh>
 
             <CityCables buildings={buildings} />
@@ -531,66 +601,38 @@ function GameCity({ progressRef }: { progressRef: ProgressRef }) {
     );
 }
 
-function PushForwardCamera({ progressRef }: { progressRef: ProgressRef }) {
-    const { camera } = useThree();
-
-    useFrame(() => {
-        const p = progressRef.current.value;
-
-        if (p < EXPLOSION_END) {
-            const shake = THREE.MathUtils.smoothstep(p, FLASH_PEAK - 0.02, FLASH_PEAK + 0.02)
-                * (1 - THREE.MathUtils.smoothstep(p, FLASH_PEAK, EXPLOSION_END));
-            const t = performance.now() * 0.001;
-            camera.position.set(
-                Math.sin(t * 18) * 0.06 * shake,
-                Math.cos(t * 14) * 0.04 * shake,
-                5,
-            );
-            camera.lookAt(0, 0, 0);
-            return;
-        }
-
-        const gameT = THREE.MathUtils.clamp(
-            (p - GAME_START) / (1 - GAME_START),
-            0,
-            1,
-        );
-        const eased = THREE.MathUtils.smoothstep(gameT, 0, 1);
-        camera.position.set(
-            Math.sin(eased * 0.4) * 0.5,
-            1.3 + eased * 0.3,
-            5 - eased * 14,
-        );
-        camera.lookAt(0, 1.4, -16 + eased * 4);
-    });
-
-    return null;
-}
-
 function Scene({ progressRef }: { progressRef: ProgressRef }) {
     return (
         <>
             <color attach="background" args={['#02050a']} />
-            <fog attach="fog" args={['#040a14', 7, 36]} />
-            <PushForwardCamera progressRef={progressRef} />
+            {/* Brouillard épais : la rue se perd dans le néant après 18m. */}
+            <fog attach="fog" args={['#040a14', 5, 18]} />
+            {/* Caméra libre : OrbitControls pour inspecter les câbles. */}
+            <OrbitControls
+                makeDefault
+                enableDamping
+                enablePan
+                enableZoom
+                enableRotate
+                target={[0, 1.5, -10]}
+                minDistance={1}
+                maxDistance={60}
+            />
             <FusionNodes progressRef={progressRef} />
             <CoreFlash progressRef={progressRef} />
             <ParticleBurst progressRef={progressRef} />
             <GameCity progressRef={progressRef} />
 
             <EffectComposer multisampling={0} enableNormalPass={false}>
+                {/* Bloom calibré "Cinéma Noir" : seuls les pixels très brillants
+                    (fenêtres immeubles, HUD) bavent. Les câbles à emissive 0.05
+                    restent SOUS le seuil → tressage net sans halo. */}
                 <Bloom
-                    intensity={1.55}
-                    luminanceThreshold={0.16}
-                    luminanceSmoothing={0.9}
+                    intensity={0.85}
+                    luminanceThreshold={0.6}
+                    luminanceSmoothing={0.85}
                     mipmapBlur
                     height={300}
-                />
-                <DepthOfField
-                    focusDistance={0.012}
-                    focalLength={0.045}
-                    bokehScale={3.2}
-                    height={360}
                 />
             </EffectComposer>
         </>

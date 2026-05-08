@@ -1,10 +1,12 @@
 import './rectAreaLightInit';
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-// import { OrbitControls } from '@react-three/drei'; // disabled: scroll drives the camera, no manual orbit
 import { Html, useGLTF, SpotLight, Sparkles } from '@react-three/drei';
-import { EffectComposer, Bloom, Noise } from '@react-three/postprocessing';
-import { BlendFunction } from 'postprocessing';
+import {
+    EffectComposer,
+    Bloom,
+    Vignette,
+} from '@react-three/postprocessing';
 import { useControls, button } from 'leva';
 import * as THREE from 'three';
 import Produit from './Produit';
@@ -65,13 +67,19 @@ function ScreenRAL({
 }
 
 export default function Scene({ progressRef }: SceneProps) {
-    const { camera } = useThree();
+    const { camera, scene, pointer } = useThree();
     const screenRef = useRef<HTMLDivElement>(null);
+    const godRayRef1 = useRef<THREE.SpotLight>(null);
+    const godRayRef2 = useRef<THREE.SpotLight>(null);
+    const inspectorLightRef = useRef<THREE.PointLight>(null);
 
     const fog = useControls('Atmosphere', {
         bg: '#000000',
         fogColor: '#000000',
+        // Fog interpolé : léger au départ (on voit l'écran), plus dense
+        // au dézoom pour engloutir le fond de la salle dans le noir.
         density: { value: 0.06, min: 0, max: 0.5, step: 0.005 },
+        densityFar: { value: 0.16, min: 0, max: 0.5, step: 0.005 },
     });
 
     const cyanSpot = useControls('Cyan side spots', {
@@ -133,24 +141,35 @@ export default function Scene({ progressRef }: SceneProps) {
     });
 
     const cam = useControls('Camera', {
-        near: { value: [0, 0.3, 0.85], step: 0.05 },
-        lookNear: { value: [-0.12, 0.4, 0.25], step: 0.05 },
-        far: { value: [0, 5, 8], step: 0.5 },
-        lookFar: { value: [0, 1.5, -1], step: 0.5 },
-        fov: { value: 25, min: 20, max: 120, step: 1 },
+        // Macro "borderless" -> overview cadré "cinéma".
+        // Tous les Y sont en repère "objet" (yOffset est ajouté au runtime).
+        // far volontairement contenu pour garder les sources lumineuses hors champ.
+        near: { value: [-0.08, 0.55, 0.5], step: 0.01 },
+        lookNear: { value: [-0.12, 0.55, 0], step: 0.01 },
+        far: { value: [1.5, 1.8, 6.5], step: 0.1 },
+        lookFar: { value: [0, 1, -4], step: 0.5 },
+        fovNear: { value: 25, min: 20, max: 120, step: 1 },
+        fovFar: { value: 45, min: 20, max: 120, step: 1 },
     });
 
     const overlay = useControls('Html overlay', {
-        position: { value: [-0.12, 0.42, 0.25], step: 0.01 },
-        rotation: { value: [0, 0, 0], step: 0.05 },
+        // Y aligné sur cam.lookNear[1] (= 0.45) pour que la tagline soit pile
+        // au point de visée de la caméra au scroll 0.
+        position: { value: [-0.12, 0.45, 0.01], step: 0.005 },
+        // Légère inclinaison X pour suivre la courbure naturelle d'un écran
+        // cathodique (l'avant de la dalle est légèrement en arrière en haut).
+        rotation: { value: [-0.05, 0, 0], step: 0.01 },
         scale: { value: 10, min: 0.1, max: 10, step: 0.1 },
     });
 
     const post = useControls('Post-processing', {
-        bloomIntensity: { value: 1.4, min: 0, max: 5, step: 0.05 },
-        bloomThreshold: { value: 0.3, min: 0, max: 1, step: 0.01 },
+        // Bloom léger uniquement — la matière des textures doit primer.
+        bloomIntensity: { value: 0.4, min: 0, max: 5, step: 0.05 },
+        bloomThreshold: { value: 0.4, min: 0, max: 1, step: 0.01 },
         bloomSmoothing: { value: 0.9, min: 0, max: 1, step: 0.01 },
-        noiseOpacity: { value: 0.04, min: 0, max: 0.5, step: 0.01 },
+        // Vignette : assombrit les coins, focalise sur le bureau central.
+        vignetteOffset: { value: 0.32, min: 0, max: 1, step: 0.01 },
+        vignetteDarkness: { value: 0.85, min: 0, max: 2, step: 0.05 },
     });
 
     useControls('Animation', {
@@ -168,6 +187,73 @@ export default function Scene({ progressRef }: SceneProps) {
     const produitGltf = useGLTF('/produit_b2b.glb') as unknown as {
         materials: { Screen?: THREE.MeshStandardMaterial };
     };
+
+    // === Desk : surface physique sous l'OldComputer ============================
+    // Top du desk ramené pile à y=0. C'est l'OldComputer qu'on monte ensuite
+    // sur l'axe Y pour qu'il soit posé clairement dessus (cf. JSX plus bas).
+    const deskGltf = useGLTF('/desk.glb');
+
+    const { deskPosition, deskScale, deskTopY } = useMemo(() => {
+        const bbox = new THREE.Box3().setFromObject(deskGltf.scene);
+        const size = new THREE.Vector3();
+        const center = new THREE.Vector3();
+        bbox.getSize(size);
+        bbox.getCenter(center);
+
+        const TARGET_DESK_HEIGHT = 0.75;
+        const fitScale = size.y > 0 ? TARGET_DESK_HEIGHT / size.y : 1;
+
+        // Bas du desk ramené à y=0 (sol). Le top suit naturellement à
+        // y = (max.y - min.y) * fitScale, qu'on capture pour poser l'ordi dessus.
+        return {
+            deskScale: fitScale,
+            deskPosition: [
+                -center.x * fitScale,
+                -bbox.min.y * fitScale,
+                -center.z * fitScale,
+            ] as [number, number, number],
+            deskTopY: (bbox.max.y - bbox.min.y) * fitScale,
+        };
+    }, [deskGltf.scene]);
+
+    useEffect(() => {
+        deskGltf.scene.traverse((obj) => {
+            const mesh = obj as THREE.Mesh;
+            if (!mesh.isMesh || !mesh.material) return;
+            const current = mesh.material as THREE.Material;
+            if (current instanceof THREE.MeshStandardMaterial) {
+                // Roughness élevée : finit le côté plastique, donne du grain
+                // au bois et casse les reflets nets indésirables.
+                current.roughness = 0.85;
+                current.metalness = 0.15;
+                current.needsUpdate = true;
+            } else {
+                const anyMat = current as unknown as {
+                    color?: THREE.Color;
+                    map?: THREE.Texture | null;
+                };
+                mesh.material = new THREE.MeshStandardMaterial({
+                    color: anyMat.color ?? new THREE.Color('#5a4530'),
+                    map: anyMat.map ?? null,
+                    roughness: 0.85,
+                    metalness: 0.15,
+                });
+            }
+        });
+        // Feedback pour le dev : offset exact appliqué au bureau.
+        // eslint-disable-next-line no-console
+        console.log(
+            '[Scene] desk offset (relative to old_computer base @ y=0):',
+            { x: deskPosition[0], y: deskPosition[1], z: deskPosition[2] },
+            'scale:',
+            deskScale,
+        );
+    }, [deskGltf.scene, deskPosition, deskScale]);
+
+    // Lift commun appliqué à OldComputer + overlay HTML + cible de la caméra :
+    // hauteur du desk + 0.05 (clearance anti-Z-fight). Permet à la caméra de
+    // toujours pointer sur l'écran quel que soit deskTopY.
+    const yOffset = deskTopY + 0.05;
 
     const peripheralTextures = useMemo(
         () => Array.from({ length: 9 }, (_, i) => createPeripheralSchemaTexture(i)),
@@ -210,23 +296,81 @@ export default function Scene({ progressRef }: SceneProps) {
     }, []);
 
     useFrame(() => {
-        if (camera instanceof THREE.PerspectiveCamera && camera.fov !== cam.fov) {
-            camera.fov = cam.fov;
-            camera.updateProjectionMatrix();
-        }
-
         const t = progressRef.current.value;
         const ease = THREE.MathUtils.smoothstep(t, 0, 1);
 
+        // FOV interpolé : zoom optique au départ -> "cinéma" (45) à l'arrivée.
+        if (camera instanceof THREE.PerspectiveCamera) {
+            const targetFov = THREE.MathUtils.lerp(cam.fovNear, cam.fovFar, ease);
+            if (Math.abs(camera.fov - targetFov) > 0.05) {
+                camera.fov = targetFov;
+                camera.updateProjectionMatrix();
+            }
+        }
+
+        // Fog interpolé : densité monte avec le scroll, le fond de la salle
+        // se dilue dans le noir au dézoom (effet "salle infinie").
+        if (scene.fog instanceof THREE.FogExp2) {
+            const targetDensity = THREE.MathUtils.lerp(
+                fog.density,
+                fog.densityFar,
+                ease,
+            );
+            if (Math.abs(scene.fog.density - targetDensity) > 0.0001) {
+                scene.fog.density = targetDensity;
+            }
+        }
+
+        // God rays : opacité fade godRays.opacity -> 0 entre t=0 et t=0.5.
+        // Mise à jour via refs pour ne pas re-render le composant à chaque
+        // frame ; on traverse les SpotLight pour atteindre la mesh volumetric.
+        const fadeGod = THREE.MathUtils.smoothstep(t, 0, 0.5);
+        const dynamicGodRayOpacity = THREE.MathUtils.lerp(
+            godRays.opacity,
+            0,
+            fadeGod,
+        );
+        [godRayRef1.current, godRayRef2.current].forEach((root) => {
+            if (!root) return;
+            root.traverse((obj) => {
+                const mesh = obj as THREE.Mesh;
+                if (!mesh.isMesh || !mesh.material) return;
+                const mat = mesh.material as THREE.Material & { opacity?: number };
+                if ('opacity' in mat) {
+                    mat.opacity = dynamicGodRayOpacity;
+                    mat.transparent = dynamicGodRayOpacity < 0.99;
+                }
+            });
+        });
+
+        // yOffset appliqué sur la position ET sur le lookAt : tout le bloc
+        // de vision suit la hauteur de l'écran, donc caméra horizontale.
         camera.position.x = THREE.MathUtils.lerp(cam.near[0], cam.far[0], ease);
-        camera.position.y = THREE.MathUtils.lerp(cam.near[1], cam.far[1], ease);
+        camera.position.y = THREE.MathUtils.lerp(cam.near[1], cam.far[1], ease) + yOffset;
         camera.position.z = THREE.MathUtils.lerp(cam.near[2], cam.far[2], ease);
 
         camera.lookAt(
             THREE.MathUtils.lerp(cam.lookNear[0], cam.lookFar[0], ease),
-            THREE.MathUtils.lerp(cam.lookNear[1], cam.lookFar[1], ease),
+            THREE.MathUtils.lerp(cam.lookNear[1], cam.lookFar[1], ease) + yOffset,
             THREE.MathUtils.lerp(cam.lookNear[2], cam.lookFar[2], ease),
         );
+
+        // PointLight inspecteur : suit la souris (pointer en NDC [-1, 1])
+        // pour balayer les câbles avec une lumière rasante.
+        if (inspectorLightRef.current) {
+            const targetX = pointer.x * 3;
+            const targetY = 1.4 + pointer.y * 1.2;
+            inspectorLightRef.current.position.x = THREE.MathUtils.lerp(
+                inspectorLightRef.current.position.x,
+                targetX,
+                0.12,
+            );
+            inspectorLightRef.current.position.y = THREE.MathUtils.lerp(
+                inspectorLightRef.current.position.y,
+                targetY,
+                0.12,
+            );
+        }
 
         if (screenRef.current) {
             const fade = 1 - THREE.MathUtils.smoothstep(t, 0.55, 0.95);
@@ -279,6 +423,7 @@ export default function Scene({ progressRef }: SceneProps) {
             {godRays.enabled && (
                 <>
                     <SpotLight
+                        ref={godRayRef1}
                         position={[-1.8, 8, 0.5]}
                         target-position={[-1.5, 0, 0.3]}
                         color={godRays.color}
@@ -293,6 +438,7 @@ export default function Scene({ progressRef }: SceneProps) {
                         volumetric
                     />
                     <SpotLight
+                        ref={godRayRef2}
                         position={[2.2, 8, -0.8]}
                         target-position={[1.8, 0, -0.6]}
                         color={godRays.color}
@@ -335,10 +481,34 @@ export default function Scene({ progressRef }: SceneProps) {
                 </>
             )}
 
+            <primitive
+                object={deskGltf.scene}
+                position={deskPosition}
+                scale={deskScale}
+            />
+
+            {/* PointLight "Inspecteur" : suit la souris pour balayer les
+                câbles avec une lumière rasante et révéler le tressage. */}
+            <pointLight
+                ref={inspectorLightRef}
+                position={[2, 2, 2]}
+                color="#ffffff"
+                intensity={80}
+                distance={5}
+                decay={2}
+            />
+
             <Produit screenMaterials={peripheralMaterials} />
 
+            {/* OldComputer posé sur le desk : on le monte de yOffset
+                (deskTopY + 0.05) pour qu'il soit clairement posé dessus
+                sans Z-fighting. */}
             <OldComputer
-                position={hero.position}
+                position={[
+                    hero.position[0],
+                    hero.position[1] + yOffset,
+                    hero.position[2],
+                ]}
                 rotation={hero.rotation}
                 scale={hero.scale}
             />
@@ -360,9 +530,16 @@ export default function Scene({ progressRef }: SceneProps) {
                 position={[0, 3, -1]}
             />
 
+            {/* L'overlay HTML est plaqué à la même hauteur que l'OldComputer
+                via yOffset, et son Z par défaut à 0.02 le colle sur la dalle
+                de l'écran (le tuner via leva pour caler au pixel). */}
             <Html
                 transform
-                position={overlay.position}
+                position={[
+                    overlay.position[0],
+                    overlay.position[1] + yOffset,
+                    overlay.position[2],
+                ]}
                 rotation={overlay.rotation}
                 scale={memoizedHtmlScale}
                 style={{ width: '420px' }}
@@ -394,9 +571,10 @@ export default function Scene({ progressRef }: SceneProps) {
                     mipmapBlur
                     height={240}
                 />
-                <Noise
-                    opacity={post.noiseOpacity}
-                    blendFunction={BlendFunction.OVERLAY}
+                <Vignette
+                    offset={post.vignetteOffset}
+                    darkness={post.vignetteDarkness}
+                    eskil={false}
                 />
             </EffectComposer>
         </>

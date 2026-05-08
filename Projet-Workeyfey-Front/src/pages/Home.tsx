@@ -136,9 +136,9 @@ export default function Home() {
                     <Canvas
                         className="Home-canvas"
                         camera={{ position: [0, 0, 0], fov: 25 }}
-                        dpr={[1, 1]}
+                        dpr={[1, 2]}
                         frameloop={heroFrameloop}
-                        gl={{ antialias: false, powerPreference: 'high-performance' }}
+                        gl={{ antialias: true, powerPreference: 'high-performance' }}
                     >
                         <Suspense fallback={null}>
                             <Scene progressRef={sceneProgressRef} />

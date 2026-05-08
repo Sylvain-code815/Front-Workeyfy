@@ -10,12 +10,15 @@ type Service = { name: string; status: string };
 
 type MemberSlide = {
     id: string;
-    frontUrl: string;
+    frontUrl?: string;
+    imageUrl?: string;
     title: string;
     domain: string;
     description: string;
     services: Service[];
 };
+
+const picsum = (seed: string) => `https://picsum.photos/seed/${seed}/1280/800`;
 
 const memberSlides: MemberSlide[] = [
     {
@@ -50,6 +53,214 @@ const memberSlides: MemberSlide[] = [
             { name: 'Three.js', status: 'Learning' },
         ],
     },
+    {
+        id: 'neon-fintech',
+        imageUrl: picsum('neon-fintech'),
+        title: 'NEON FINTECH',
+        domain: 'neon-fintech.io',
+        description:
+            'Banking interface with realtime transaction streams, neon-grid dashboards and biometric auth flows. Built around an event-sourced ledger.',
+        services: [
+            { name: 'Ledger Engine', status: 'Live' },
+            { name: 'Risk Scoring', status: 'Active' },
+            { name: 'KYC Pipeline', status: 'Compliant' },
+            { name: 'Webhooks', status: 'Healthy' },
+            { name: 'Card Issuing', status: 'Operational' },
+            { name: 'Audit Trail', status: 'Sealed' },
+        ],
+    },
+    {
+        id: 'pulse-analytics',
+        imageUrl: picsum('pulse-analytics'),
+        title: 'PULSE ANALYTICS',
+        domain: 'pulse-analytics.app',
+        description:
+            'Realtime metrics platform with subsecond charts, anomaly detection and a query builder that talks to a columnar warehouse.',
+        services: [
+            { name: 'Stream Ingest', status: 'Streaming' },
+            { name: 'OLAP Store', status: 'Healthy' },
+            { name: 'Anomaly AI', status: 'Trained' },
+            { name: 'Dashboards', status: 'Online' },
+            { name: 'Alerting', status: 'Armed' },
+            { name: 'Exporter', status: 'Ready' },
+        ],
+    },
+    {
+        id: 'orbit-saas',
+        imageUrl: picsum('orbit-saas'),
+        title: 'ORBIT SaaS',
+        domain: 'orbit-saas.dev',
+        description:
+            'Workspace and billing suite for indie SaaS teams. Multi-tenant by design, with usage-based pricing and a plug-in marketplace.',
+        services: [
+            { name: 'Tenant Router', status: 'Operational' },
+            { name: 'Billing', status: 'Live' },
+            { name: 'Marketplace', status: 'Open' },
+            { name: 'Sandbox', status: 'Spawning' },
+            { name: 'SSO', status: 'Federated' },
+            { name: 'Backups', status: 'Hourly' },
+        ],
+    },
+    {
+        id: 'lumen-ai',
+        imageUrl: picsum('lumen-ai'),
+        title: 'LUMEN AI',
+        domain: 'lumen-ai.studio',
+        description:
+            'Prompt studio for product teams. Versioned prompts, evals, and a deployment graph that ships variants behind feature gates.',
+        services: [
+            { name: 'Prompt Store', status: 'Versioned' },
+            { name: 'Eval Runner', status: 'Scoring' },
+            { name: 'Inference', status: 'Warm' },
+            { name: 'A/B Gates', status: 'Active' },
+            { name: 'Telemetry', status: 'Streaming' },
+            { name: 'Cache', status: 'Hot' },
+        ],
+    },
+    {
+        id: 'arcadia-games',
+        imageUrl: picsum('arcadia-games'),
+        title: 'ARCADIA GAMES',
+        domain: 'arcadia-games.gg',
+        description:
+            'Esports platform with tournament brackets, spectator overlays and a rewards economy. Scoring runs on a deterministic match server.',
+        services: [
+            { name: 'Match Server', status: 'Authoritative' },
+            { name: 'Bracket Engine', status: 'Live' },
+            { name: 'Overlay CDN', status: 'Online' },
+            { name: 'Wallets', status: 'Settled' },
+            { name: 'Anti-cheat', status: 'Watching' },
+            { name: 'Replays', status: 'Indexed' },
+        ],
+    },
+    {
+        id: 'aurora-shop',
+        imageUrl: picsum('aurora-shop'),
+        title: 'AURORA SHOP',
+        domain: 'aurora-shop.store',
+        description:
+            'Headless commerce front-end with WebGL product views, edge personalization and a checkout that completes in two taps.',
+        services: [
+            { name: 'Catalog', status: 'Indexed' },
+            { name: 'Edge Cache', status: 'Warm' },
+            { name: 'Checkout', status: 'Lightning' },
+            { name: 'Search', status: 'Tuned' },
+            { name: 'Reviews', status: 'Verified' },
+            { name: 'Recos', status: 'Personalized' },
+        ],
+    },
+    {
+        id: 'voltage-music',
+        imageUrl: picsum('voltage-music'),
+        title: 'VOLTAGE MUSIC',
+        domain: 'voltage-music.fm',
+        description:
+            'Streaming app with collaborative playlists, lossless transcoding and a recommendation engine tuned for late-night listening.',
+        services: [
+            { name: 'Transcoder', status: 'Lossless' },
+            { name: 'Recos', status: 'Tuned' },
+            { name: 'Sessions', status: 'Live' },
+            { name: 'Playlists', status: 'Synced' },
+            { name: 'Catalog', status: 'Curated' },
+            { name: 'Royalties', status: 'Reported' },
+        ],
+    },
+    {
+        id: 'mercury-mail',
+        imageUrl: picsum('mercury-mail'),
+        title: 'MERCURY MAIL',
+        domain: 'mercury-mail.dev',
+        description:
+            'Transactional mail API with deliverability scoring, drag-drop templates and a webhook bus that survives regional outages.',
+        services: [
+            { name: 'SMTP Relay', status: 'Healthy' },
+            { name: 'Templates', status: 'Compiled' },
+            { name: 'Reputation', status: 'Trusted' },
+            { name: 'Webhooks', status: 'At least once' },
+            { name: 'Analytics', status: 'Streaming' },
+            { name: 'Suppressions', status: 'Honored' },
+        ],
+    },
+    {
+        id: 'helios-iot',
+        imageUrl: picsum('helios-iot'),
+        title: 'HELIOS IoT',
+        domain: 'helios-iot.cloud',
+        description:
+            'Fleet console for solar microgrids. Edge devices report telemetry over MQTT and reconcile through a CRDT-based state engine.',
+        services: [
+            { name: 'MQTT Broker', status: 'Clustered' },
+            { name: 'CRDT Sync', status: 'Converged' },
+            { name: 'OTA Updates', status: 'Rolling' },
+            { name: 'Telemetry', status: 'Live' },
+            { name: 'Geofencing', status: 'Armed' },
+            { name: 'Inventory', status: 'Tracked' },
+        ],
+    },
+    {
+        id: 'cobalt-docs',
+        imageUrl: picsum('cobalt-docs'),
+        title: 'COBALT DOCS',
+        domain: 'cobalt-docs.app',
+        description:
+            'Collaborative editor with offline-first CRDTs, cursor presence and a publishing pipeline that exports to static sites.',
+        services: [
+            { name: 'CRDT Engine', status: 'Synced' },
+            { name: 'Presence', status: 'Live' },
+            { name: 'Comments', status: 'Threaded' },
+            { name: 'Publish', status: 'Static' },
+            { name: 'Search', status: 'Indexed' },
+            { name: 'History', status: 'Restorable' },
+        ],
+    },
+    {
+        id: 'nimbus-devops',
+        imageUrl: picsum('nimbus-devops'),
+        title: 'NIMBUS DEVOPS',
+        domain: 'nimbus-devops.sh',
+        description:
+            'CI/CD console with build graphs, ephemeral preview environments and a SLO-driven deploy gate.',
+        services: [
+            { name: 'Runners', status: 'Idle Pool' },
+            { name: 'Previews', status: 'Spinning Up' },
+            { name: 'SLO Gate', status: 'Green' },
+            { name: 'Artifacts', status: 'Stored' },
+            { name: 'Secrets', status: 'Rotated' },
+            { name: 'Audit', status: 'Logged' },
+        ],
+    },
+    {
+        id: 'spectra-vr',
+        imageUrl: picsum('spectra-vr'),
+        title: 'SPECTRA VR',
+        domain: 'spectra-vr.world',
+        description:
+            'Spatial collaboration rooms with low-latency audio, hand tracking and a scene editor that lives in the headset.',
+        services: [
+            { name: 'Spatial Audio', status: 'Live' },
+            { name: 'Hand Tracking', status: 'Locked' },
+            { name: 'Scene Sync', status: 'Authoritative' },
+            { name: 'Avatars', status: 'Rendered' },
+            { name: 'Voice Mod', status: 'Filtered' },
+            { name: 'Recording', status: 'Idle' },
+        ],
+    },
+    {
+        id: 'circuit-edu',
+        imageUrl: picsum('circuit-edu'),
+        title: 'CIRCUIT EDU',
+        domain: 'circuit-edu.io',
+        description:
+            'Hands-on learning platform with browser-side sandboxes, live grading and a curriculum builder for technical bootcamps.',
+        services: [
+            { name: 'Sandboxes', status: 'Spawning' },
+            { name: 'Grader', status: 'Running' },
+            { name: 'Curriculum', status: 'Versioned' },
+            { name: 'Cohorts', status: 'Active' },
+            { name: 'Reviews', status: 'Peered' },
+            { name: 'Certificates', status: 'Signed' },
+        ],
+    },
 ];
 
 const robloxGames = [
@@ -66,36 +277,6 @@ const fivemGames = [
 
 type Accent = 'cyan' | 'green';
 type SectionId = 1 | 2 | 3;
-
-function ChevronLeft() {
-    return (
-        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-            <path
-                d="M14 6l-6 6 6 6"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-            />
-        </svg>
-    );
-}
-
-function ChevronRight() {
-    return (
-        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-            <path
-                d="M10 6l6 6-6 6"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-            />
-        </svg>
-    );
-}
 
 function ExternalLinkIcon() {
     return (
@@ -129,23 +310,82 @@ function PlayButton({ label, accent }: { label: string; accent: Accent }) {
     );
 }
 
+type SlideRole =
+    | 'active'
+    | 'prev1'
+    | 'prev2'
+    | 'prev3'
+    | 'prev4'
+    | 'next1'
+    | 'next2'
+    | 'next3'
+    | 'next4'
+    | 'hidden';
+
+const SWIPE_DURATION_MS = 600;
+
+function offsetToRole(offset: number): SlideRole {
+    switch (offset) {
+        case 0: return 'active';
+        case -1: return 'prev1';
+        case -2: return 'prev2';
+        case -3: return 'prev3';
+        case -4: return 'prev4';
+        case 1: return 'next1';
+        case 2: return 'next2';
+        case 3: return 'next3';
+        case 4: return 'next4';
+        default: return 'hidden';
+    }
+}
+
 export default function Projects() {
     const [section1View, setSection1View] = useState<'back' | 'front'>('front');
     const [slideIndex, setSlideIndex] = useState<number>(0);
+    const [isSwiping, setIsSwiping] = useState<boolean>(false);
+    const [swipeDir, setSwipeDir] = useState<'prev' | 'next' | null>(null);
     const [activeSection, setActiveSection] = useState<SectionId>(1);
     const { setTheme } = usePageTheme();
 
     const section1Ref = useRef<HTMLElement>(null);
     const section2Ref = useRef<HTMLElement>(null);
     const section3Ref = useRef<HTMLElement>(null);
+    const swipeTimerRef = useRef<number | null>(null);
 
     const totalSlides = memberSlides.length;
     const currentSlide = memberSlides[slideIndex];
 
-    const goPrevSlide = () =>
-        setSlideIndex((i) => (i - 1 + totalSlides) % totalSlides);
-    const goNextSlide = () =>
-        setSlideIndex((i) => (i + 1) % totalSlides);
+    const handleSlotClick = (role: SlideRole) => {
+        if (role === 'active' || role === 'hidden') return;
+        triggerSwipe(role.startsWith('prev') ? 'prev' : 'next');
+    };
+
+    const triggerSwipe = (dir: 'prev' | 'next') => {
+        if (isSwiping) return;
+        setSwipeDir(dir);
+        setIsSwiping(true);
+        setSlideIndex((i) =>
+            dir === 'next'
+                ? (i + 1) % totalSlides
+                : (i - 1 + totalSlides) % totalSlides
+        );
+        if (swipeTimerRef.current !== null) {
+            window.clearTimeout(swipeTimerRef.current);
+        }
+        swipeTimerRef.current = window.setTimeout(() => {
+            setIsSwiping(false);
+            setSwipeDir(null);
+            swipeTimerRef.current = null;
+        }, SWIPE_DURATION_MS);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (swipeTimerRef.current !== null) {
+                window.clearTimeout(swipeTimerRef.current);
+            }
+        };
+    }, []);
 
     useEffect(() => {
         let theme: Theme = 'dark';
@@ -261,7 +501,11 @@ export default function Projects() {
                         className="ProjectsBack-view ProjectsBack-view--front"
                         aria-hidden={section1View !== 'front'}
                     >
-                        <div className="ProjectsBack-stage3d">
+                        <div
+                            className={`ProjectsBack-stage3d${
+                                isSwiping ? ' ProjectsBack-stage3d--swiping' : ''
+                            }${swipeDir ? ` ProjectsBack-stage3d--swipe-${swipeDir}` : ''}`}
+                        >
                             {memberSlides.map((slide, i) => {
                                 const total = memberSlides.length;
                                 const half = Math.floor(total / 2);
@@ -269,30 +513,48 @@ export default function Projects() {
                                 if (offset > half) offset -= total;
                                 if (offset < -half) offset += total;
 
-                                const role: 'active' | 'prev' | 'next' | 'hidden' =
-                                    offset === 0
-                                        ? 'active'
-                                        : offset === -1
-                                          ? 'prev'
-                                          : offset === 1
-                                            ? 'next'
-                                            : 'hidden';
+                                const role = offsetToRole(offset);
+
+                                const isSideSlot = role !== 'active' && role !== 'hidden';
 
                                 return (
                                     <div
                                         key={slide.id}
                                         className={`ProjectsBack-slotPos ProjectsBack-slotPos--${role}`}
+                                        onClick={isSideSlot ? () => handleSlotClick(role) : undefined}
+                                        role={isSideSlot ? 'button' : undefined}
+                                        aria-label={
+                                            role.startsWith('prev')
+                                                ? 'Slide précédent'
+                                                : role.startsWith('next')
+                                                  ? 'Slide suivant'
+                                                  : undefined
+                                        }
                                     >
                                         <div
                                             className={`ProjectsBack-slot ProjectsBack-slot--${role}`}
                                         >
-                                            <iframe
-                                                src={slide.frontUrl}
-                                                className="ProjectsBack-iframe"
-                                                title={`Portfolio ${slide.id}`}
-                                                loading="lazy"
-                                                referrerPolicy="no-referrer"
-                                                tabIndex={role === 'active' ? 0 : -1}
+                                            {slide.frontUrl ? (
+                                                <iframe
+                                                    src={slide.frontUrl}
+                                                    className="ProjectsBack-iframe"
+                                                    title={`Portfolio ${slide.id}`}
+                                                    loading="lazy"
+                                                    referrerPolicy="no-referrer"
+                                                    tabIndex={role === 'active' ? 0 : -1}
+                                                />
+                                            ) : (
+                                                <img
+                                                    src={slide.imageUrl}
+                                                    alt={slide.title}
+                                                    className="ProjectsBack-img"
+                                                    loading="lazy"
+                                                    draggable={false}
+                                                />
+                                            )}
+                                            <div
+                                                className="ProjectsBack-vinylSheen"
+                                                aria-hidden="true"
                                             />
                                         </div>
                                     </div>
@@ -302,28 +564,29 @@ export default function Projects() {
                     </div>
                 </div>
 
-                <div className="ProjectsBack-bottom">
-                    <button
-                        type="button"
-                        className="ProjectsBack-nav-btn"
-                        onClick={goPrevSlide}
-                        aria-label="Slide précédent"
-                    >
-                        <ChevronLeft />
-                    </button>
-                    <span className="ProjectsBack-pagination-indicator">
+                <div
+                    className="ProjectsBack-counter"
+                    aria-label={`Projet ${slideIndex + 1} sur ${totalSlides}`}
+                >
+                    <span className="ProjectsBack-counter-current">
                         {String(slideIndex + 1).padStart(2, '0')}
-                        <span className="ProjectsBack-pagination-sep"> / </span>
-                        {String(totalSlides).padStart(2, '0')}
                     </span>
-                    <button
-                        type="button"
-                        className="ProjectsBack-nav-btn"
-                        onClick={goNextSlide}
-                        aria-label="Slide suivant"
+                    <span className="ProjectsBack-counter-total">
+                        / {String(totalSlides).padStart(2, '0')}
+                    </span>
+                    <span
+                        className="ProjectsBack-counter-track"
+                        aria-hidden="true"
                     >
-                        <ChevronRight />
-                    </button>
+                        <span
+                            className="ProjectsBack-counter-fill"
+                            style={{
+                                transform: `scaleX(${
+                                    (slideIndex + 1) / totalSlides
+                                })`,
+                            }}
+                        />
+                    </span>
                 </div>
             </section>
 
