@@ -172,11 +172,23 @@ type Building = {
     pos: [number, number, number];
     size: [number, number, number];
     tone: number;
-    accent: 'cyan' | 'magenta' | 'dim';
+    litRate: number;
+    magentaBias: number;
     seed: number;
 };
 
-function createWindowTexture(seed: number, accent: 'cyan' | 'magenta' | 'dim'): THREE.CanvasTexture {
+const CYAN_BRIGHT = 'rgba(120, 240, 255, 0.95)';
+const CYAN_DIM = 'rgba(60, 200, 240, 0.55)';
+const MAGENTA_BRIGHT = 'rgba(255, 90, 180, 0.95)';
+const MAGENTA_DIM = 'rgba(255, 130, 200, 0.55)';
+const NEUTRAL_BRIGHT = 'rgba(220, 235, 250, 0.65)';
+const NEUTRAL_DIM = 'rgba(140, 170, 200, 0.35)';
+
+function createWindowTexture(
+    seed: number,
+    litRate: number,
+    magentaBias: number,
+): THREE.CanvasTexture {
     const W = 256;
     const H = 512;
     const canvas = document.createElement('canvas');
@@ -200,19 +212,24 @@ function createWindowTexture(seed: number, accent: 'cyan' | 'magenta' | 'dim'): 
     const padX = cw * 0.18;
     const padY = rh * 0.18;
 
-    const litColor =
-        accent === 'magenta'
-            ? ['rgba(255, 90, 180, 0.95)', 'rgba(255, 130, 200, 0.6)']
-            : accent === 'cyan'
-              ? ['rgba(120, 240, 255, 0.95)', 'rgba(60, 200, 240, 0.55)']
-              : ['rgba(180, 220, 240, 0.45)', 'rgba(120, 160, 200, 0.25)'];
-
-    const litRate = accent === 'dim' ? 0.18 : 0.42;
-
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             const lit = rand() < litRate;
-            ctx.fillStyle = lit ? (rand() > 0.6 ? litColor[0] : litColor[1]) : 'rgba(255,255,255,0.02)';
+            if (!lit) {
+                ctx.fillStyle = 'rgba(255,255,255,0.02)';
+            } else {
+                const hue = rand();
+                const bright = rand() > 0.55;
+                let color: string;
+                if (hue < magentaBias) {
+                    color = bright ? MAGENTA_BRIGHT : MAGENTA_DIM;
+                } else if (hue < magentaBias + 0.12) {
+                    color = bright ? NEUTRAL_BRIGHT : NEUTRAL_DIM;
+                } else {
+                    color = bright ? CYAN_BRIGHT : CYAN_DIM;
+                }
+                ctx.fillStyle = color;
+            }
             ctx.fillRect(
                 c * cw + padX,
                 r * rh + padY,
@@ -339,12 +356,12 @@ function CityCables({ buildings }: { buildings: Building[] }) {
 function CityBuildings({ buildings }: { buildings: Building[] }) {
     const materials = useMemo(() => {
         return buildings.map((b) => {
-            const tex = createWindowTexture(b.seed, b.accent);
+            const tex = createWindowTexture(b.seed, b.litRate, b.magentaBias);
             return new THREE.MeshStandardMaterial({
                 color: '#0a0e14',
                 emissiveMap: tex,
                 emissive: new THREE.Color('#ffffff'),
-                emissiveIntensity: b.accent === 'dim' ? 0.55 : 1.05,
+                emissiveIntensity: 0.95,
                 roughness: 0.55,
                 metalness: 0.55,
                 toneMapped: true,
@@ -390,13 +407,17 @@ function GameCity({ progressRef }: { progressRef: ProgressRef }) {
                 const w = 1.8 + rand() * 0.6;
                 const d = 1.8 + rand() * 0.6;
                 const r = rand();
-                const accent: Building['accent'] =
-                    r < 0.18 ? 'magenta' : r < 0.62 ? 'cyan' : 'dim';
+                // Each building mixes cyan + magenta windows. Most buildings lean
+                // cyan with sparse magenta accents; a few have a stronger magenta
+                // presence — but never fully magenta.
+                const magentaBias = r < 0.75 ? 0.06 + rand() * 0.14 : 0.22 + rand() * 0.18;
+                const litRate = 0.22 + rand() * 0.22;
                 result.push({
                     pos: [x, h / 2, z],
                     size: [w, h, d],
                     tone: 8 + rand() * 6,
-                    accent,
+                    litRate,
+                    magentaBias,
                     seed: row * 31 + (side + 1) * 7 + Math.floor(rand() * 1000),
                 });
             }
@@ -502,7 +523,7 @@ function GameCity({ progressRef }: { progressRef: ProgressRef }) {
             </mesh>
             <mesh position={[3.32, 0.011, -18]} rotation={[-Math.PI / 2, 0, 0]}>
                 <planeGeometry args={[0.06, 50]} />
-                <meshBasicMaterial color={MAGENTA} toneMapped={false} />
+                <meshBasicMaterial color={CYAN} toneMapped={false} />
             </mesh>
 
             <CityCables buildings={buildings} />

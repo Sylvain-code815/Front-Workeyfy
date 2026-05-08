@@ -31,9 +31,14 @@ const defaultScreenMaterial = new THREE.MeshStandardMaterial({
 
 type OldComputerProps = JSX.IntrinsicElements['group'] & {
     screenMaterial?: THREE.Material;
+    bodyMaterial?: THREE.Material;
 };
 
-export default function OldComputer({ screenMaterial, ...props }: OldComputerProps) {
+export default function OldComputer({
+    screenMaterial,
+    bodyMaterial,
+    ...props
+}: OldComputerProps) {
     const gltf = useGLTF('/old_computer.glb') as unknown as OldComputerGLTF;
     const { nodes, materials, scene } = gltf;
 
@@ -55,6 +60,7 @@ export default function OldComputer({ screenMaterial, ...props }: OldComputerPro
     }, [scene]);
 
     const activeScreenMaterial = screenMaterial ?? defaultScreenMaterial;
+    const activeBodyMaterial = bodyMaterial ?? materials.Old_Computer;
 
     return (
         <group {...props}>
@@ -63,7 +69,7 @@ export default function OldComputer({ screenMaterial, ...props }: OldComputerPro
                     <group position={[-14.137, 8.521, 14.193]}>
                         <mesh
                             geometry={nodes.Old_Computer_Old_Computer_0.geometry}
-                            material={materials.Old_Computer}
+                            material={activeBodyMaterial}
                         />
                         <mesh
                             geometry={nodes.Old_Computer_Glass_0.geometry}

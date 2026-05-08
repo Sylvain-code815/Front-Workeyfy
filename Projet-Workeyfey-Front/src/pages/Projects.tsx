@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import ContactButton from '../components/layout/ContactButton';
 import Cog3D from '../components/canvas/Cog3D';
 import Globe3D from '../components/canvas/Globe3D';
+import AnalyticsDashboard from '../components/sections/AnalyticsDashboard';
 import { usePageTheme, type Theme } from '../contexts/PageThemeContext';
 import './Projects.css';
 
@@ -105,19 +106,6 @@ function ExternalLinkIcon() {
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                fill="none"
-            />
-        </svg>
-    );
-}
-
-function ChatBubbleIcon() {
-    return (
-        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-            <path
-                d="M21 12a8 8 0 0 1-8 8H7l-4 3v-7a8 8 0 1 1 18-4z"
-                stroke="currentColor"
-                strokeWidth="1.5"
                 fill="none"
             />
         </svg>
@@ -386,66 +374,7 @@ export default function Projects() {
                 className="Projects-section Projects-section--app"
                 aria-label="Analytics Dashboard Pro"
             >
-                <div className="ProjectsApp-mockup">
-                    <div className="ProjectsApp-mockup-bar">
-                        <span className="ProjectsApp-dot ProjectsApp-dot--red"></span>
-                        <span className="ProjectsApp-dot ProjectsApp-dot--yellow"></span>
-                        <span className="ProjectsApp-dot ProjectsApp-dot--green"></span>
-                    </div>
-
-                    <div className="ProjectsApp-mockup-body">
-                        <div className="ProjectsApp-mockup-left">
-                            <div className="ProjectsApp-mockup-logo">
-                                <ChatBubbleIcon />
-                                <span>Whisper</span>
-                            </div>
-                            <h3 className="ProjectsApp-mockup-heading">Inscris-toi !</h3>
-                            <p className="ProjectsApp-mockup-tagline">
-                                Inscris-toi à notre newsletter
-                            </p>
-                            <div className="ProjectsApp-mockup-field">Nom et prénom</div>
-                            <div className="ProjectsApp-mockup-field">Adresse mail</div>
-                            <span className="ProjectsApp-mockup-helper">
-                                J&apos;ai déjà un compte ? Me connecter
-                            </span>
-                            <div className="ProjectsApp-mockup-toggle">
-                                <span className="ProjectsApp-mockup-toggle-pill ProjectsApp-mockup-toggle-pill--active">
-                                    Je suis consultant
-                                </span>
-                                <span className="ProjectsApp-mockup-cta">Connexion</span>
-                            </div>
-                        </div>
-
-                        <div className="ProjectsApp-mockup-right">
-                            <span className="ProjectsApp-mockup-headline">jugements.</span>
-                            <p className="ProjectsApp-mockup-subline">
-                                Une plateforme dédiée aux décisions de justice, pensée pour les
-                                juristes et les professionnels du droit.
-                            </p>
-                            <div className="ProjectsApp-mockup-illustration" aria-hidden="true" />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="ProjectsApp-footer">
-                    <span className="ProjectsApp-pill">ANALYTICS DASHBOARD PRO</span>
-                    <div className="ProjectsApp-nav">
-                        <button
-                            type="button"
-                            className="ProjectsApp-nav-btn"
-                            aria-label="Précédent"
-                        >
-                            <ChevronLeft />
-                        </button>
-                        <button
-                            type="button"
-                            className="ProjectsApp-nav-btn"
-                            aria-label="Suivant"
-                        >
-                            <ChevronRight />
-                        </button>
-                    </div>
-                </div>
+                <AnalyticsDashboard />
             </section>
 
             <ContactButton fixed />

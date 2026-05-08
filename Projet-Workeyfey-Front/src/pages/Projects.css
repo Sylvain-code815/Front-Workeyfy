@@ -486,9 +486,9 @@
     overflow: hidden;
     cursor: pointer;
     transition:
-        flex-basis 900ms cubic-bezier(0.65, 0, 0.35, 1),
-        padding 900ms cubic-bezier(0.65, 0, 0.35, 1),
-        filter 800ms cubic-bezier(0.65, 0, 0.35, 1);
+        flex-basis 700ms cubic-bezier(0.65, 0, 0.35, 1),
+        padding 700ms cubic-bezier(0.65, 0, 0.35, 1),
+        filter 700ms cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 .ProjectsGaming-column--roblox {
@@ -518,9 +518,19 @@
     color: var(--color-white);
     letter-spacing: -0.01em;
     white-space: nowrap;
-    transform-origin: center center;
+    width: max-content;
     will-change: transform;
-    transition: transform 900ms cubic-bezier(0.65, 0, 0.35, 1);
+    transition: transform 600ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.ProjectsGaming-column--roblox .ProjectsGaming-title {
+    align-self: flex-start;
+    transform-origin: left center;
+}
+
+.ProjectsGaming-column--fivem .ProjectsGaming-title {
+    align-self: flex-end;
+    transform-origin: right center;
 }
 
 .ProjectsGaming-description {
@@ -574,9 +584,14 @@
         transform 380ms cubic-bezier(0, 0, 0.2, 1) 0ms;
 }
 
-.Projects-section--gaming:hover .ProjectsGaming-column:not(:hover) .ProjectsGaming-title {
+.Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-title {
     transform: rotate(-90deg) scale(0.55);
-    transition: transform 600ms cubic-bezier(0.65, 0, 0.35, 1) 400ms;
+    transition: transform 600ms cubic-bezier(0.65, 0, 0.35, 1) 200ms;
+}
+
+.Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-title {
+    transform: rotate(90deg) scale(0.55);
+    transition: transform 600ms cubic-bezier(0.65, 0, 0.35, 1) 200ms;
 }
 
 .Projects-section--gaming .ProjectsGaming-column:hover {
