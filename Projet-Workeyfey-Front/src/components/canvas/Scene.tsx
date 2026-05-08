@@ -1,7 +1,8 @@
+import './rectAreaLightInit';
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 // import { OrbitControls } from '@react-three/drei'; // disabled: scroll drives the camera, no manual orbit
-import { Html, useGLTF } from '@react-three/drei';
+import { Html, useGLTF, SpotLight, Sparkles } from '@react-three/drei';
 import { EffectComposer, Bloom, Noise } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
 import { useControls, button } from 'leva';
@@ -9,7 +10,7 @@ import * as THREE from 'three';
 import Produit from './Produit';
 import OldComputer from './OldComputer';
 import Cables from './Cables';
-import { createCodeTexture } from './codeTexture';
+import { createPeripheralSchemaTexture } from './peripheralSchemaTexture';
 import './Scene.css';
 
 type SceneProps = {
@@ -30,6 +31,39 @@ const PRODUIT_PC_POSITIONS: [number, number, number][] = [
 
 const HTML_BASE_SCALE = 0.001;
 
+type ScreenRALProps = {
+    position: [number, number, number];
+    target: [number, number, number];
+    color: string;
+    width?: number;
+    height?: number;
+    intensity?: number;
+};
+
+function ScreenRAL({
+    position,
+    target,
+    color,
+    width = 0.6,
+    height = 0.4,
+    intensity = 4,
+}: ScreenRALProps) {
+    const ref = useRef<THREE.RectAreaLight>(null);
+    useEffect(() => {
+        if (ref.current) ref.current.lookAt(target[0], target[1], target[2]);
+    }, [target]);
+    return (
+        <rectAreaLight
+            ref={ref}
+            position={position}
+            color={color}
+            intensity={intensity}
+            width={width}
+            height={height}
+        />
+    );
+}
+
 export default function Scene({ progressRef }: SceneProps) {
     const { camera } = useThree();
     const screenRef = useRef<HTMLDivElement>(null);
@@ -37,8 +71,7 @@ export default function Scene({ progressRef }: SceneProps) {
     const fog = useControls('Atmosphere', {
         bg: '#000000',
         fogColor: '#000000',
-        fogNear: { value: 6, min: 0, max: 50, step: 0.5 },
-        fogFar: { value: 18, min: 1, max: 100, step: 1 },
+        density: { value: 0.06, min: 0, max: 0.5, step: 0.005 },
     });
 
     const cyanSpot = useControls('Cyan side spots', {
@@ -63,6 +96,36 @@ export default function Scene({ progressRef }: SceneProps) {
         position: { value: [0, 6, 0], step: 0.5 },
     });
 
+    const godRays = useControls('God rays', {
+        enabled: true,
+        intensity: { value: 8, min: 0, max: 30, step: 0.5 },
+        color: '#00E5FF',
+        angle: { value: 0.18, min: 0.05, max: 0.6, step: 0.01 },
+        attenuation: { value: 6, min: 1, max: 20, step: 0.5 },
+        anglePower: { value: 5, min: 0, max: 10, step: 0.5 },
+        opacity: { value: 0.45, min: 0, max: 1, step: 0.05 },
+        radiusTop: { value: 0.05, min: 0, max: 1, step: 0.01 },
+        radiusBottom: { value: 0.6, min: 0, max: 3, step: 0.05 },
+        distance: { value: 14, min: 1, max: 40, step: 0.5 },
+    });
+
+    const ralCtrl = useControls('Screen RectAreaLights', {
+        enabled: true,
+        centralColor: '#00E5FF',
+        centralIntensity: { value: 5, min: 0, max: 20, step: 0.25 },
+        peripheralColor: '#7FF7E8',
+        peripheralIntensity: { value: 2.2, min: 0, max: 10, step: 0.1 },
+        peripheralCount: { value: 9, min: 0, max: 9, step: 1 },
+    });
+
+    const dust = useControls('Dust', {
+        count: { value: 80, min: 0, max: 400, step: 10 },
+        size: { value: 1.5, min: 0.1, max: 6, step: 0.1 },
+        speed: { value: 0.2, min: 0, max: 2, step: 0.05 },
+        opacity: { value: 0.6, min: 0, max: 1, step: 0.05 },
+        color: '#00E5FF',
+    });
+
     const hero = useControls('Hero (old computer)', {
         position: { value: [0, 0, 0], step: 0.1 },
         rotation: { value: [0, 0, 0], step: 0.05 },
@@ -81,14 +144,11 @@ export default function Scene({ progressRef }: SceneProps) {
         position: { value: [-0.12, 0.42, 0.25], step: 0.01 },
         rotation: { value: [0, 0, 0], step: 0.05 },
         scale: { value: 10, min: 0.1, max: 10, step: 0.1 },
-        bgColor: '#f5f0e6',
-        bgOpacity: { value: 0, min: 0, max: 1, step: 0.05 },
-        textColor: '#1a1a1a',
     });
 
     const post = useControls('Post-processing', {
-        bloomIntensity: { value: 1.2, min: 0, max: 5, step: 0.05 },
-        bloomThreshold: { value: 0.35, min: 0, max: 1, step: 0.01 },
+        bloomIntensity: { value: 1.4, min: 0, max: 5, step: 0.05 },
+        bloomThreshold: { value: 0.3, min: 0, max: 1, step: 0.01 },
         bloomSmoothing: { value: 0.9, min: 0, max: 1, step: 0.01 },
         noiseOpacity: { value: 0.04, min: 0, max: 0.5, step: 0.01 },
     });
@@ -108,22 +168,48 @@ export default function Scene({ progressRef }: SceneProps) {
     const produitGltf = useGLTF('/produit_b2b.glb') as unknown as {
         materials: { Screen?: THREE.MeshStandardMaterial };
     };
-    const codeTexture = useMemo(() => createCodeTexture(), []);
+
+    const peripheralTextures = useMemo(
+        () => Array.from({ length: 9 }, (_, i) => createPeripheralSchemaTexture(i)),
+        [],
+    );
+
+    const peripheralMaterials = useMemo(() => {
+        const base = produitGltf.materials.Screen;
+        if (!base) return [];
+        return peripheralTextures.map((tex) => {
+            const mat = base.clone();
+            mat.color = new THREE.Color('#000810');
+            mat.emissive = new THREE.Color('#00E5FF');
+            mat.emissiveMap = tex;
+            mat.emissiveIntensity = 0.85;
+            mat.toneMapped = false;
+            mat.needsUpdate = true;
+            return mat;
+        });
+    }, [produitGltf, peripheralTextures]);
 
     useEffect(() => {
-        const screen = produitGltf.materials.Screen;
-        if (!screen) return;
-        screen.color = new THREE.Color('#000810');
-        screen.emissive = new THREE.Color('#00ff88');
-        screen.emissiveMap = codeTexture;
-        screen.emissiveIntensity = 1.6;
-        screen.toneMapped = false;
-        screen.needsUpdate = true;
-    }, [produitGltf, codeTexture]);
+        return () => {
+            peripheralMaterials.forEach((m) => m.dispose());
+            peripheralTextures.forEach((t) => t.dispose());
+        };
+    }, [peripheralMaterials, peripheralTextures]);
 
-    useFrame(({ clock }) => {
-        codeTexture.offset.y = -clock.elapsedTime * 0.02;
+    const peripheralRALPositions = useMemo(() => {
+        return PRODUIT_PC_POSITIONS.map((p) => {
+            const dir = new THREE.Vector3(-p[0], 0, -p[2]).normalize();
+            const offset = 0.55;
+            const lightPos: [number, number, number] = [
+                p[0] + dir.x * offset,
+                p[1] + 0.45,
+                p[2] + dir.z * offset,
+            ];
+            return { lightPos, target: p as [number, number, number] };
+        });
+    }, []);
 
+    useFrame(() => {
         if (camera instanceof THREE.PerspectiveCamera && camera.fov !== cam.fov) {
             camera.fov = cam.fov;
             camera.updateProjectionMatrix();
@@ -161,7 +247,7 @@ export default function Scene({ progressRef }: SceneProps) {
     return (
         <>
             <color attach="background" args={[fog.bg]} />
-            <fog attach="fog" args={[fog.fogColor, fog.fogNear, fog.fogFar]} />
+            <fogExp2 attach="fog" args={[fog.fogColor, fog.density]} />
 
             <spotLight
                 position={cyanSpot.positionA}
@@ -190,7 +276,66 @@ export default function Scene({ progressRef }: SceneProps) {
                 decay={heroSpot.decay}
             />
 
-            <Produit />
+            {godRays.enabled && (
+                <>
+                    <SpotLight
+                        position={[-1.8, 8, 0.5]}
+                        target-position={[-1.5, 0, 0.3]}
+                        color={godRays.color}
+                        intensity={godRays.intensity}
+                        angle={godRays.angle}
+                        attenuation={godRays.attenuation}
+                        anglePower={godRays.anglePower}
+                        opacity={godRays.opacity}
+                        radiusTop={godRays.radiusTop}
+                        radiusBottom={godRays.radiusBottom}
+                        distance={godRays.distance}
+                        volumetric
+                    />
+                    <SpotLight
+                        position={[2.2, 8, -0.8]}
+                        target-position={[1.8, 0, -0.6]}
+                        color={godRays.color}
+                        intensity={godRays.intensity}
+                        angle={godRays.angle}
+                        attenuation={godRays.attenuation}
+                        anglePower={godRays.anglePower}
+                        opacity={godRays.opacity}
+                        radiusTop={godRays.radiusTop}
+                        radiusBottom={godRays.radiusBottom}
+                        distance={godRays.distance}
+                        volumetric
+                    />
+                </>
+            )}
+
+            {ralCtrl.enabled && (
+                <>
+                    <ScreenRAL
+                        position={[0, 0.55, 0.55]}
+                        target={[0, 0.55, 0]}
+                        color={ralCtrl.centralColor}
+                        width={0.7}
+                        height={0.5}
+                        intensity={ralCtrl.centralIntensity}
+                    />
+                    {peripheralRALPositions
+                        .slice(0, ralCtrl.peripheralCount)
+                        .map(({ lightPos, target }, i) => (
+                            <ScreenRAL
+                                key={`ral-${i}`}
+                                position={lightPos}
+                                target={target}
+                                color={ralCtrl.peripheralColor}
+                                width={0.45}
+                                height={0.32}
+                                intensity={ralCtrl.peripheralIntensity}
+                            />
+                        ))}
+                </>
+            )}
+
+            <Produit screenMaterials={peripheralMaterials} />
 
             <OldComputer
                 position={hero.position}
@@ -205,21 +350,27 @@ export default function Scene({ progressRef }: SceneProps) {
                 linksToHero={2}
             />
 
+            <Sparkles
+                count={dust.count}
+                scale={[10, 6, 8]}
+                size={dust.size}
+                speed={dust.speed}
+                opacity={dust.opacity}
+                color={dust.color}
+                position={[0, 3, -1]}
+            />
+
             <Html
                 transform
                 position={overlay.position}
                 rotation={overlay.rotation}
                 scale={memoizedHtmlScale}
-                style={{ width: '360px' }}
+                style={{ width: '420px' }}
             >
                 <div
                     ref={screenRef}
                     className="Scene-screen"
-                    style={{
-                        backgroundColor: hexToRgba(overlay.bgColor, overlay.bgOpacity),
-                        color: overlay.textColor,
-                        transition: 'opacity 80ms linear',
-                    }}
+                    style={{ transition: 'opacity 80ms linear' }}
                 >
                     <p className="Scene-screen-tagline">
                         Vous avez la vision.<br />
@@ -250,12 +401,4 @@ export default function Scene({ progressRef }: SceneProps) {
             </EffectComposer>
         </>
     );
-}
-
-function hexToRgba(hex: string, alpha: number) {
-    const v = hex.replace('#', '');
-    const r = parseInt(v.slice(0, 2), 16);
-    const g = parseInt(v.slice(2, 4), 16);
-    const b = parseInt(v.slice(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }

@@ -12,7 +12,13 @@
     position: relative;
     width: 100%;
     height: 100%;
-    background: #000000;
+    background:
+        radial-gradient(
+            ellipse at 50% 42%,
+            #08152a 0%,
+            #02060f 55%,
+            #000205 100%
+        );
 }
 
 .ProjectDeployed-canvas {
@@ -22,75 +28,17 @@
     height: 100% !important;
 }
 
-/* Success screen — visually anchored where the 3D monitor is */
-.ProjectDeployed-screen {
-    position: absolute;
-    top: 36%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 2;
-    pointer-events: none;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 18px;
-    padding: 28px 40px;
-    border-radius: 14px;
-    background: rgba(8, 12, 8, 0.55);
-    border: 1px solid rgba(34, 197, 94, 0.35);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    box-shadow:
-        0 0 40px rgba(34, 197, 94, 0.25),
-        inset 0 0 30px rgba(34, 197, 94, 0.08);
-    will-change: opacity, transform;
-}
-
-.ProjectDeployed-check {
-    width: 72px;
-    height: 72px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    animation: ProjectDeployed-pulse 2.4s ease-in-out infinite;
-    filter: drop-shadow(0 0 14px rgba(34, 197, 94, 0.6));
-}
-
-@keyframes ProjectDeployed-pulse {
-    0%, 100% {
-        transform: scale(1);
-        filter: drop-shadow(0 0 12px rgba(34, 197, 94, 0.45));
-    }
-    50% {
-        transform: scale(1.08);
-        filter: drop-shadow(0 0 22px rgba(34, 197, 94, 0.85));
-    }
-}
-
-.ProjectDeployed-status {
-    margin: 0;
-    font-family: var(--font-family-base);
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--color-white);
-    text-shadow: 0 0 18px rgba(34, 197, 94, 0.45);
-}
-
-/* Final conversion overlay — title + CTAs */
 .ProjectDeployed-overlay {
     position: absolute;
-    bottom: 10vh;
+    bottom: 9vh;
     left: 0;
     right: 0;
     z-index: 3;
-    padding: 0 clamp(24px, 6vw, 80px);
+    padding: 0 clamp(24px, 6vw, 88px);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 32px;
+    gap: 36px;
     text-align: center;
     pointer-events: none;
 }
@@ -98,59 +46,139 @@
 .ProjectDeployed-title {
     margin: 0;
     font-family: var(--font-family-base);
-    font-size: clamp(28px, 4vw, 52px);
+    font-size: clamp(36px, 5.4vw, 72px);
     font-weight: 700;
-    line-height: 1.15;
-    letter-spacing: -0.01em;
+    line-height: 1.1;
+    letter-spacing: -0.015em;
     color: var(--color-white);
     opacity: 0;
     will-change: opacity, transform;
-    text-shadow: 0 0 26px rgba(0, 0, 0, 0.6);
+    text-shadow:
+        0 2px 30px rgba(0, 0, 0, 0.7),
+        0 0 60px rgba(0, 0, 0, 0.5);
+    max-width: 18ch;
 }
 
 .ProjectDeployed-cta {
-    display: flex;
-    flex-direction: column;
+    display: inline-flex;
+    flex-wrap: wrap;
+    justify-content: center;
     align-items: center;
-    gap: 14px;
+    gap: 22px;
+    padding: 12px 22px 12px 12px;
+    border-radius: 999px;
+    background: rgba(8, 14, 24, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     opacity: 0;
     pointer-events: auto;
     will-change: opacity, transform;
+    box-shadow:
+        0 24px 60px rgba(0, 0, 0, 0.55),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .ProjectDeployed-btn {
-    padding: 18px 36px;
+    padding: 16px 32px;
     border-radius: 999px;
     background: var(--color-white);
     color: var(--color-black);
     font-family: var(--font-family-base);
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
     text-decoration: none;
     box-shadow:
-        0 12px 32px rgba(0, 0, 0, 0.45),
-        0 0 0 1px rgba(255, 220, 170, 0.35);
-    transition: transform 240ms ease, box-shadow 240ms ease;
+        0 8px 24px rgba(0, 0, 0, 0.45),
+        0 0 0 1px rgba(255, 220, 170, 0.25);
+    transition: transform 220ms ease, box-shadow 220ms ease;
+    white-space: nowrap;
 }
 
 .ProjectDeployed-btn:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
     box-shadow:
-        0 16px 40px rgba(0, 0, 0, 0.55),
-        0 0 0 1px rgba(255, 220, 170, 0.65);
+        0 12px 32px rgba(0, 0, 0, 0.55),
+        0 0 0 1px rgba(255, 220, 170, 0.6);
+}
+
+.ProjectDeployed-divider {
+    width: 1px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.14);
 }
 
 .ProjectDeployed-email {
-    font-family: 'Consolas', 'Menlo', monospace;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', 'Consolas', 'Menlo', 'Courier New', monospace;
     font-size: 14px;
-    letter-spacing: 0.12em;
-    color: rgba(var(--color-white-rgb), 0.7);
-    text-decoration: none;
-    transition: color 200ms ease;
+    letter-spacing: 0.06em;
+    color: rgba(var(--color-white-rgb), 0.6);
+    transition: color 200ms ease, background 200ms ease;
 }
 
-.ProjectDeployed-email:hover {
-    color: var(--color-white);
+.ProjectDeployed-email:hover,
+.ProjectDeployed-email:focus-visible {
+    color: rgba(var(--color-white-rgb), 0.95);
+    background: rgba(255, 255, 255, 0.04);
+    outline: none;
+}
+
+.ProjectDeployed-email-text {
+    line-height: 1;
+}
+
+.ProjectDeployed-email-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.75;
+    transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.ProjectDeployed-email:hover .ProjectDeployed-email-icon {
+    opacity: 1;
+    transform: translateY(-1px);
+}
+
+.ProjectDeployed-email-feedback {
+    position: absolute;
+    bottom: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #7DE3FF;
+    opacity: 0;
+    transition: opacity 220ms ease;
+    pointer-events: none;
+}
+
+.ProjectDeployed-email-feedback:not(:empty) {
+    opacity: 1;
+}
+
+@media (max-width: 640px) {
+    .ProjectDeployed-cta {
+        flex-direction: column;
+        gap: 14px;
+        padding: 18px 22px;
+        border-radius: 22px;
+    }
+
+    .ProjectDeployed-divider {
+        width: 60%;
+        height: 1px;
+    }
 }

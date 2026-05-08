@@ -142,45 +142,51 @@ type GLTFResult = GLTF & {
   animations: GLTFAction[]
 }
 
-export function Model(props: JSX.IntrinsicElements['group']) {
+type ProduitProps = JSX.IntrinsicElements['group'] & {
+  screenMaterials?: THREE.Material[]
+}
+
+export function Model({ screenMaterials, ...props }: ProduitProps) {
   const { nodes, materials } = useGLTF('/produit_b2b.glb') as GLTFResult
+  const screen = (i: number): THREE.Material =>
+    screenMaterials?.[i] ?? materials.Screen
   return (
     <group {...props} dispose={null}>
       <group position={[0.27, 1.529, -2.613]}>
         <mesh geometry={nodes.Object_206.geometry} material={materials.Texture} />
-        <mesh geometry={nodes.Object_207.geometry} material={materials.Screen} />
+        <mesh geometry={nodes.Object_207.geometry} material={screen(0)} />
       </group>
       <group position={[-1.43, 2.496, -1.8]} rotation={[0, 1.002, 0]}>
         <mesh geometry={nodes.Object_209.geometry} material={materials.Texture} />
-        <mesh geometry={nodes.Object_210.geometry} material={materials.Screen} />
+        <mesh geometry={nodes.Object_210.geometry} material={screen(1)} />
       </group>
       <group position={[-2.731, 0.629, -0.522]} rotation={[0, 1.087, 0]}>
         <mesh geometry={nodes.Object_212.geometry} material={materials.Texture} />
-        <mesh geometry={nodes.Object_213.geometry} material={materials.Screen} />
+        <mesh geometry={nodes.Object_213.geometry} material={screen(2)} />
       </group>
       <group position={[1.845, 0.377, -1.771]} rotation={[0, -Math.PI / 9, 0]}>
         <mesh geometry={nodes.Object_215.geometry} material={materials.Texture} />
-        <mesh geometry={nodes.Object_216.geometry} material={materials.Screen} />
+        <mesh geometry={nodes.Object_216.geometry} material={screen(3)} />
       </group>
       <group position={[3.11, 2.145, -0.18]} rotation={[0, -0.793, 0]} scale={0.81}>
         <mesh geometry={nodes.Object_218.geometry} material={materials.Texture} />
-        <mesh geometry={nodes.Object_219.geometry} material={materials.Screen} />
+        <mesh geometry={nodes.Object_219.geometry} material={screen(4)} />
       </group>
       <group position={[-3.417, 3.056, 1.303]} rotation={[0, 1.222, 0]} scale={0.9}>
         <mesh geometry={nodes.Object_221.geometry} material={materials.Texture} />
-        <mesh geometry={nodes.Object_222.geometry} material={materials.Screen} />
+        <mesh geometry={nodes.Object_222.geometry} material={screen(5)} />
       </group>
       <group position={[-3.899, 4.287, -2.642]} rotation={[0, 0.539, 0]}>
         <mesh geometry={nodes.Object_224.geometry} material={materials.Texture} />
-        <mesh geometry={nodes.Object_225.geometry} material={materials.Screen} />
+        <mesh geometry={nodes.Object_225.geometry} material={screen(6)} />
       </group>
       <group position={[0.992, 4.287, -4.209]} rotation={[0, 0.429, 0]} scale={[-1, 1, 1]}>
         <mesh geometry={nodes.Object_227.geometry} material={materials.Texture} />
-        <mesh geometry={nodes.Object_228.geometry} material={materials.Screen} />
+        <mesh geometry={nodes.Object_228.geometry} material={screen(7)} />
       </group>
       <group position={[4.683, 4.29, -1.558]} rotation={[0, -Math.PI / 3, 0]}>
         <mesh geometry={nodes.Object_230.geometry} material={materials.Texture} />
-        <mesh geometry={nodes.Object_231.geometry} material={materials.Screen} />
+        <mesh geometry={nodes.Object_231.geometry} material={screen(8)} />
       </group>
       <mesh geometry={nodes.Object_4.geometry} material={materials.Texture} position={[0.165, 0.794, -1.972]} rotation={[-0.544, 0.929, -1.119]} scale={0.5} />
       <mesh geometry={nodes.Object_6.geometry} material={materials.Texture} position={[-2.793, 0.27, 1.816]} rotation={[-1.44, 1.219, 1.432]} scale={0.5} />

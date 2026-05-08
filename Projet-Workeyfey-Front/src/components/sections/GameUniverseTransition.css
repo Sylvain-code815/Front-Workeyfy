@@ -19,128 +19,310 @@
     height: 100%;
 }
 
+/* ── HUD layout ─────────────────────────────────────────────── */
+
 .GameUniverse-hud {
     position: absolute;
     inset: 0;
     pointer-events: none;
     padding: clamp(20px, 3vw, 40px);
     display: grid;
-    grid-template-columns: 280px 1fr 280px;
-    grid-template-rows: auto 1fr auto;
+    grid-template-columns: 320px 1fr 360px;
+    grid-template-rows: auto 1fr;
     gap: 24px;
-    font-family: var(--font-family-base, sans-serif);
+    font-family: var(--font-family-base, 'Inter', sans-serif);
+    color: rgba(220, 240, 255, 0.87);
 }
 
 .GameUniverse-hud-panel {
-    background: rgba(15, 18, 22, 0.55);
-    border: 1px solid rgba(255, 200, 140, 0.22);
-    border-radius: 6px;
-    padding: 14px 16px;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    color: rgba(255, 240, 220, 0.92);
+    position: relative;
+    background: linear-gradient(
+        180deg,
+        rgba(8, 14, 22, 0.62),
+        rgba(4, 8, 14, 0.46)
+    );
+    border: 1px solid rgba(0, 229, 255, 0.18);
+    border-radius: 4px;
+    padding: 16px 18px 18px;
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        0 12px 32px rgba(0, 0, 0, 0.45);
     font-size: 13px;
-    line-height: 1.5;
+    line-height: 1.45;
+    color: rgba(220, 240, 255, 0.6);
 }
 
-.GameUniverse-hud-panel h4 {
-    margin: 0 0 10px;
+.GameUniverse-hud-panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 18px;
+    right: 18px;
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(0, 229, 255, 0.35),
+        transparent
+    );
+}
+
+.GameUniverse-hud-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.GameUniverse-hud-panel-head h4 {
+    margin: 0;
     font-size: 10px;
-    letter-spacing: 0.22em;
+    letter-spacing: 0.24em;
     text-transform: uppercase;
-    opacity: 0.6;
-    font-weight: 700;
+    color: rgba(220, 240, 255, 0.87);
+    font-weight: 600;
 }
 
-.GameUniverse-hud-status {
+.GameUniverse-hud-tag {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', 'Consolas', 'Menlo', monospace;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: rgba(220, 240, 255, 0.6);
+    padding: 2px 8px;
+    border: 1px solid rgba(0, 229, 255, 0.22);
+    border-radius: 2px;
+    background: rgba(0, 229, 255, 0.05);
+}
+
+.GameUniverse-hud-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #00E5FF;
+    box-shadow:
+        0 0 6px rgba(0, 229, 255, 0.9),
+        0 0 12px rgba(0, 229, 255, 0.45);
+    animation: GameUniverse-pulse 1.8s ease-in-out infinite;
+}
+
+.GameUniverse-hud-dot--magenta {
+    background: #ff2a8a;
+    box-shadow:
+        0 0 6px rgba(255, 42, 138, 0.9),
+        0 0 12px rgba(255, 42, 138, 0.45);
+}
+
+@keyframes GameUniverse-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+}
+
+/* Panel placement */
+.GameUniverse-hud-server {
     grid-column: 1;
     grid-row: 1;
     align-self: start;
+    margin-top: clamp(48px, 5vh, 72px);
 }
 
-.GameUniverse-hud-server {
-    grid-column: 1;
-    grid-row: 3;
-    align-self: end;
-}
-
-.GameUniverse-hud-inventory {
+.GameUniverse-hud-link {
     grid-column: 3;
-    grid-row: 3;
-    align-self: end;
+    grid-row: 1;
+    align-self: start;
+    margin-top: clamp(48px, 5vh, 72px);
     justify-self: end;
+    width: 100%;
+    max-width: 320px;
 }
 
-.GameUniverse-hud-row {
+.GameUniverse-hud-queue {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: end;
+    width: 360px;
+    max-width: 100%;
+}
+
+/* ── Server Status: key/value list ──────────────────────────── */
+
+.GameUniverse-hud-kv {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.GameUniverse-hud-kv li {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 8px;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 7px;
+    border-bottom: 1px dashed rgba(0, 229, 255, 0.1);
 }
 
-.GameUniverse-hud-row:last-child {
+.GameUniverse-hud-kv li:last-child {
+    border-bottom: none;
+}
+
+.GameUniverse-hud-key {
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(220, 240, 255, 0.6);
+}
+
+.GameUniverse-hud-val {
+    font-family: 'JetBrains Mono', 'Consolas', 'Menlo', monospace;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    color: rgba(220, 240, 255, 0.87);
+}
+
+.GameUniverse-hud-val--ok {
+    color: rgba(120, 255, 200, 0.87);
+    position: relative;
+    padding-left: 10px;
+}
+
+.GameUniverse-hud-val--ok::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #6cffb0;
+    box-shadow: 0 0 6px rgba(108, 255, 176, 0.9);
+}
+
+/* ── Connection: metric rows with bars ──────────────────────── */
+
+.GameUniverse-hud-metric {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    column-gap: 10px;
+    row-gap: 6px;
+    margin-bottom: 12px;
+}
+
+.GameUniverse-hud-metric:last-child {
     margin-bottom: 0;
 }
 
-.GameUniverse-hud-label {
-    font-size: 10px;
-    letter-spacing: 0.14em;
-    opacity: 0.6;
-    width: 32px;
-    flex-shrink: 0;
+.GameUniverse-hud-metric .GameUniverse-hud-key {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.GameUniverse-hud-mono {
+    grid-column: 2;
+    grid-row: 1;
+    font-family: 'JetBrains Mono', 'Consolas', 'Menlo', monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: rgba(220, 240, 255, 0.87);
+    white-space: nowrap;
 }
 
 .GameUniverse-hud-bar {
-    height: 6px;
-    flex: 1;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 3px;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    height: 3px;
+    background: rgba(0, 229, 255, 0.08);
+    border-radius: 2px;
     overflow: hidden;
 }
 
 .GameUniverse-hud-bar span {
     display: block;
     height: 100%;
-    background: linear-gradient(90deg, #ff7a3c, #ffcc66);
+    background: linear-gradient(90deg, #00E5FF, #7ff7ff);
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.55);
 }
 
 .GameUniverse-hud-bar--alt span {
-    background: linear-gradient(90deg, #66c8ff, #aaeaff);
+    background: linear-gradient(90deg, #ff2a8a, #ff80c0);
+    box-shadow: 0 0 8px rgba(255, 42, 138, 0.55);
 }
 
-.GameUniverse-hud-mono {
-    margin: 0 0 4px;
-    font-family: 'Consolas', 'Menlo', monospace;
-    font-size: 12px;
-    letter-spacing: 0.04em;
+/* ── Modding Queue ──────────────────────────────────────────── */
+
+.GameUniverse-hud-queue-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
 }
 
-.GameUniverse-hud-dim {
-    opacity: 0.55;
+.GameUniverse-hud-queue-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 8px;
+    border-radius: 2px;
+    background: rgba(0, 229, 255, 0.03);
+    border-left: 1px solid rgba(0, 229, 255, 0.25);
+    font-family: 'JetBrains Mono', 'Consolas', 'Menlo', monospace;
+    font-size: 11px;
 }
 
-.GameUniverse-hud-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 56px);
-    grid-template-rows: repeat(2, 56px);
-    gap: 6px;
+.GameUniverse-hud-script {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: rgba(220, 240, 255, 0.6);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.GameUniverse-hud-slot {
-    position: relative;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 200, 140, 0.18);
-    border-radius: 4px;
-}
-
-.GameUniverse-hud-slot-tag {
-    position: absolute;
-    top: 4px;
-    left: 6px;
+.GameUniverse-hud-script-lang {
+    flex-shrink: 0;
     font-size: 9px;
-    opacity: 0.4;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 2px;
+    background: rgba(0, 229, 255, 0.12);
+    color: rgba(120, 240, 255, 0.87);
+    border: 1px solid rgba(0, 229, 255, 0.25);
 }
+
+.GameUniverse-hud-script-lang--ts {
+    background: rgba(255, 42, 138, 0.12);
+    color: rgba(255, 150, 200, 0.87);
+    border-color: rgba(255, 42, 138, 0.3);
+}
+
+.GameUniverse-hud-status {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(220, 240, 255, 0.6);
+    flex-shrink: 0;
+}
+
+.GameUniverse-hud-status--ok {
+    color: rgba(108, 255, 176, 0.87);
+}
+
+.GameUniverse-hud-status--queue {
+    color: rgba(255, 200, 120, 0.6);
+}
+
+/* ── Bottom-center title overlay ────────────────────────────── */
 
 .GameUniverse-overlay {
     position: absolute;
@@ -151,14 +333,54 @@
     pointer-events: none;
     width: max-content;
     max-width: 90vw;
+    padding: clamp(18px, 2.4vw, 28px) clamp(28px, 3.6vw, 48px);
+    background: linear-gradient(
+        180deg,
+        rgba(8, 14, 22, 0.62),
+        rgba(4, 8, 14, 0.46)
+    );
+    border: 1px solid rgba(0, 229, 255, 0.18);
+    border-radius: 4px;
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        0 16px 40px rgba(0, 0, 0, 0.5);
+    opacity: 0;
+}
+
+.GameUniverse-overlay::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 18px;
+    right: 18px;
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(0, 229, 255, 0.5),
+        transparent
+    );
+}
+
+.GameUniverse-overlay-eyebrow {
+    display: block;
+    font-family: 'JetBrains Mono', 'Consolas', 'Menlo', monospace;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(120, 240, 255, 0.6);
+    margin-bottom: 10px;
 }
 
 .GameUniverse-title {
-    font-size: clamp(28px, 4.4vw, 56px);
-    font-weight: 700;
-    margin: 0 0 18px;
-    color: rgba(255, 245, 230, 1);
+    font-size: clamp(28px, 4.2vw, 52px);
+    font-weight: 600;
+    margin: 0 0 14px;
+    color: rgba(245, 252, 255, 0.87);
     letter-spacing: -0.01em;
+    line-height: 1.05;
     opacity: 0;
 }
 
@@ -169,11 +391,12 @@
     display: flex;
     gap: clamp(16px, 2.4vw, 32px);
     justify-content: center;
-    font-size: 13px;
-    letter-spacing: 0.18em;
+    font-family: 'JetBrains Mono', 'Consolas', 'Menlo', monospace;
+    font-size: 11px;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
-    color: rgba(255, 245, 230, 1);
-    font-weight: 600;
+    color: rgba(220, 240, 255, 0.6);
+    font-weight: 500;
     opacity: 0;
 }
 
@@ -185,5 +408,29 @@
     content: '·';
     position: absolute;
     left: calc(-1 * clamp(8px, 1.2vw, 16px));
-    opacity: 0.4;
+    color: rgba(0, 229, 255, 0.6);
+    opacity: 0.6;
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+    .GameUniverse-hud {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+        gap: 14px;
+    }
+    .GameUniverse-hud-server,
+    .GameUniverse-hud-link,
+    .GameUniverse-hud-queue {
+        grid-column: 1;
+        grid-row: auto;
+        margin-top: 0;
+        width: 100%;
+        max-width: none;
+        justify-self: stretch;
+    }
+    .GameUniverse-hud-link {
+        max-width: none;
+    }
 }

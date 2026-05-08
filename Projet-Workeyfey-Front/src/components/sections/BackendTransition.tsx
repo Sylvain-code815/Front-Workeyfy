@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import gsap from 'gsap';
@@ -130,14 +130,10 @@ function BrowserPlane({ progressRef }: { progressRef: ProgressRef }) {
         const p = progressRef.current.value;
         const t = clock.elapsedTime;
 
-        // Phase idle : l'application dérive lentement sur x / y avant que tout démarre.
-        meshRef.current.position.x = Math.sin(t * 0.4) * 0.08;
-        meshRef.current.position.y = Math.cos(t * 0.3) * 0.05;
-
-        // Découpage temporel : idle 0 → 0.375 (3s sur 8s), dissolve 0.375 → 1.0 (5s sur 8s).
-        const motion = THREE.MathUtils.smoothstep(p, 0.375, 1.0);
-        meshRef.current.rotation.y = motion * Math.PI * 0.6;
-        meshRef.current.position.z = -motion * 1.6;
+        // L'app dérive smooth pendant l'idle puis se fige avant le dissolve.
+        const idleFactor = 1 - THREE.MathUtils.smoothstep(p, 0.30, 0.42);
+        meshRef.current.position.x = Math.sin(t * 0.4) * 0.08 * idleFactor;
+        meshRef.current.position.y = Math.cos(t * 0.3) * 0.05 * idleFactor;
 
         const dissolve = THREE.MathUtils.clamp((p - 0.375) / 0.625, 0, 1);
         matRef.current.uniforms.uDissolve.value = dissolve * 1.05;
@@ -254,11 +250,15 @@ function DatabaseStacks({ progressRef }: { progressRef: ProgressRef }) {
         return layout;
     }, []);
 
-    useFrame(() => {
+    useFrame(({ clock }) => {
         if (!groupRef.current) return;
         const p = progressRef.current.value;
+        const t = clock.elapsedTime;
         // Dazzle décalé : n'apparaît qu'après le début du dissolve.
         const dazzle = THREE.MathUtils.smoothstep(p, 0.6, 1.0);
+        // Flottement très léger pour combler la suppression du camera shake.
+        groupRef.current.position.y = Math.sin(t * 0.6) * 0.05 * dazzle;
+        groupRef.current.rotation.y = Math.sin(t * 0.25) * 0.04 * dazzle;
         groupRef.current.children.forEach((child) => {
             const mesh = child as THREE.Mesh;
             const m = mesh.material as THREE.MeshBasicMaterial | undefined;
@@ -335,24 +335,6 @@ function DataFlows({ progressRef }: { progressRef: ProgressRef }) {
     );
 }
 
-function CameraShake({ progressRef }: { progressRef: ProgressRef }) {
-    const { camera } = useThree();
-    const basePos = useRef(camera.position.clone());
-
-    useFrame(({ clock }) => {
-        const p = progressRef.current.value;
-        const t = clock.elapsedTime;
-        // Le shake suit le dissolve : nul pendant l'idle (3s), monte sur les 5s d'éboulement.
-        const shake = THREE.MathUtils.clamp((p - 0.375) / 0.625, 0, 1);
-        const intensity = shake * 0.045;
-        camera.position.x = basePos.current.x + Math.sin(t * 8.7) * intensity;
-        camera.position.y =
-            basePos.current.y + Math.cos(t * 7.3) * intensity * 0.7;
-    });
-
-    return null;
-}
-
 function Scene({ progressRef }: { progressRef: ProgressRef }) {
     return (
         <>
@@ -363,7 +345,6 @@ function Scene({ progressRef }: { progressRef: ProgressRef }) {
             <DataFlows progressRef={progressRef} />
             <NetworkNodes progressRef={progressRef} />
             <BrowserPlane progressRef={progressRef} />
-            <CameraShake progressRef={progressRef} />
         </>
     );
 }

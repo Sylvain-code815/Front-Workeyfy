@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { EffectComposer, Bloom } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, DepthOfField } from '@react-three/postprocessing';
+import { SpotLight } from '@react-three/drei';
 import * as THREE from 'three';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
-import Cables from '../canvas/Cables';
+import { createBraidTexture } from '../canvas/cableTexture';
 import { useCanvasFrameloop } from '../../hooks/useCanvasFrameloop';
 import './GameUniverseTransition.css';
 
@@ -19,7 +20,9 @@ const GAME_START = 0.45;
 
 const NODE_ACCENT = '#00E5FF';
 const FLASH_COLOR = '#ffffff';
-const SPARK_COLOR = '#ffe7a8';
+const SPARK_COLOR = '#7ff7ff';
+const CYAN = '#00E5FF';
+const MAGENTA = '#ff2a8a';
 
 function FusionNodes({ progressRef }: { progressRef: ProgressRef }) {
     const groupRef = useRef<THREE.Group>(null);
@@ -165,39 +168,241 @@ function ParticleBurst({ progressRef, count = 200 }: { progressRef: ProgressRef;
     );
 }
 
+type Building = {
+    pos: [number, number, number];
+    size: [number, number, number];
+    tone: number;
+    accent: 'cyan' | 'magenta' | 'dim';
+    seed: number;
+};
+
+function createWindowTexture(seed: number, accent: 'cyan' | 'magenta' | 'dim'): THREE.CanvasTexture {
+    const W = 256;
+    const H = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d')!;
+
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, W, H);
+
+    let s = seed * 9301 + 49297;
+    const rand = () => {
+        s = (s * 9301 + 49297) % 233280;
+        return s / 233280;
+    };
+
+    const cols = 8;
+    const rows = 18;
+    const cw = W / cols;
+    const rh = H / rows;
+    const padX = cw * 0.18;
+    const padY = rh * 0.18;
+
+    const litColor =
+        accent === 'magenta'
+            ? ['rgba(255, 90, 180, 0.95)', 'rgba(255, 130, 200, 0.6)']
+            : accent === 'cyan'
+              ? ['rgba(120, 240, 255, 0.95)', 'rgba(60, 200, 240, 0.55)']
+              : ['rgba(180, 220, 240, 0.45)', 'rgba(120, 160, 200, 0.25)'];
+
+    const litRate = accent === 'dim' ? 0.18 : 0.42;
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const lit = rand() < litRate;
+            ctx.fillStyle = lit ? (rand() > 0.6 ? litColor[0] : litColor[1]) : 'rgba(255,255,255,0.02)';
+            ctx.fillRect(
+                c * cw + padX,
+                r * rh + padY,
+                cw - padX * 2,
+                rh - padY * 2,
+            );
+        }
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.anisotropy = 4;
+    tex.needsUpdate = true;
+    return tex;
+}
+
+function CityCables({ buildings }: { buildings: Building[] }) {
+    const braidTex = useMemo(() => {
+        const t = createBraidTexture();
+        t.repeat.set(2, 24);
+        return t;
+    }, []);
+
+    const material = useMemo(
+        () =>
+            new THREE.MeshStandardMaterial({
+                color: '#000508',
+                emissive: new THREE.Color(CYAN),
+                emissiveIntensity: 1.7,
+                emissiveMap: braidTex,
+                roughness: 0.35,
+                metalness: 0.25,
+                toneMapped: false,
+            }),
+        [braidTex],
+    );
+
+    const curves = useMemo(() => {
+        const result: THREE.CatmullRomCurve3[] = [];
+        let s = 71;
+        const rand = () => {
+            s = (s * 9301 + 49297) % 233280;
+            return s / 233280;
+        };
+
+        // Side spines along the curbs (left & right of road)
+        const makeSpine = (x: number) => {
+            const pts: THREE.Vector3[] = [];
+            for (let z = 4; z >= -44; z -= 2.5) {
+                pts.push(
+                    new THREE.Vector3(
+                        x + (rand() - 0.5) * 0.18,
+                        0.04 + (rand() - 0.5) * 0.02,
+                        z,
+                    ),
+                );
+            }
+            return new THREE.CatmullRomCurve3(pts);
+        };
+        const leftSpine = makeSpine(-2.6);
+        const rightSpine = makeSpine(2.6);
+        result.push(leftSpine, rightSpine);
+
+        // Branch cables: from curb spine up each building facade
+        buildings.forEach((b, i) => {
+            const sideSign = b.pos[0] > 0 ? 1 : -1;
+            const curbX = sideSign * 2.6;
+            const z = b.pos[2];
+            // Facade face that looks toward the street
+            const facadeX = b.pos[0] - sideSign * (b.size[0] / 2 + 0.02);
+            const facadeTopY = Math.min(b.size[1] - 0.4, 0.8 + (i % 5) * 0.55);
+            const climbY = facadeTopY * 0.55;
+
+            const start = new THREE.Vector3(curbX, 0.04, z + 0.1);
+            const sag = new THREE.Vector3(
+                (curbX + facadeX) * 0.5,
+                0.18,
+                z - 0.05,
+            );
+            const wallBase = new THREE.Vector3(facadeX, 0.5, z);
+            const wallMid = new THREE.Vector3(facadeX, climbY, z);
+            const wallTop = new THREE.Vector3(facadeX, facadeTopY, z);
+            result.push(
+                new THREE.CatmullRomCurve3([start, sag, wallBase, wallMid, wallTop]),
+            );
+        });
+
+        // Cross cables (suspended above the street, connecting opposite facades)
+        for (let i = 0; i < buildings.length; i += 4) {
+            const b = buildings[i];
+            if (!b) continue;
+            const z = b.pos[2];
+            const high = 3.2 + (i % 3) * 0.4;
+            const left = new THREE.Vector3(-2.4, 1.2, z);
+            const archA = new THREE.Vector3(-1.0, high, z + 0.15);
+            const archB = new THREE.Vector3(1.0, high, z - 0.15);
+            const right = new THREE.Vector3(2.4, 1.2, z);
+            result.push(new THREE.CatmullRomCurve3([left, archA, archB, right]));
+        }
+
+        return result;
+    }, [buildings]);
+
+    useFrame(({ clock }) => {
+        const t = clock.elapsedTime;
+        material.emissiveIntensity = 1.45 + 0.35 * Math.sin(t * 0.7);
+        if (material.emissiveMap) {
+            material.emissiveMap.offset.y = -t * 0.06;
+        }
+    });
+
+    return (
+        <group>
+            {curves.map((curve, i) => (
+                <mesh key={i} material={material}>
+                    <tubeGeometry args={[curve, 48, 0.04, 6, false]} />
+                </mesh>
+            ))}
+        </group>
+    );
+}
+
+function CityBuildings({ buildings }: { buildings: Building[] }) {
+    const materials = useMemo(() => {
+        return buildings.map((b) => {
+            const tex = createWindowTexture(b.seed, b.accent);
+            return new THREE.MeshStandardMaterial({
+                color: '#0a0e14',
+                emissiveMap: tex,
+                emissive: new THREE.Color('#ffffff'),
+                emissiveIntensity: b.accent === 'dim' ? 0.55 : 1.05,
+                roughness: 0.55,
+                metalness: 0.55,
+                toneMapped: true,
+            });
+        });
+    }, [buildings]);
+
+    useEffect(() => {
+        return () => {
+            materials.forEach((m) => {
+                if (m.emissiveMap) m.emissiveMap.dispose();
+                m.dispose();
+            });
+        };
+    }, [materials]);
+
+    return (
+        <>
+            {buildings.map((b, i) => (
+                <mesh key={i} position={b.pos} material={materials[i]}>
+                    <boxGeometry args={b.size} />
+                </mesh>
+            ))}
+        </>
+    );
+}
+
 function GameCity({ progressRef }: { progressRef: ProgressRef }) {
     const groupRef = useRef<THREE.Group>(null);
 
-    const buildings = useMemo(() => {
+    const buildings = useMemo<Building[]>(() => {
         let seed = 13;
         const rand = () => {
             seed = (seed * 9301 + 49297) % 233280;
             return seed / 233280;
         };
-        const result: { pos: [number, number, number]; size: [number, number, number]; tone: number; emissive: number }[] = [];
+        const result: Building[] = [];
         for (let row = 0; row < 9; row++) {
             for (let side = -1; side <= 1; side += 2) {
-                const x = side * (3 + rand() * 1.4);
+                const x = side * (3.4 + rand() * 1.2);
                 const z = -row * 4.2 - 4;
-                const h = 2.4 + rand() * 5.5;
-                const w = 1.6 + rand() * 0.6;
-                const d = 1.6 + rand() * 0.6;
+                const h = 3.2 + rand() * 5.5;
+                const w = 1.8 + rand() * 0.6;
+                const d = 1.8 + rand() * 0.6;
+                const r = rand();
+                const accent: Building['accent'] =
+                    r < 0.18 ? 'magenta' : r < 0.62 ? 'cyan' : 'dim';
                 result.push({
                     pos: [x, h / 2, z],
                     size: [w, h, d],
-                    tone: 14 + rand() * 18,
-                    emissive: rand() < 0.4 ? 0.15 : 0.04,
+                    tone: 8 + rand() * 6,
+                    accent,
+                    seed: row * 31 + (side + 1) * 7 + Math.floor(rand() * 1000),
                 });
             }
         }
         return result;
     }, []);
-
-    const cablePositions = useMemo<[number, number, number][]>(() => {
-        return buildings
-            .filter((_, i) => i % 2 === 0)
-            .map((b) => [b.pos[0], b.pos[1] + b.size[1] / 2 - 0.1, b.pos[2]]);
-    }, [buildings]);
 
     useFrame(() => {
         if (!groupRef.current) return;
@@ -211,46 +416,96 @@ function GameCity({ progressRef }: { progressRef: ProgressRef }) {
 
     return (
         <group ref={groupRef}>
+            {/* Cool moonlight from above — no ambient, very subtle */}
             <directionalLight
-                position={[12, 8, -8]}
-                intensity={2.2}
-                color="#ffaa55"
+                position={[8, 18, 6]}
+                intensity={0.35}
+                color="#5a78b8"
             />
-            <ambientLight intensity={0.18} color="#ff8855" />
+            <hemisphereLight
+                args={['#1a2840', '#040608', 0.12]}
+            />
 
-            {buildings.map((b, i) => (
-                <mesh key={i} position={b.pos}>
-                    <boxGeometry args={b.size} />
-                    <meshStandardMaterial
-                        color={`hsl(${20 + (i % 8) * 4}, 32%, ${b.tone}%)`}
-                        emissive="#ff7a3c"
-                        emissiveIntensity={b.emissive}
-                        roughness={0.7}
-                        metalness={0.15}
-                    />
-                </mesh>
-            ))}
+            {/* Cyan volumetric god ray cutting from upper-left */}
+            <SpotLight
+                position={[-7, 14, -10]}
+                target-position={[-1, 2, -16]}
+                color={CYAN}
+                intensity={70}
+                angle={0.42}
+                penumbra={0.55}
+                distance={42}
+                attenuation={6}
+                anglePower={5}
+                opacity={0.55}
+                radiusTop={0.12}
+                radiusBottom={1.4}
+                volumetric
+            />
 
+            {/* Magenta volumetric god ray from upper-right */}
+            <SpotLight
+                position={[7, 13, -22]}
+                target-position={[1, 1.5, -28]}
+                color={MAGENTA}
+                intensity={60}
+                angle={0.4}
+                penumbra={0.6}
+                distance={42}
+                attenuation={6}
+                anglePower={5}
+                opacity={0.5}
+                radiusTop={0.12}
+                radiusBottom={1.4}
+                volumetric
+            />
+
+            {/* Cyan accent down the central corridor */}
+            <SpotLight
+                position={[0, 9, -34]}
+                target-position={[0, 0.3, -8]}
+                color={CYAN}
+                intensity={55}
+                angle={0.32}
+                penumbra={0.7}
+                distance={44}
+                attenuation={6}
+                anglePower={5}
+                opacity={0.32}
+                radiusTop={0.06}
+                radiusBottom={0.6}
+                volumetric
+            />
+
+            <CityBuildings buildings={buildings} />
+
+            {/* Wet asphalt road */}
             <mesh position={[0, 0, -18]} rotation={[-Math.PI / 2, 0, 0]}>
                 <planeGeometry args={[7, 50]} />
                 <meshStandardMaterial
-                    color="#1a1410"
-                    roughness={0.95}
+                    color="#04080c"
+                    roughness={0.32}
+                    metalness={0.55}
                 />
             </mesh>
 
-            <mesh position={[0, 0.01, -18]} rotation={[-Math.PI / 2, 0, 0]}>
-                <planeGeometry args={[0.18, 50]} />
-                <meshBasicMaterial color="#ffcc77" toneMapped={false} />
+            {/* Glowing center line */}
+            <mesh position={[0, 0.011, -18]} rotation={[-Math.PI / 2, 0, 0]}>
+                <planeGeometry args={[0.14, 50]} />
+                <meshBasicMaterial color={CYAN} toneMapped={false} />
             </mesh>
 
-            <Cables
-                pcPositions={cablePositions}
-                linksPerPc={1}
-                linksToHero={0}
-                radius={0.04}
-                color="#ffaa66"
-            />
+            {/* Side curb glow strips */}
+            <mesh position={[-3.32, 0.011, -18]} rotation={[-Math.PI / 2, 0, 0]}>
+                <planeGeometry args={[0.06, 50]} />
+                <meshBasicMaterial color={CYAN} toneMapped={false} />
+            </mesh>
+            <mesh position={[3.32, 0.011, -18]} rotation={[-Math.PI / 2, 0, 0]}>
+                <planeGeometry args={[0.06, 50]} />
+                <meshBasicMaterial color={MAGENTA} toneMapped={false} />
+            </mesh>
+
+            <CityCables buildings={buildings} />
         </group>
     );
 }
@@ -294,8 +549,8 @@ function PushForwardCamera({ progressRef }: { progressRef: ProgressRef }) {
 function Scene({ progressRef }: { progressRef: ProgressRef }) {
     return (
         <>
-            <color attach="background" args={['#000000']} />
-            <fog attach="fog" args={['#1a0d08', 6, 32]} />
+            <color attach="background" args={['#02050a']} />
+            <fog attach="fog" args={['#040a14', 7, 36]} />
             <PushForwardCamera progressRef={progressRef} />
             <FusionNodes progressRef={progressRef} />
             <CoreFlash progressRef={progressRef} />
@@ -304,11 +559,17 @@ function Scene({ progressRef }: { progressRef: ProgressRef }) {
 
             <EffectComposer multisampling={0} enableNormalPass={false}>
                 <Bloom
-                    intensity={1.6}
-                    luminanceThreshold={0.18}
+                    intensity={1.55}
+                    luminanceThreshold={0.16}
                     luminanceSmoothing={0.9}
                     mipmapBlur
-                    height={240}
+                    height={300}
+                />
+                <DepthOfField
+                    focusDistance={0.012}
+                    focalLength={0.045}
+                    bokehScale={3.2}
+                    height={360}
                 />
             </EffectComposer>
         </>
@@ -319,6 +580,7 @@ export default function GameUniverseTransition() {
     const sectionRef = useRef<HTMLElement>(null);
     const titleRef = useRef<HTMLHeadingElement>(null);
     const techListRef = useRef<HTMLUListElement>(null);
+    const overlayRef = useRef<HTMLDivElement>(null);
     const hudRef = useRef<HTMLDivElement>(null);
     const progressRef = useRef<{ value: number }>({ value: 0 });
     const frameloop = useCanvasFrameloop(sectionRef);
@@ -348,6 +610,17 @@ export default function GameUniverseTransition() {
                     ease: 'power2.out',
                 },
                 5.5,
+            );
+
+            tl.fromTo(
+                overlayRef.current,
+                { opacity: 0 },
+                {
+                    opacity: 1,
+                    duration: 0.9,
+                    ease: 'power2.out',
+                },
+                6.0,
             );
 
             tl.fromTo(
@@ -403,46 +676,102 @@ export default function GameUniverseTransition() {
                 </Canvas>
 
                 <div ref={hudRef} className="GameUniverse-hud" aria-hidden="true">
-                    <div className="GameUniverse-hud-panel GameUniverse-hud-status">
-                        <h4>Status</h4>
-                        <div className="GameUniverse-hud-row">
-                            <span className="GameUniverse-hud-label">HP</span>
-                            <div className="GameUniverse-hud-bar"><span style={{ width: '78%' }} /></div>
-                        </div>
-                        <div className="GameUniverse-hud-row">
-                            <span className="GameUniverse-hud-label">PWR</span>
-                            <div className="GameUniverse-hud-bar GameUniverse-hud-bar--alt"><span style={{ width: '92%' }} /></div>
-                        </div>
-                    </div>
-
                     <div className="GameUniverse-hud-panel GameUniverse-hud-server">
-                        <h4>Server</h4>
-                        <p className="GameUniverse-hud-mono">workify-fivem-01</p>
-                        <p className="GameUniverse-hud-mono GameUniverse-hud-dim">128 / 256 players</p>
-                        <p className="GameUniverse-hud-mono GameUniverse-hud-dim">ping 12ms · v3.4.1</p>
+                        <div className="GameUniverse-hud-panel-head">
+                            <span className="GameUniverse-hud-dot" />
+                            <h4>Server Status</h4>
+                        </div>
+                        <ul className="GameUniverse-hud-kv">
+                            <li>
+                                <span className="GameUniverse-hud-key">FiveM Connection</span>
+                                <span className="GameUniverse-hud-val GameUniverse-hud-val--ok">Stable</span>
+                            </li>
+                            <li>
+                                <span className="GameUniverse-hud-key">Tickrate</span>
+                                <span className="GameUniverse-hud-val">128 Hz</span>
+                            </li>
+                            <li>
+                                <span className="GameUniverse-hud-key">Players</span>
+                                <span className="GameUniverse-hud-val">128 / 256</span>
+                            </li>
+                            <li>
+                                <span className="GameUniverse-hud-key">Build</span>
+                                <span className="GameUniverse-hud-val">workify-fivem · v3.4.1</span>
+                            </li>
+                        </ul>
                     </div>
 
-                    <div className="GameUniverse-hud-panel GameUniverse-hud-inventory">
-                        <h4>Inventory</h4>
-                        <div className="GameUniverse-hud-grid">
-                            {Array.from({ length: 6 }).map((_, i) => (
-                                <div key={i} className="GameUniverse-hud-slot">
-                                    <span className="GameUniverse-hud-slot-tag">{i + 1}</span>
-                                </div>
-                            ))}
+                    <div className="GameUniverse-hud-panel GameUniverse-hud-link">
+                        <div className="GameUniverse-hud-panel-head">
+                            <span className="GameUniverse-hud-dot GameUniverse-hud-dot--magenta" />
+                            <h4>Connection</h4>
                         </div>
+                        <div className="GameUniverse-hud-metric">
+                            <span className="GameUniverse-hud-key">Latency</span>
+                            <span className="GameUniverse-hud-mono">12 ms</span>
+                            <div className="GameUniverse-hud-bar"><span style={{ width: '14%' }} /></div>
+                        </div>
+                        <div className="GameUniverse-hud-metric">
+                            <span className="GameUniverse-hud-key">Frame time</span>
+                            <span className="GameUniverse-hud-mono">7.8 ms</span>
+                            <div className="GameUniverse-hud-bar"><span style={{ width: '38%' }} /></div>
+                        </div>
+                        <div className="GameUniverse-hud-metric">
+                            <span className="GameUniverse-hud-key">Packet loss</span>
+                            <span className="GameUniverse-hud-mono">0.02 %</span>
+                            <div className="GameUniverse-hud-bar GameUniverse-hud-bar--alt"><span style={{ width: '4%' }} /></div>
+                        </div>
+                    </div>
+
+                    <div className="GameUniverse-hud-panel GameUniverse-hud-queue">
+                        <div className="GameUniverse-hud-panel-head">
+                            <span className="GameUniverse-hud-dot" />
+                            <h4>Modding Queue</h4>
+                            <span className="GameUniverse-hud-tag">/scripts</span>
+                        </div>
+                        <ul className="GameUniverse-hud-queue-list">
+                            <li>
+                                <span className="GameUniverse-hud-script">
+                                    <span className="GameUniverse-hud-script-lang">lua</span>
+                                    <span>core/inventory.lua</span>
+                                </span>
+                                <span className="GameUniverse-hud-status GameUniverse-hud-status--ok">running</span>
+                            </li>
+                            <li>
+                                <span className="GameUniverse-hud-script">
+                                    <span className="GameUniverse-hud-script-lang GameUniverse-hud-script-lang--ts">ts</span>
+                                    <span>nui/hud.tsx</span>
+                                </span>
+                                <span className="GameUniverse-hud-status GameUniverse-hud-status--ok">running</span>
+                            </li>
+                            <li>
+                                <span className="GameUniverse-hud-script">
+                                    <span className="GameUniverse-hud-script-lang">lua</span>
+                                    <span>esx_jobs/dispatch.lua</span>
+                                </span>
+                                <span className="GameUniverse-hud-status">build 84%</span>
+                            </li>
+                            <li>
+                                <span className="GameUniverse-hud-script">
+                                    <span className="GameUniverse-hud-script-lang GameUniverse-hud-script-lang--ts">ts</span>
+                                    <span>shared/protocol.ts</span>
+                                </span>
+                                <span className="GameUniverse-hud-status GameUniverse-hud-status--queue">queued</span>
+                            </li>
+                        </ul>
                     </div>
                 </div>
 
-                <div className="GameUniverse-overlay">
+                <div ref={overlayRef} className="GameUniverse-overlay">
+                    <span className="GameUniverse-overlay-eyebrow">// metaverse · build pipeline</span>
                     <h2 ref={titleRef} className="GameUniverse-title">
-                        Univers gaming sur-mesure
+                        Metaverse Modding Framework
                     </h2>
                     <ul ref={techListRef} className="GameUniverse-tech">
                         <li>Lua</li>
                         <li>TypeScript</li>
-                        <li>Modding</li>
-                        <li>Interfaces in-game</li>
+                        <li>FiveM</li>
+                        <li>NUI</li>
                     </ul>
                 </div>
             </div>

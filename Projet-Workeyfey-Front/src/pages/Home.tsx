@@ -25,7 +25,31 @@ export default function Home() {
 
     useEffect(() => {
         document.documentElement.classList.add('Home-snap');
-        return () => document.documentElement.classList.remove('Home-snap');
+
+        let ticking = false;
+        const update = () => {
+            ticking = false;
+            const lastScene = document.querySelector('.ProjectDeployed');
+            if (!lastScene) return;
+            const rect = lastScene.getBoundingClientRect();
+            if (rect.top <= 0) {
+                document.documentElement.classList.remove('Home-snap');
+            } else {
+                document.documentElement.classList.add('Home-snap');
+            }
+        };
+        const onScroll = () => {
+            if (ticking) return;
+            ticking = true;
+            requestAnimationFrame(update);
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        update();
+
+        return () => {
+            window.removeEventListener('scroll', onScroll);
+            document.documentElement.classList.remove('Home-snap');
+        };
     }, []);
 
     useEffect(() => {

@@ -1,41 +1,69 @@
+/*
+ * No more glass card — title and CTA project directly onto the 3D screen
+ * texture. The container is fully transparent. Visual depth comes from the
+ * cyberpunk grid behind, not from a CSS card.
+ */
+
 .Scene-screen {
     width: 100%;
-    padding: 32px 28px;
-    background: rgba(var(--color-black-rgb), 0.85);
-    color: var(--color-white);
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    color: #FAFAFA;
     font-family: var(--font-family-base);
     text-align: center;
-    border-radius: 8px;
     user-select: none;
 }
 
 .Scene-screen-tagline {
     margin: 0 0 28px;
-    font-size: 28px;
+    font-size: 34px;
     font-weight: 700;
-    line-height: 1.2;
-    opacity: 0.87;
-}
-
-.Scene-screen-secondary {
-    opacity: 0.6;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    opacity: 0.92;
+    color: #FAFAFA;
+    text-shadow:
+        0 0 12px rgba(0, 229, 255, 0.45),
+        0 0 28px rgba(0, 229, 255, 0.20),
+        0 0 1px rgba(255, 255, 255, 0.6);
 }
 
 .Scene-screen-cta {
-    padding: 14px 28px;
-    background: var(--color-black);
-    color: var(--color-white);
+    padding: 14px 34px;
+    background: transparent;
+    color: #00E5FF;
     font-family: var(--font-family-base);
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.20em;
     text-transform: uppercase;
-    border: none;
+    border: 2px solid #00E5FF;
     border-radius: 999px;
     cursor: pointer;
-    transition: transform 200ms ease;
+    text-shadow:
+        0 0 8px rgba(0, 229, 255, 0.85),
+        0 0 18px rgba(0, 229, 255, 0.55),
+        0 0 36px rgba(0, 229, 255, 0.25);
+    box-shadow:
+        0 0 12px rgba(0, 229, 255, 0.30),
+        inset 0 0 12px rgba(0, 229, 255, 0.12);
+    transition:
+        transform 200ms ease,
+        box-shadow 200ms ease,
+        background 200ms ease;
 }
 
 .Scene-screen-cta:hover {
-    transform: translateY(-2px);
+    transform: translateY(-2px) scale(1.03);
+    background: rgba(0, 229, 255, 0.08);
+    box-shadow:
+        0 0 22px rgba(0, 229, 255, 0.55),
+        inset 0 0 18px rgba(0, 229, 255, 0.22);
+}
+
+.Scene-screen-cta:focus-visible {
+    outline: 2px solid #00E5FF;
+    outline-offset: 4px;
 }

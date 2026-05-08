@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import type { JSX } from 'react';
 import * as THREE from 'three';
 import type { GLTF } from 'three-stdlib';
-import { createScreenTexture } from './screenTexture';
+import { createCentralSchemaTexture } from './schemaTexture';
 
 type OldComputerGLTF = GLTF & {
     nodes: {
@@ -18,13 +18,22 @@ type OldComputerGLTF = GLTF & {
 
 const TARGET_HEIGHT = 1.0;
 
-const screenTexture = createScreenTexture();
-const screenMaterial = new THREE.MeshBasicMaterial({
-    map: screenTexture,
-    toneMapped: true,
+const schemaTexture = createCentralSchemaTexture();
+const defaultScreenMaterial = new THREE.MeshStandardMaterial({
+    color: '#000810',
+    emissive: new THREE.Color('#00E5FF'),
+    emissiveMap: schemaTexture,
+    emissiveIntensity: 1.4,
+    roughness: 0.6,
+    metalness: 0.1,
+    toneMapped: false,
 });
 
-export default function OldComputer(props: JSX.IntrinsicElements['group']) {
+type OldComputerProps = JSX.IntrinsicElements['group'] & {
+    screenMaterial?: THREE.Material;
+};
+
+export default function OldComputer({ screenMaterial, ...props }: OldComputerProps) {
     const gltf = useGLTF('/old_computer.glb') as unknown as OldComputerGLTF;
     const { nodes, materials, scene } = gltf;
 
@@ -45,6 +54,8 @@ export default function OldComputer(props: JSX.IntrinsicElements['group']) {
         };
     }, [scene]);
 
+    const activeScreenMaterial = screenMaterial ?? defaultScreenMaterial;
+
     return (
         <group {...props}>
             <group scale={fitScale} position={offset}>
@@ -56,7 +67,7 @@ export default function OldComputer(props: JSX.IntrinsicElements['group']) {
                         />
                         <mesh
                             geometry={nodes.Old_Computer_Glass_0.geometry}
-                            material={screenMaterial}
+                            material={activeScreenMaterial}
                         />
                     </group>
                 </group>
