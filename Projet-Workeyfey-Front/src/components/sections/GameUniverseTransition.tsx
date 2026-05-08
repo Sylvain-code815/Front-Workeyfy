@@ -327,63 +327,60 @@ export default function GameUniverseTransition() {
         const el = sectionRef.current;
         if (!el) return;
         const ctx = gsap.context(() => {
-            gsap.to(progressRef.current, {
-                value: 1,
-                ease: 'none',
-                scrollTrigger: {
-                    trigger: el,
-                    start: 'top top',
-                    end: 'bottom bottom',
-                    scrub: true,
-                },
-            });
+            const tl = gsap.timeline({ paused: true });
 
-            gsap.fromTo(
+            tl.to(
+                progressRef.current,
+                {
+                    value: 1,
+                    duration: 10,
+                    ease: 'none',
+                },
+                0,
+            );
+
+            tl.fromTo(
+                hudRef.current,
+                { opacity: 0 },
+                {
+                    opacity: 1,
+                    duration: 0.9,
+                    ease: 'power2.out',
+                },
+                5.5,
+            );
+
+            tl.fromTo(
                 titleRef.current,
                 { opacity: 0, y: 30 },
                 {
                     opacity: 0.87,
                     y: 0,
-                    ease: 'none',
-                    scrollTrigger: {
-                        trigger: el,
-                        start: '60% top',
-                        end: '85% top',
-                        scrub: true,
-                    },
+                    duration: 1.1,
+                    ease: 'power2.out',
                 },
+                6.1,
             );
 
-            gsap.fromTo(
+            tl.fromTo(
                 techListRef.current,
                 { opacity: 0, y: 20 },
                 {
                     opacity: 0.6,
                     y: 0,
-                    ease: 'none',
-                    scrollTrigger: {
-                        trigger: el,
-                        start: '70% top',
-                        end: '95% top',
-                        scrub: true,
-                    },
+                    duration: 1.1,
+                    ease: 'power2.out',
                 },
+                6.9,
             );
 
-            gsap.fromTo(
-                hudRef.current,
-                { opacity: 0 },
-                {
-                    opacity: 1,
-                    ease: 'none',
-                    scrollTrigger: {
-                        trigger: el,
-                        start: '55% top',
-                        end: '75% top',
-                        scrub: true,
-                    },
-                },
-            );
+            ScrollTrigger.create({
+                trigger: el,
+                start: 'top 80%',
+                end: 'bottom 20%',
+                animation: tl,
+                toggleActions: 'play none none reverse',
+            });
         }, el);
         return () => ctx.revert();
     }, []);

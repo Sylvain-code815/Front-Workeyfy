@@ -24,6 +24,7 @@ const VERTEX = /* glsl */ `
 const FRAGMENT = /* glsl */ `
     uniform sampler2D uMap;
     uniform float uDissolve;
+    uniform float uBrightness;
     uniform vec3 uGlowColor;
     varying vec2 vUv;
 
@@ -40,6 +41,8 @@ const FRAGMENT = /* glsl */ `
 
     void main() {
         vec4 color = texture2D(uMap, vUv);
+        // Dimme la texture pendant la phase idle pour rester sous le seuil de bloom.
+        vec3 base = color.rgb * uBrightness;
         float n = noise(vUv * 14.0);
 
         // Wireframe grid emerging in dissolved zones
@@ -56,7 +59,7 @@ const FRAGMENT = /* glsl */ `
 
         // Glowing edge band on the dissolve front
         float edge = 1.0 - smoothstep(0.0, 0.06, n - uDissolve);
-        vec3 final = mix(color.rgb, uGlowColor * 2.5, edge);
+        vec3 final = mix(base, uGlowColor * 2.5, edge);
 
         gl_FragColor = vec4(final, 1.0);
     }
@@ -116,21 +119,33 @@ function BrowserPlane({ progressRef }: { progressRef: ProgressRef }) {
         () => ({
             uMap: { value: texture },
             uDissolve: { value: 0 },
+            uBrightness: { value: 0.32 },
             uGlowColor: { value: new THREE.Color(ACCENT) },
         }),
         [texture]
     );
 
-    useFrame(() => {
+    useFrame(({ clock }) => {
         if (!meshRef.current || !matRef.current) return;
         const p = progressRef.current.value;
-        meshRef.current.rotation.y = p * Math.PI * 0.6;
-        meshRef.current.position.z = -p * 1.6;
-        matRef.current.uniforms.uDissolve.value = THREE.MathUtils.clamp(
-            p * 1.05,
-            0,
-            1.05
-        );
+        const t = clock.elapsedTime;
+
+        // Phase idle : l'application dérive lentement sur x / y avant que tout démarre.
+        meshRef.current.position.x = Math.sin(t * 0.4) * 0.08;
+        meshRef.current.position.y = Math.cos(t * 0.3) * 0.05;
+
+        // Découpage temporel : idle 0 → 0.375 (3s sur 8s), dissolve 0.375 → 1.0 (5s sur 8s).
+        const motion = THREE.MathUtils.smoothstep(p, 0.375, 1.0);
+        meshRef.current.rotation.y = motion * Math.PI * 0.6;
+        meshRef.current.position.z = -motion * 1.6;
+
+        const dissolve = THREE.MathUtils.clamp((p - 0.375) / 0.625, 0, 1);
+        matRef.current.uniforms.uDissolve.value = dissolve * 1.05;
+
+        // Brightness : sombre pendant l'idle (sous le seuil de bloom),
+        // ramp sur la fenêtre du dissolve pour donner l'éblouissement.
+        const brightness = THREE.MathUtils.lerp(0.32, 1.4, dissolve);
+        matRef.current.uniforms.uBrightness.value = brightness;
     });
 
     return (
@@ -187,11 +202,13 @@ function NetworkNodes({ progressRef }: { progressRef: ProgressRef }) {
         groupRef.current.rotation.y += delta * 0.05;
 
         const pulse = 0.7 + Math.sin(clock.elapsedTime * 2.4) * 0.3;
+        // Dazzle décalé : n'apparaît que dans la deuxième moitié du dissolve.
+        const dazzle = THREE.MathUtils.smoothstep(p, 0.6, 1.0);
         if (sphereMatRef.current) {
-            sphereMatRef.current.opacity = THREE.MathUtils.clamp(p * 1.4, 0, 1) * pulse;
+            sphereMatRef.current.opacity = dazzle * pulse;
         }
         if (lineMatRef.current) {
-            lineMatRef.current.opacity = THREE.MathUtils.clamp(p * 1.2, 0, 1) * 0.5;
+            lineMatRef.current.opacity = dazzle * 0.5;
         }
     });
 
@@ -240,10 +257,12 @@ function DatabaseStacks({ progressRef }: { progressRef: ProgressRef }) {
     useFrame(() => {
         if (!groupRef.current) return;
         const p = progressRef.current.value;
+        // Dazzle décalé : n'apparaît qu'après le début du dissolve.
+        const dazzle = THREE.MathUtils.smoothstep(p, 0.6, 1.0);
         groupRef.current.children.forEach((child) => {
             const mesh = child as THREE.Mesh;
             const m = mesh.material as THREE.MeshBasicMaterial | undefined;
-            if (m) m.opacity = p * 0.55;
+            if (m) m.opacity = dazzle * 0.55;
         });
     });
 
@@ -289,11 +308,13 @@ function DataFlows({ progressRef }: { progressRef: ProgressRef }) {
         if (!groupRef.current) return;
         const p = progressRef.current.value;
         const t = clock.elapsedTime;
+        // Dazzle décalé : n'apparaît qu'après le début du dissolve.
+        const dazzle = THREE.MathUtils.smoothstep(p, 0.6, 1.0);
         groupRef.current.children.forEach((child, i) => {
             child.position.y = Math.sin(t * 0.9 + i * 0.7) * 0.4;
             const mesh = child as THREE.Mesh;
             const m = mesh.material as THREE.MeshBasicMaterial | undefined;
-            if (m) m.opacity = p * 0.85;
+            if (m) m.opacity = dazzle * 0.85;
         });
     });
 
@@ -321,7 +342,9 @@ function CameraShake({ progressRef }: { progressRef: ProgressRef }) {
     useFrame(({ clock }) => {
         const p = progressRef.current.value;
         const t = clock.elapsedTime;
-        const intensity = p * 0.045;
+        // Le shake suit le dissolve : nul pendant l'idle (3s), monte sur les 5s d'éboulement.
+        const shake = THREE.MathUtils.clamp((p - 0.375) / 0.625, 0, 1);
+        const intensity = shake * 0.045;
         camera.position.x = basePos.current.x + Math.sin(t * 8.7) * intensity;
         camera.position.y =
             basePos.current.y + Math.cos(t * 7.3) * intensity * 0.7;
@@ -357,48 +380,50 @@ export default function BackendTransition() {
         if (!el) return;
 
         const ctx = gsap.context(() => {
-            gsap.to(progressRef.current, {
-                value: 1,
-                ease: 'none',
-                scrollTrigger: {
-                    trigger: el,
-                    start: 'top top',
-                    end: 'bottom bottom',
-                    scrub: true,
-                },
-            });
+            const tl = gsap.timeline({ paused: true });
 
-            gsap.fromTo(
+            // Timeline totale : 3s d'idle (app dérive sur x/y) + 5s de désintégration = 8s.
+            tl.to(
+                progressRef.current,
+                {
+                    value: 1,
+                    duration: 8,
+                    ease: 'none',
+                },
+                0,
+            );
+
+            tl.fromTo(
                 titleRef.current,
                 { opacity: 0, y: 28 },
                 {
                     opacity: 0.87,
                     y: 0,
-                    ease: 'none',
-                    scrollTrigger: {
-                        trigger: el,
-                        start: 'top top',
-                        end: '40% top',
-                        scrub: true,
-                    },
-                }
+                    duration: 1.0,
+                    ease: 'power2.out',
+                },
+                0.4,
             );
 
-            gsap.fromTo(
+            tl.fromTo(
                 detailsRef.current,
                 { opacity: 0, y: 28 },
                 {
                     opacity: 0.6,
                     y: 0,
-                    ease: 'none',
-                    scrollTrigger: {
-                        trigger: el,
-                        start: '15% top',
-                        end: '50% top',
-                        scrub: true,
-                    },
-                }
+                    duration: 1.0,
+                    ease: 'power2.out',
+                },
+                1.4,
             );
+
+            ScrollTrigger.create({
+                trigger: el,
+                start: 'top 80%',
+                end: 'bottom 20%',
+                animation: tl,
+                toggleActions: 'play none none reverse',
+            });
         }, el);
 
         return () => ctx.revert();

@@ -1,16 +1,17 @@
 .GameUniverse {
     position: relative;
-    height: 400vh;
+    height: 100vh;
     background: #000;
     color: var(--color-white, #ffffff);
+    overflow: hidden;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
 }
 
 .GameUniverse-sticky {
-    position: sticky;
-    top: 0;
-    height: 100vh;
+    position: relative;
+    height: 100%;
     width: 100%;
-    overflow: hidden;
 }
 
 .GameUniverse-canvas {

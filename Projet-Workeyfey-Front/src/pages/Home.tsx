@@ -24,20 +24,84 @@ export default function Home() {
     }, [setTheme]);
 
     useEffect(() => {
+        document.documentElement.classList.add('Home-snap');
+        return () => document.documentElement.classList.remove('Home-snap');
+    }, []);
+
+    useEffect(() => {
         const el = heroRef.current;
         if (!el) return;
+
         const ctx = gsap.context(() => {
-            gsap.to(sceneProgressRef.current, {
-                value: 1,
-                ease: 'none',
-                scrollTrigger: {
-                    trigger: el,
-                    start: 'top top',
-                    end: 'bottom bottom',
-                    scrub: true,
+            const tween = gsap.fromTo(
+                sceneProgressRef.current,
+                { value: 0 },
+                {
+                    value: 1,
+                    duration: 2.4,
+                    ease: 'power2.inOut',
+                    paused: true,
+                },
+            );
+
+            let played = window.scrollY > 10;
+            if (played) tween.progress(1);
+
+            let touchStartY = 0;
+
+            const trigger = () => {
+                if (played) return;
+                played = true;
+                tween.restart();
+                removeListeners();
+            };
+
+            const onWheel = (e: WheelEvent) => {
+                if (played) return;
+                if (e.deltaY > 0 && window.scrollY < 10) {
+                    e.preventDefault();
+                    trigger();
+                }
+            };
+
+            const onTouchStart = (e: TouchEvent) => {
+                touchStartY = e.touches[0]?.clientY ?? 0;
+            };
+
+            const onTouchMove = (e: TouchEvent) => {
+                if (played) return;
+                const dy = touchStartY - (e.touches[0]?.clientY ?? 0);
+                if (dy > 5 && window.scrollY < 10) {
+                    e.preventDefault();
+                    trigger();
+                }
+            };
+
+            const onHeroStart = () => trigger();
+
+            const removeListeners = () => {
+                window.removeEventListener('wheel', onWheel);
+                window.removeEventListener('touchstart', onTouchStart);
+                window.removeEventListener('touchmove', onTouchMove);
+                window.removeEventListener('hero-start', onHeroStart);
+            };
+
+            window.addEventListener('wheel', onWheel, { passive: false });
+            window.addEventListener('touchstart', onTouchStart, { passive: true });
+            window.addEventListener('touchmove', onTouchMove, { passive: false });
+            window.addEventListener('hero-start', onHeroStart);
+
+            ScrollTrigger.create({
+                trigger: el,
+                start: 'top center',
+                onEnterBack: () => {
+                    tween.restart();
                 },
             });
+
+            return () => removeListeners();
         }, el);
+
         return () => ctx.revert();
     }, []);
 

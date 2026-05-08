@@ -143,7 +143,7 @@ export default function Scene({ progressRef }: SceneProps) {
         );
 
         if (screenRef.current) {
-            const fade = THREE.MathUtils.clamp(1 - t / 0.18, 0, 1);
+            const fade = 1 - THREE.MathUtils.smoothstep(t, 0.55, 0.95);
             screenRef.current.style.opacity = String(fade);
             screenRef.current.style.pointerEvents = fade > 0.5 ? 'auto' : 'none';
         }
@@ -155,10 +155,7 @@ export default function Scene({ progressRef }: SceneProps) {
     );
 
     const handleStartClick = () => {
-        window.scrollTo({
-            top: window.innerHeight * 2,
-            behavior: 'smooth',
-        });
+        window.dispatchEvent(new Event('hero-start'));
     };
 
     return (

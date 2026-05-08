@@ -273,14 +273,44 @@ export default function Projects() {
                         className="ProjectsBack-view ProjectsBack-view--front"
                         aria-hidden={section1View !== 'front'}
                     >
-                        <iframe
-                            key={currentSlide.id}
-                            src={currentSlide.frontUrl}
-                            className="ProjectsBack-iframe"
-                            title={`Portfolio ${currentSlide.id}`}
-                            loading="lazy"
-                            referrerPolicy="no-referrer"
-                        />
+                        <div className="ProjectsBack-stage3d">
+                            {memberSlides.map((slide, i) => {
+                                const total = memberSlides.length;
+                                const half = Math.floor(total / 2);
+                                let offset = i - slideIndex;
+                                if (offset > half) offset -= total;
+                                if (offset < -half) offset += total;
+
+                                const role: 'active' | 'prev' | 'next' | 'hidden' =
+                                    offset === 0
+                                        ? 'active'
+                                        : offset === -1
+                                          ? 'prev'
+                                          : offset === 1
+                                            ? 'next'
+                                            : 'hidden';
+
+                                return (
+                                    <div
+                                        key={slide.id}
+                                        className={`ProjectsBack-slotPos ProjectsBack-slotPos--${role}`}
+                                    >
+                                        <div
+                                            className={`ProjectsBack-slot ProjectsBack-slot--${role}`}
+                                        >
+                                            <iframe
+                                                src={slide.frontUrl}
+                                                className="ProjectsBack-iframe"
+                                                title={`Portfolio ${slide.id}`}
+                                                loading="lazy"
+                                                referrerPolicy="no-referrer"
+                                                tabIndex={role === 'active' ? 0 : -1}
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
 

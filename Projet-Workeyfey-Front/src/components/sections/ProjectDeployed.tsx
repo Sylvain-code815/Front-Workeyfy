@@ -114,64 +114,61 @@ export default function ProjectDeployed() {
         if (!el) return;
 
         const ctx = gsap.context(() => {
-            gsap.to(progressRef.current, {
-                value: 1,
-                ease: 'none',
-                scrollTrigger: {
-                    trigger: el,
-                    start: 'top top',
-                    end: 'bottom bottom',
-                    scrub: true,
-                },
-            });
+            const tl = gsap.timeline({ paused: true });
 
-            gsap.fromTo(
+            tl.to(
+                progressRef.current,
+                {
+                    value: 1,
+                    duration: 2.8,
+                    ease: 'none',
+                },
+                0,
+            );
+
+            tl.fromTo(
                 screenRef.current,
                 { opacity: 0, scale: 0.7 },
                 {
                     opacity: 1,
                     scale: 1,
+                    duration: 0.8,
                     ease: 'power4.out',
-                    scrollTrigger: {
-                        trigger: el,
-                        start: '40% top',
-                        end: '65% top',
-                        scrub: true,
-                    },
                 },
+                1.1,
             );
 
-            gsap.fromTo(
+            tl.fromTo(
                 titleRef.current,
                 { opacity: 0, y: 24 },
                 {
                     opacity: 1,
                     y: 0,
-                    ease: 'none',
-                    scrollTrigger: {
-                        trigger: el,
-                        start: '60% top',
-                        end: '82% top',
-                        scrub: true,
-                    },
+                    duration: 0.8,
+                    ease: 'power2.out',
                 },
+                1.7,
             );
 
-            gsap.fromTo(
+            tl.fromTo(
                 ctaRef.current,
                 { opacity: 0, y: 24 },
                 {
                     opacity: 1,
                     y: 0,
-                    ease: 'none',
-                    scrollTrigger: {
-                        trigger: el,
-                        start: '72% top',
-                        end: '92% top',
-                        scrub: true,
-                    },
+                    duration: 0.8,
+                    ease: 'power2.out',
                 },
+                2.1,
             );
+
+            ScrollTrigger.create({
+                trigger: el,
+                start: 'top 80%',
+                end: 'bottom 20%',
+                animation: tl,
+                toggleActions: 'play none none reverse',
+            });
         }, el);
 
         return () => ctx.revert();
