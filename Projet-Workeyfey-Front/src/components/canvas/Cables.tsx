@@ -57,16 +57,16 @@ export default function Cables({
         const mat = new THREE.MeshStandardMaterial({
             map: cableTextures.diffuse,
             normalMap: cableTextures.normal,
-            // Relief discret : suggéré, plus de pixel crawl sur le tressage.
             normalScale: new THREE.Vector2(0.5, 0.5),
             roughnessMap: cableTextures.rough,
-            // Roughness élevée : casse les hautes fréquences qui scintillent.
-            roughness: 0.6,
+            // Roughness 0.3 : les câbles "sparklent" sous la mouse light,
+            // contraste avec le desk plus mat à 0.7.
+            roughness: 0.3,
             metalness: 0.6,
             emissive: new THREE.Color(color),
             emissiveMap: cableTextures.diffuse,
-            // Emissive quasi-nul : c'est la PointLight inspecteur (Scene.tsx)
-            // qui doit révéler le relief en balayant le câble.
+            // Emissive quasi-nul : c'est la mouse light qui doit révéler
+            // le tressage en balayant le câble.
             emissiveIntensity: 0.05,
             toneMapped: false,
         });

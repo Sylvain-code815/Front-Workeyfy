@@ -83,7 +83,7 @@ export default function Scene({ progressRef }: SceneProps) {
     });
 
     const cyanSpot = useControls('Cyan side spots', {
-        intensity: { value: 45, min: 0, max: 200, step: 1 },
+        intensity: { value: 0, min: 0, max: 200, step: 1 },
         color: '#00d4ff',
         angle: { value: 0.55, min: 0.05, max: Math.PI / 2, step: 0.01 },
         attenuation: { value: 6, min: 0, max: 20, step: 0.5 },
@@ -95,7 +95,7 @@ export default function Scene({ progressRef }: SceneProps) {
     });
 
     const heroSpot = useControls('Hero spot', {
-        intensity: { value: 30, min: 0, max: 200, step: 1 },
+        intensity: { value: 0, min: 0, max: 200, step: 1 },
         color: '#ffffff',
         angle: { value: Math.PI / 7, min: 0.05, max: Math.PI / 2, step: 0.01 },
         penumbra: { value: 0.5, min: 0, max: 1, step: 0.05 },
@@ -105,8 +105,8 @@ export default function Scene({ progressRef }: SceneProps) {
     });
 
     const godRays = useControls('God rays', {
-        enabled: true,
-        intensity: { value: 8, min: 0, max: 30, step: 0.5 },
+        enabled: false,
+        intensity: { value: 0, min: 0, max: 30, step: 0.5 },
         color: '#00E5FF',
         angle: { value: 0.18, min: 0.05, max: 0.6, step: 0.01 },
         attenuation: { value: 6, min: 1, max: 20, step: 0.5 },
@@ -222,9 +222,9 @@ export default function Scene({ progressRef }: SceneProps) {
             if (!mesh.isMesh || !mesh.material) return;
             const current = mesh.material as THREE.Material;
             if (current instanceof THREE.MeshStandardMaterial) {
-                // Roughness élevée : finit le côté plastique, donne du grain
-                // au bois et casse les reflets nets indésirables.
-                current.roughness = 0.85;
+                // Roughness 0.7 : assez mat pour éviter le miroir, mais
+                // capte quand même la mouse light qui balaie le bureau.
+                current.roughness = 0.7;
                 current.metalness = 0.15;
                 current.needsUpdate = true;
             } else {
@@ -235,7 +235,7 @@ export default function Scene({ progressRef }: SceneProps) {
                 mesh.material = new THREE.MeshStandardMaterial({
                     color: anyMat.color ?? new THREE.Color('#5a4530'),
                     map: anyMat.map ?? null,
-                    roughness: 0.85,
+                    roughness: 0.7,
                     metalness: 0.15,
                 });
             }
@@ -355,8 +355,9 @@ export default function Scene({ progressRef }: SceneProps) {
             THREE.MathUtils.lerp(cam.lookNear[2], cam.lookFar[2], ease),
         );
 
-        // PointLight inspecteur : suit la souris (pointer en NDC [-1, 1])
-        // pour balayer les câbles avec une lumière rasante.
+        // Mouse light : suit le curseur en NDC [-1, 1] mappé sur le plan
+        // x:[-3, 3], y:[0.2, 2.6]. Z fixe à 2 (devant le desk) pour que la
+        // lumière accroche le relief par-devant.
         if (inspectorLightRef.current) {
             const targetX = pointer.x * 3;
             const targetY = 1.4 + pointer.y * 1.2;
@@ -370,6 +371,7 @@ export default function Scene({ progressRef }: SceneProps) {
                 targetY,
                 0.12,
             );
+            inspectorLightRef.current.position.z = 2;
         }
 
         if (screenRef.current) {
@@ -487,14 +489,18 @@ export default function Scene({ progressRef }: SceneProps) {
                 scale={deskScale}
             />
 
-            {/* PointLight "Inspecteur" : suit la souris pour balayer les
-                câbles avec une lumière rasante et révéler le tressage. */}
+            {/* AmbientLight très faible : préserve les silhouettes dans
+                les zones que la mouse light n'atteint pas. */}
+            <ambientLight intensity={0.05} />
+
+            {/* PointLight "Mouse" : suit le curseur, accroche les normal maps
+                du desk et des câbles tressés. Z fixe à 2 (plan devant le bureau). */}
             <pointLight
                 ref={inspectorLightRef}
-                position={[2, 2, 2]}
+                position={[0, 1.4, 2]}
                 color="#ffffff"
-                intensity={80}
-                distance={5}
+                intensity={1.5}
+                distance={8}
                 decay={2}
             />
 

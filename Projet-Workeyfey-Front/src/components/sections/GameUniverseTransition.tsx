@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
-import { SpotLight, useTexture, OrbitControls } from '@react-three/drei';
+import { SpotLight, useTexture, OrbitControls, useGLTF, Environment } from '@react-three/drei';
+import { useControls } from 'leva';
 import * as THREE from 'three';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
@@ -173,81 +174,7 @@ function ParticleBurst({ progressRef, count = 200 }: { progressRef: ProgressRef;
 type Building = {
     pos: [number, number, number];
     size: [number, number, number];
-    tone: number;
-    litRate: number;
-    magentaBias: number;
-    seed: number;
 };
-
-const CYAN_BRIGHT = 'rgba(120, 240, 255, 0.95)';
-const CYAN_DIM = 'rgba(60, 200, 240, 0.55)';
-const MAGENTA_BRIGHT = 'rgba(255, 90, 180, 0.95)';
-const MAGENTA_DIM = 'rgba(255, 130, 200, 0.55)';
-const NEUTRAL_BRIGHT = 'rgba(220, 235, 250, 0.65)';
-const NEUTRAL_DIM = 'rgba(140, 170, 200, 0.35)';
-
-function createWindowTexture(
-    seed: number,
-    litRate: number,
-    magentaBias: number,
-): THREE.CanvasTexture {
-    const W = 256;
-    const H = 512;
-    const canvas = document.createElement('canvas');
-    canvas.width = W;
-    canvas.height = H;
-    const ctx = canvas.getContext('2d')!;
-
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, W, H);
-
-    let s = seed * 9301 + 49297;
-    const rand = () => {
-        s = (s * 9301 + 49297) % 233280;
-        return s / 233280;
-    };
-
-    const cols = 8;
-    const rows = 18;
-    const cw = W / cols;
-    const rh = H / rows;
-    const padX = cw * 0.18;
-    const padY = rh * 0.18;
-
-    for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-            const lit = rand() < litRate;
-            if (!lit) {
-                ctx.fillStyle = 'rgba(255,255,255,0.02)';
-            } else {
-                const hue = rand();
-                const bright = rand() > 0.55;
-                let color: string;
-                if (hue < magentaBias) {
-                    color = bright ? MAGENTA_BRIGHT : MAGENTA_DIM;
-                } else if (hue < magentaBias + 0.12) {
-                    color = bright ? NEUTRAL_BRIGHT : NEUTRAL_DIM;
-                } else {
-                    color = bright ? CYAN_BRIGHT : CYAN_DIM;
-                }
-                ctx.fillStyle = color;
-            }
-            ctx.fillRect(
-                c * cw + padX,
-                r * rh + padY,
-                cw - padX * 2,
-                rh - padY * 2,
-            );
-        }
-    }
-
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.wrapS = THREE.ClampToEdgeWrapping;
-    tex.wrapT = THREE.ClampToEdgeWrapping;
-    tex.anisotropy = 4;
-    tex.needsUpdate = true;
-    return tex;
-}
 
 function CityCables({ buildings }: { buildings: Building[] }) {
     // Mêmes textures faux_fur_geometric que les câbles de la scène 1.
@@ -282,8 +209,9 @@ function CityCables({ buildings }: { buildings: Building[] }) {
             // Relief discret : suggéré, pas criard. Plus de pixel crawl.
             normalScale: new THREE.Vector2(0.5, 0.5),
             roughnessMap: cableTextures.rough,
-            // Roughness élevée : casse les reflets nets qui scintillent.
-            roughness: 0.6,
+            // Roughness 0.8 : tue les reflets nets et le scintillement.
+            // On veut de la texture, pas des étincelles.
+            roughness: 0.8,
             metalness: 0.6,
             emissive: new THREE.Color(CYAN),
             emissiveMap: cableTextures.diffuse,
@@ -302,7 +230,7 @@ function CityCables({ buildings }: { buildings: Building[] }) {
             return s / 233280;
         };
 
-        // Side spines along the curbs (left & right of road)
+        // Side spines along the curbs (left & right of road, x = ±3.5)
         const makeSpine = (x: number) => {
             const pts: THREE.Vector3[] = [];
             for (let z = 4; z >= -44; z -= 2.5) {
@@ -316,18 +244,18 @@ function CityCables({ buildings }: { buildings: Building[] }) {
             }
             return new THREE.CatmullRomCurve3(pts);
         };
-        const leftSpine = makeSpine(-2.6);
-        const rightSpine = makeSpine(2.6);
+        const leftSpine = makeSpine(-3.5);
+        const rightSpine = makeSpine(3.5);
         result.push(leftSpine, rightSpine);
 
         // Branch cables: from curb spine up each building facade
         buildings.forEach((b, i) => {
             const sideSign = b.pos[0] > 0 ? 1 : -1;
-            const curbX = sideSign * 2.6;
+            const curbX = sideSign * 3.5;
             const z = b.pos[2];
             // Facade face that looks toward the street
             const facadeX = b.pos[0] - sideSign * (b.size[0] / 2 + 0.02);
-            const facadeTopY = Math.min(b.size[1] - 0.4, 0.8 + (i % 5) * 0.55);
+            const facadeTopY = Math.min(b.size[1] - 0.4, 1.2 + (i % 5) * 0.7);
             const climbY = facadeTopY * 0.55;
 
             const start = new THREE.Vector3(curbX, 0.04, z + 0.1);
@@ -350,10 +278,10 @@ function CityCables({ buildings }: { buildings: Building[] }) {
             if (!b) continue;
             const z = b.pos[2];
             const high = 3.2 + (i % 3) * 0.4;
-            const left = new THREE.Vector3(-2.4, 1.2, z);
-            const archA = new THREE.Vector3(-1.0, high, z + 0.15);
-            const archB = new THREE.Vector3(1.0, high, z - 0.15);
-            const right = new THREE.Vector3(2.4, 1.2, z);
+            const left = new THREE.Vector3(-3.3, 1.4, z);
+            const archA = new THREE.Vector3(-1.2, high, z + 0.15);
+            const archB = new THREE.Vector3(1.2, high, z - 0.15);
+            const right = new THREE.Vector3(3.3, 1.4, z);
             result.push(new THREE.CatmullRomCurve3([left, archA, archB, right]));
         }
 
@@ -383,37 +311,80 @@ function CityCables({ buildings }: { buildings: Building[] }) {
     );
 }
 
-function CityBuildings({ buildings }: { buildings: Building[] }) {
-    const materials = useMemo(() => {
-        return buildings.map((b) => {
-            const tex = createWindowTexture(b.seed, b.litRate, b.magentaBias);
-            return new THREE.MeshStandardMaterial({
-                color: '#0a0e14',
-                emissiveMap: tex,
-                emissive: new THREE.Color('#ffffff'),
-                emissiveIntensity: 0.95,
-                roughness: 0.55,
-                metalness: 0.55,
-                toneMapped: true,
-            });
-        });
-    }, [buildings]);
+const BUILDING_URL = encodeURI('/cyberpunk v2.glb');
+// Empreinte au sol cible (max(largeur, profondeur) en unités monde).
+// Ramène n'importe quel GLB à une taille cohérente avec la rue (7 unités
+// de large) et le reste de la scène, sans avoir à toucher au scale du modèle.
+const TARGET_PLAN_SIZE = 4;
 
-    useEffect(() => {
-        return () => {
-            materials.forEach((m) => {
-                if (m.emissiveMap) m.emissiveMap.dispose();
-                m.dispose();
-            });
+function useBuildingFit(scene: THREE.Object3D) {
+    return useMemo(() => {
+        const bbox = new THREE.Box3().setFromObject(scene);
+        const size = new THREE.Vector3();
+        const center = new THREE.Vector3();
+        bbox.getSize(size);
+        bbox.getCenter(center);
+        const planMax = Math.max(size.x, size.z);
+        const fit = planMax > 0 ? TARGET_PLAN_SIZE / planMax : 1;
+        return {
+            fit,
+            rawCenter: center.clone(),
+            rawMinY: bbox.min.y,
+            visualSize: [size.x * fit, size.y * fit, size.z * fit] as [number, number, number],
         };
-    }, [materials]);
+    }, [scene]);
+}
+
+function CityBuildings({ buildings }: { buildings: Building[] }) {
+    const gltf = useGLTF(BUILDING_URL);
+    const { fit, rawCenter, rawMinY } = useBuildingFit(gltf.scene);
+
+    // Néons "OPEN" et enseignes du building : intensité 3 + toneMapped off
+    // pour que les couleurs saturées sortent du tone mapping ACES et pètent
+    // au-dessus du seuil de Bloom (luminanceThreshold=0.6).
+    type EmissiveLike = THREE.Material & {
+        emissive?: THREE.Color;
+        emissiveMap?: THREE.Texture | null;
+        emissiveIntensity?: number;
+        toneMapped?: boolean;
+    };
+    useEffect(() => {
+        gltf.scene.traverse((obj) => {
+            const mesh = obj as THREE.Mesh;
+            if (!mesh.isMesh || !mesh.material) return;
+            const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+            for (const mat of list) {
+                const m = mat as EmissiveLike;
+                const hasEmissiveColor = !!m.emissive && (m.emissive.r > 0 || m.emissive.g > 0 || m.emissive.b > 0);
+                const hasEmissiveMap = !!m.emissiveMap;
+                if (!hasEmissiveColor && !hasEmissiveMap) continue;
+                if (m.emissiveIntensity !== undefined) m.emissiveIntensity = 3;
+                if (m.toneMapped !== undefined) m.toneMapped = false;
+                m.needsUpdate = true;
+            }
+        });
+    }, [gltf.scene]);
+
+    // Un clone par instance : geometries/materials restent partagés (pas de
+    // coût GPU supplémentaire), seuls les Object3D sont dupliqués.
+    const clones = useMemo(
+        () => buildings.map(() => gltf.scene.clone(true)),
+        [buildings, gltf.scene],
+    );
 
     return (
         <>
             {buildings.map((b, i) => (
-                <mesh key={i} position={b.pos} material={materials[i]}>
-                    <boxGeometry args={b.size} />
-                </mesh>
+                <group
+                    key={i}
+                    position={b.pos}
+                    scale={fit}
+                >
+                    <primitive
+                        object={clones[i]}
+                        position={[-rawCenter.x, -rawMinY, -rawCenter.z]}
+                    />
+                </group>
             ))}
         </>
     );
@@ -422,38 +393,28 @@ function CityBuildings({ buildings }: { buildings: Building[] }) {
 function GameCity({ progressRef }: { progressRef: ProgressRef }) {
     const groupRef = useRef<THREE.Group>(null);
 
-    const buildings = useMemo<Building[]>(() => {
-        let seed = 13;
-        const rand = () => {
-            seed = (seed * 9301 + 49297) % 233280;
-            return seed / 233280;
-        };
-        const result: Building[] = [];
-        for (let row = 0; row < 9; row++) {
-            for (let side = -1; side <= 1; side += 2) {
-                const x = side * (3.4 + rand() * 1.2);
-                const z = -row * 4.2 - 4;
-                const h = 3.2 + rand() * 5.5;
-                const w = 1.8 + rand() * 0.6;
-                const d = 1.8 + rand() * 0.6;
-                const r = rand();
-                // Each building mixes cyan + magenta windows. Most buildings lean
-                // cyan with sparse magenta accents; a few have a stronger magenta
-                // presence — but never fully magenta.
-                const magentaBias = r < 0.75 ? 0.06 + rand() * 0.14 : 0.22 + rand() * 0.18;
-                const litRate = 0.22 + rand() * 0.22;
-                result.push({
-                    pos: [x, h / 2, z],
-                    size: [w, h, d],
-                    tone: 8 + rand() * 6,
-                    litRate,
-                    magentaBias,
-                    seed: row * 31 + (side + 1) * 7 + Math.floor(rand() * 1000),
-                });
-            }
-        }
-        return result;
-    }, []);
+    const { showVolumes } = useControls('GameCity debug', {
+        showVolumes: false,
+    });
+
+    // Chargement du GLB ici (cache drei) pour que le layout connaisse les
+    // dimensions réelles du modèle après fit et que les câbles atterrissent
+    // pile sur les façades.
+    const gltf = useGLTF(BUILDING_URL);
+    const { visualSize } = useBuildingFit(gltf.scene);
+
+    // 3 paires d'immeubles alignées le long de la rue, espacées de 12 unités
+    // en Z pour laisser passer les câbles tressés entre les façades.
+    // X = ±5.5 : façade interne posée juste à l'extérieur de la rue (3.5)
+    // pour qu'on voie la rue rouler au pied des immeubles.
+    const buildings = useMemo<Building[]>(() => [
+        { pos: [-5.5, 0, -10], size: visualSize },
+        { pos: [5.5, 0, -10], size: visualSize },
+        { pos: [-5.5, 0, -22], size: visualSize },
+        { pos: [5.5, 0, -22], size: visualSize },
+        { pos: [-5.5, 0, -34], size: visualSize },
+        { pos: [5.5, 0, -34], size: visualSize },
+    ], [visualSize]);
 
     useFrame(() => {
         if (!groupRef.current) return;
@@ -467,16 +428,16 @@ function GameCity({ progressRef }: { progressRef: ProgressRef }) {
 
     return (
         <group ref={groupRef}>
-            {/* Mode Cinématique Noir : blackout total. Plus de moonlight,
-                plus de hemisphere fill. Seules les fenêtres et les 2 PointLights
-                cyan/magenta révèlent la scène. */}
+            {/* Ambiance cinéma : key directional discrète + hemisphere très
+                basse. Toute la structure est dessinée par les emissive du
+                building et les pointLights cyan/magenta de la rue. */}
             <directionalLight
                 position={[8, 18, 6]}
-                intensity={0}
+                intensity={showVolumes ? 0.5 : 0.05}
                 color="#5a78b8"
             />
             <hemisphereLight
-                args={['#1a2840', '#040608', 0]}
+                args={['#1a2840', '#040608', 0.15]}
             />
 
             {/* Cyan volumetric god ray — moody fog, plus blinding laser. */}
@@ -530,22 +491,21 @@ function GameCity({ progressRef }: { progressRef: ProgressRef }) {
                 volumetric
             />
 
-            {/* === Texture revealers : streetlights basses qui révèlent
-                 les tresses des câbles avec des hotspots locaux. === */}
-            <pointLight
-                position={[-2.8, 0.4, -12]}
-                color="#00E5FF"
-                intensity={8}
-                distance={8}
-                decay={2}
-            />
-            <pointLight
-                position={[2.8, 1.2, -22]}
-                color="#ff2a8a"
-                intensity={6}
-                distance={8}
-                decay={2}
-            />
+            {/* Streetlights cyan/magenta — un par façade, alternés, posés
+                à hauteur d'enseigne (y=2) à l'aplomb des immeubles. C'est
+                eux qui dessinent la structure : ils peignent les façades
+                pendant que les emissive du GLB donnent les enseignes. */}
+            <pointLight position={[-2.8, 2, -10]} color={CYAN} intensity={14} distance={14} decay={2} />
+            <pointLight position={[2.8, 2, -10]} color={MAGENTA} intensity={11} distance={14} decay={2} />
+            <pointLight position={[2.8, 2, -22]} color={CYAN} intensity={14} distance={14} decay={2} />
+            <pointLight position={[-2.8, 2, -22]} color={MAGENTA} intensity={11} distance={14} decay={2} />
+            <pointLight position={[-2.8, 2, -34]} color={CYAN} intensity={14} distance={14} decay={2} />
+            <pointLight position={[2.8, 2, -34]} color={MAGENTA} intensity={11} distance={14} decay={2} />
+
+            {/* Streetlights basses (texture revealers) : hotspots cyan au
+                niveau du sol pour faire chanter les tresses des câbles. */}
+            <pointLight position={[-2.8, 0.4, -16]} color={CYAN} intensity={6} distance={8} decay={2} />
+            <pointLight position={[2.8, 0.4, -28]} color={MAGENTA} intensity={5} distance={8} decay={2} />
 
             <CityBuildings buildings={buildings} />
 
@@ -607,6 +567,11 @@ function Scene({ progressRef }: { progressRef: ProgressRef }) {
             <color attach="background" args={['#02050a']} />
             {/* Brouillard épais : la rue se perd dans le néant après 18m. */}
             <fog attach="fog" args={['#040a14', 5, 18]} />
+            {/* Environment "night" en intensité basse : juste assez pour que
+                le métal/verre du building accroche un reflet, sans tuer le
+                noir cinéma. ambient à 0.1 = soulève les ombres complètes. */}
+            <Environment preset="night" environmentIntensity={0.25} />
+            <ambientLight intensity={0.1} />
             {/* Caméra libre : OrbitControls pour inspecter les câbles. */}
             <OrbitControls
                 makeDefault
@@ -841,3 +806,5 @@ export default function GameUniverseTransition() {
         </section>
     );
 }
+
+useGLTF.preload(BUILDING_URL);
