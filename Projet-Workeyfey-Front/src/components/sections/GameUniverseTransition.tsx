@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { EffectComposer, Bloom, DepthOfField, Vignette, Noise } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
-import { SpotLight, useTexture, OrbitControls, useGLTF, Environment, MeshReflectorMaterial } from '@react-three/drei';
+import { useTexture, OrbitControls, useGLTF, Environment, MeshReflectorMaterial } from '@react-three/drei';
 import { useControls } from 'leva';
 import * as THREE from 'three';
+import { HalfFloatType } from 'three';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import { useCanvasFrameloop } from '../../hooks/useCanvasFrameloop';
@@ -420,6 +421,79 @@ function CityCables({ buildings }: { buildings: Building[] }) {
     );
 }
 
+// Texture procédurale de silhouette urbaine pour le plan d'horizon : bâtiments
+// dentelés (largeurs et hauteurs aléatoires) en sombre sur ciel quasi noir,
+// avec quelques pixels brillants cyan/magenta pour les fenêtres lointaines.
+// Utilisée en map ET emissiveMap → les fenêtres percent à travers le brouillard.
+function useCityHorizonTexture() {
+    return useMemo(() => {
+        const w = 1024, h = 256;
+        const data = new Uint8Array(w * h * 4);
+        const emissiveData = new Uint8Array(w * h * 4);
+        let s = 4242;
+        const rand = () => {
+            s = (s * 9301 + 49297) % 233280;
+            return s / 233280;
+        };
+        // Hauteurs par "blocs" de bâtiments contigus pour avoir une dentelure
+        // crédible (bâtiments larges et étroits mélangés).
+        const blockHeights: number[] = new Array(w);
+        let i = 0;
+        while (i < w) {
+            const blockW = 8 + Math.floor(rand() * 38);
+            const baseH = 0.18 + Math.pow(rand(), 1.6) * 0.55;
+            for (let k = 0; k < blockW && i + k < w; k++) {
+                // Petite variation à l'intérieur du bloc pour étages.
+                blockHeights[i + k] = baseH + (rand() - 0.5) * 0.04;
+            }
+            i += blockW;
+        }
+        for (let y = 0; y < h; y++) {
+            const v = 1 - y / h;
+            for (let x = 0; x < w; x++) {
+                const idx = (y * w + x) * 4;
+                const bh = blockHeights[x] ?? 0.3;
+                const inBuilding = v < bh;
+                if (inBuilding) {
+                    // Silhouette sombre. Légère variation par hauteur pour
+                    // ne pas faire complètement opaque.
+                    data[idx] = 4;
+                    data[idx + 1] = 8;
+                    data[idx + 2] = 16;
+                    // Fenêtres clairsemées : 1.5% de chance d'être allumée.
+                    if (rand() < 0.015) {
+                        const cyan = rand() < 0.55;
+                        const r = cyan ? 0 : 220;
+                        const g = cyan ? 220 : 60;
+                        const b = cyan ? 240 : 140;
+                        emissiveData[idx] = r;
+                        emissiveData[idx + 1] = g;
+                        emissiveData[idx + 2] = b;
+                    }
+                } else {
+                    // Ciel : transparent → laisse voir l'environnement derrière.
+                    data[idx] = 2;
+                    data[idx + 1] = 4;
+                    data[idx + 2] = 10;
+                }
+                data[idx + 3] = inBuilding ? 255 : 0;
+                emissiveData[idx + 3] = 255;
+            }
+        }
+        const colorTex = new THREE.DataTexture(data, w, h, THREE.RGBAFormat);
+        colorTex.minFilter = THREE.LinearMipMapLinearFilter;
+        colorTex.magFilter = THREE.LinearFilter;
+        colorTex.generateMipmaps = true;
+        colorTex.needsUpdate = true;
+        const emissiveTex = new THREE.DataTexture(emissiveData, w, h, THREE.RGBAFormat);
+        emissiveTex.minFilter = THREE.LinearMipMapLinearFilter;
+        emissiveTex.magFilter = THREE.LinearFilter;
+        emissiveTex.generateMipmaps = true;
+        emissiveTex.needsUpdate = true;
+        return { colorTex, emissiveTex };
+    }, []);
+}
+
 // Roughness map procédurale pour l'asphalte mouillé : flaques sombres (faible
 // roughness → reflet net) sur fond rugueux (asphalte sec). Sans cette carte,
 // la route est un miroir uniforme — kitsch. Avec, les reflets se brisent en
@@ -513,6 +587,9 @@ function CityBuildings({ buildings }: { buildings: Building[] }) {
         gltf.scene.traverse((obj) => {
             const mesh = obj as THREE.Mesh;
             if (!mesh.isMesh || !mesh.material) return;
+            // Active la projection d'ombres sous la lumière de la lune.
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
             const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
             for (const mat of list) {
                 const m = mat as EmissiveLike;
@@ -575,7 +652,21 @@ function CityBuildings({ buildings }: { buildings: Building[] }) {
     // Un clone par instance : geometries/materials restent partagés (pas de
     // coût GPU supplémentaire), seuls les Object3D sont dupliqués.
     const clones = useMemo(
-        () => buildings.map(() => gltf.scene.clone(true)),
+        () => buildings.map(() => {
+            const clone = gltf.scene.clone(true);
+            // Active castShadow / receiveShadow sur chaque mesh du clone
+            // après création (l'instance source peut ne pas l'avoir au moment
+            // du clone). Les bâtiments projettent maintenant leur ombre sur
+            // la chaussée sous la lumière de la lune.
+            clone.traverse((obj) => {
+                const m = obj as THREE.Mesh;
+                if (m.isMesh) {
+                    m.castShadow = true;
+                    m.receiveShadow = true;
+                }
+            });
+            return clone;
+        }),
         [buildings, gltf.scene],
     );
 
@@ -598,9 +689,108 @@ function CityBuildings({ buildings }: { buildings: Building[] }) {
     );
 }
 
+// Ligne centrale de la route avec data pulses : bandes brillantes qui
+// descendent la rue à différentes vitesses. Pulse l'intensité globale en plus
+// du scroll pour donner une "vibration de transmission" plutôt qu'un flux lisse.
+function CenterLineDataPulse() {
+    const matRef = useRef<THREE.MeshStandardMaterial>(null);
+    const pulseTexture = useMemo(() => {
+        const w = 4, h = 256;
+        const data = new Uint8Array(w * h * 4);
+        for (let y = 0; y < h; y++) {
+            const v = y / h;
+            // Trois bandes brillantes étroites + un fond cyan continu très bas
+            // pour que la ligne reste lisible quand aucune bande ne passe.
+            const band =
+                Math.exp(-Math.pow((v - 0.12) * 22, 2)) +
+                Math.exp(-Math.pow((v - 0.43) * 28, 2)) * 0.7 +
+                Math.exp(-Math.pow((v - 0.78) * 18, 2)) * 0.85;
+            const base = 0.18;
+            const value = Math.floor(Math.min(1, base + band) * 255);
+            for (let x = 0; x < w; x++) {
+                const i = (y * w + x) * 4;
+                data[i] = value;
+                data[i + 1] = value;
+                data[i + 2] = value;
+                data[i + 3] = 255;
+            }
+        }
+        const tex = new THREE.DataTexture(data, w, h, THREE.RGBAFormat);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(1, 4);
+        tex.minFilter = THREE.LinearMipMapLinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        tex.generateMipmaps = true;
+        tex.needsUpdate = true;
+        return tex;
+    }, []);
+
+    useFrame(({ clock }) => {
+        const m = matRef.current;
+        if (!m || !m.emissiveMap) return;
+        const t = clock.elapsedTime;
+        m.emissiveMap.offset.y = -t * 0.65;
+        // Vibration globale + flicker rare (3% du temps) pour casser le rythme.
+        const flicker = Math.random() < 0.03 ? 0.4 : 1;
+        m.emissiveIntensity = (1.4 + 0.25 * Math.sin(t * 3.2)) * flicker;
+    });
+
+    return (
+        <mesh position={[0, 0.011, -18]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[0.14, 50]} />
+            <meshStandardMaterial
+                ref={matRef}
+                color="#04080c"
+                emissive={CYAN}
+                emissiveMap={pulseTexture}
+                emissiveIntensity={1.4}
+                roughness={0.6}
+                metalness={0.2}
+                toneMapped={false}
+            />
+        </mesh>
+    );
+}
+
+// Drone lamp : sphère émissive blanc-bleu suspendue avec une petite pointlight
+// intégrée. Sert de remplissage chaleureux ponctuel dans la scène moonlight.
+// Petite oscillation verticale pour qu'elle ait l'air de flotter en lévitation.
+function DroneLamp({ position }: { position: [number, number, number] }) {
+    const groupRef = useRef<THREE.Group>(null);
+    const baseY = position[1];
+    useFrame(({ clock }) => {
+        if (!groupRef.current) return;
+        const t = clock.elapsedTime;
+        // Oscillation verticale sub-pixel pour vie sans distraction.
+        groupRef.current.position.y = baseY + Math.sin(t * 0.9 + position[0] * 0.7) * 0.06;
+    });
+    return (
+        <group ref={groupRef} position={position}>
+            <mesh>
+                <sphereGeometry args={[0.09, 16, 16]} />
+                <meshBasicMaterial color="#dbeaff" toneMapped={false} />
+            </mesh>
+            {/* Halo doux autour du bulb */}
+            <mesh>
+                <sphereGeometry args={[0.18, 16, 16]} />
+                <meshBasicMaterial
+                    color="#b9d5ff"
+                    transparent
+                    opacity={0.25}
+                    toneMapped={false}
+                    depthWrite={false}
+                />
+            </mesh>
+            <pointLight color="#b9d5ff" intensity={2.2} distance={7} decay={2} />
+        </group>
+    );
+}
+
 function GameCity({ progressRef }: { progressRef: ProgressRef }) {
     const groupRef = useRef<THREE.Group>(null);
     const wetRoughnessMap = useWetRoadRoughnessMap();
+    const horizonTextures = useCityHorizonTexture();
 
     const { showVolumes } = useControls('GameCity debug', {
         showVolumes: false,
@@ -632,104 +822,104 @@ function GameCity({ progressRef }: { progressRef: ProgressRef }) {
 
     return (
         <group ref={groupRef}>
-            {/* Ambiance cinéma : key directional discrète + hemisphere très
-                basse. Toute la structure est dessinée par les emissive du
-                building et les pointLights cyan/magenta de la rue. */}
+            {/* Lune (directionalLight) : la SEULE source clé de la scène.
+                Lumière froide bleutée venant du haut-droit légèrement en
+                arrière → bâtiments rim-lit côté droit, ombres longues sur la
+                chaussée vers la caméra. Shadow camera dimensionnée sur la
+                portée des bâtiments + route. */}
             <directionalLight
-                position={[8, 18, 6]}
-                intensity={showVolumes ? 0.5 : 0.05}
-                color="#5a78b8"
+                position={[20, 30, -50]}
+                intensity={2.5}
+                color="#b9d5ff"
+                castShadow
+                shadow-mapSize-width={2048}
+                shadow-mapSize-height={2048}
+                shadow-camera-near={1}
+                shadow-camera-far={120}
+                shadow-camera-left={-25}
+                shadow-camera-right={25}
+                shadow-camera-top={25}
+                shadow-camera-bottom={-25}
+                shadow-bias={-0.0005}
             />
+
+            {/* Hemisphere léger : un peu de bleu nuit qui tombe du ciel sur le
+                dessus, gris très sombre par en dessous → empêche les zones
+                non éclairées par la lune d'être noires absolues. */}
             <hemisphereLight
-                args={['#1a2840', '#040608', 0.15]}
+                args={['#5078b0', '#040608', 0.25]}
             />
+            {/* showVolumes (leva) : on garde un boost dev pour inspecter. */}
+            {showVolumes && (
+                <directionalLight position={[8, 18, 6]} intensity={0.4} color="#b9d5ff" />
+            )}
 
-            {/* Cyan volumetric god ray — moody fog, plus blinding laser. */}
-            <SpotLight
-                position={[-7, 14, -10]}
-                target-position={[-1, 2, -16]}
-                color={CYAN}
-                intensity={12}
-                angle={0.42}
-                penumbra={0.55}
-                distance={42}
-                attenuation={6}
-                anglePower={5}
-                opacity={0.15}
-                radiusTop={0.12}
-                radiusBottom={1.4}
-                volumetric
-            />
+            {/* Drone lamps : trois sphères émissives suspendues qui injectent
+                de la chaleur localisée dans la scène nocturne. Asymétriques
+                pour éviter le rythme régulier des lampadaires. */}
+            <DroneLamp position={[-3.2, 4.8, -8]} />
+            <DroneLamp position={[2.6, 5.4, -16]} />
+            <DroneLamp position={[-1.4, 4.2, -23]} />
 
-            {/* Magenta volumetric god ray — fog discret. */}
-            <SpotLight
-                position={[7, 13, -22]}
-                target-position={[1, 1.5, -28]}
-                color={MAGENTA}
-                intensity={8}
-                angle={0.4}
-                penumbra={0.6}
-                distance={42}
-                attenuation={6}
-                anglePower={5}
-                opacity={0.12}
-                radiusTop={0.12}
-                radiusBottom={1.4}
-                volumetric
-            />
-
-            {/* Cyan accent corridor — souffle d'ambiance, presque imperceptible. */}
-            <SpotLight
-                position={[0, 9, -34]}
-                target-position={[0, 0.3, -8]}
-                color={CYAN}
-                intensity={5}
-                angle={0.32}
-                penumbra={0.7}
-                distance={44}
-                attenuation={6}
-                anglePower={5}
-                opacity={0.08}
-                radiusTop={0.06}
-                radiusBottom={0.6}
-                volumetric
-            />
-
-            {/* Streetlights cyan/magenta — un par façade, alternés, posés
-                à hauteur d'enseigne (y=2) à l'aplomb des immeubles. C'est
-                eux qui dessinent la structure : ils peignent les façades
-                pendant que les emissive du GLB donnent les enseignes. */}
-            <pointLight position={[-2.8, 2, -10]} color={CYAN} intensity={14} distance={14} decay={2} />
-            <pointLight position={[2.8, 2, -10]} color={MAGENTA} intensity={11} distance={14} decay={2} />
-            <pointLight position={[2.8, 2, -22]} color={CYAN} intensity={14} distance={14} decay={2} />
-            <pointLight position={[-2.8, 2, -22]} color={MAGENTA} intensity={11} distance={14} decay={2} />
-            <pointLight position={[-2.8, 2, -34]} color={CYAN} intensity={14} distance={14} decay={2} />
-            <pointLight position={[2.8, 2, -34]} color={MAGENTA} intensity={11} distance={14} decay={2} />
-
-            {/* Streetlights basses (texture revealers) : hotspots cyan au
-                niveau du sol pour faire chanter les tresses des câbles. */}
-            <pointLight position={[-2.8, 0.4, -16]} color={CYAN} intensity={6} distance={8} decay={2} />
-            <pointLight position={[2.8, 0.4, -28]} color={MAGENTA} intensity={5} distance={8} decay={2} />
+            {/* Lune visible au fond + halo : disque émissif blanc-bleu qui
+                bloomera et donnera l'éclat à l'horizon. fog=false pour qu'elle
+                ne se perde pas dans le brouillard. */}
+            <group position={[10, 13, -45]}>
+                <mesh>
+                    <circleGeometry args={[2.4, 64]} />
+                    <meshBasicMaterial color="#dbe8ff" toneMapped={false} fog={false} />
+                </mesh>
+                <mesh position={[0, 0, -0.02]}>
+                    <circleGeometry args={[5.5, 64]} />
+                    <meshBasicMaterial color="#b9d5ff" transparent opacity={0.35} toneMapped={false} fog={false} depthWrite={false} />
+                </mesh>
+                <mesh position={[0, 0, -0.04]}>
+                    <circleGeometry args={[10, 64]} />
+                    <meshBasicMaterial color="#7a9cd8" transparent opacity={0.12} toneMapped={false} fog={false} depthWrite={false} />
+                </mesh>
+            </group>
 
             <CityBuildings buildings={buildings} />
 
-            {/* Wet asphalt road : MeshReflectorMaterial → vraies réflexions
-                planaires de la géométrie environnante (façades émissives,
-                enseignes néon). Le roughnessMap procédural casse les reflets
-                en flaques (zones sombres = miroir, zones claires = brouillé)
-                pour éviter l'effet "patinoire uniforme". */}
-            <mesh position={[0, 0.001, -18]} rotation={[-Math.PI / 2, 0, 0]}>
+            {/* Plan d'horizon : silhouette urbaine au fond de la rue. fog=false
+                pour qu'il soit visible derrière le brouillard, depthWrite=false
+                pour ne pas couper le rendu des objets devant. Bouche le "vide
+                noir" derrière les bâtiments et fait respirer la profondeur. */}
+            <mesh position={[0, 2.5, -22]} renderOrder={-1}>
+                <planeGeometry args={[32, 7]} />
+                <meshStandardMaterial
+                    map={horizonTextures.colorTex}
+                    emissive="#ffffff"
+                    emissiveMap={horizonTextures.emissiveTex}
+                    emissiveIntensity={5}
+                    transparent
+                    depthWrite={false}
+                    fog={false}
+                    toneMapped={false}
+                />
+            </mesh>
+
+            {/* Route miroir lune : metalness 0.9 + roughness 0.2 → la chaussée
+                devient un miroir sombre qui capte la lune et le ciel HDRI.
+                Le roughnessMap reste actif pour casser le reflet en flaques.
+                receiveShadow = true pour cueillir les ombres projetées par
+                les bâtiments sous la lumière directionnelle. */}
+            <mesh
+                position={[0, 0.001, -18]}
+                rotation={[-Math.PI / 2, 0, 0]}
+                receiveShadow
+            >
                 <planeGeometry args={[7, 50]} />
                 <MeshReflectorMaterial
                     resolution={512}
                     mirror={0.85}
                     blur={[300, 80]}
                     mixBlur={1.0}
-                    mixStrength={2.4}
-                    mixContrast={1.1}
+                    mixStrength={2.2}
+                    mixContrast={1.05}
                     color="#04080c"
                     metalness={0.9}
-                    roughness={0.35}
+                    roughness={0.2}
                     roughnessMap={wetRoughnessMap}
                     depthScale={0.4}
                     minDepthThreshold={0.6}
@@ -737,18 +927,10 @@ function GameCity({ progressRef }: { progressRef: ProgressRef }) {
                 />
             </mesh>
 
-            {/* Glowing center line — emissive doux pour ne pas cramer. */}
-            <mesh position={[0, 0.011, -18]} rotation={[-Math.PI / 2, 0, 0]}>
-                <planeGeometry args={[0.14, 50]} />
-                <meshStandardMaterial
-                    color="#04080c"
-                    emissive={CYAN}
-                    emissiveIntensity={0.4}
-                    roughness={0.6}
-                    metalness={0.2}
-                    toneMapped={false}
-                />
-            </mesh>
+            {/* Ligne centrale animée avec data pulses : bandes brillantes
+                qui descendent la rue + flicker rare → flux d'information
+                plutôt qu'un trait propre uniforme. */}
+            <CenterLineDataPulse />
 
             {/* Side curb glow strips — même traitement, lueur calme. */}
             <mesh position={[-3.32, 0.011, -18]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -782,15 +964,21 @@ function GameCity({ progressRef }: { progressRef: ProgressRef }) {
 function Scene({ progressRef }: { progressRef: ProgressRef }) {
     return (
         <>
-            <color attach="background" args={['#02050a']} />
-            {/* Brouillard épais : la rue se perd dans le néant après 18m. */}
-            <fog attach="fog" args={['#040a14', 5, 18]} />
-            {/* Environment "night" : on monte à 0.7 pour que le métal/verre
-                du building accroche vraiment des reflets spéculaires sur les
-                arrêtes — sans ça le bâtiment paraît "plastique mat". L'ambient
-                reste très bas (0.08) pour préserver les noirs profonds. */}
-            <Environment preset="night" environmentIntensity={0.7} />
-            <ambientLight intensity={0.08} />
+            {/* Background sombre uniforme. La lune visible (mesh dans GameCity)
+                fournit l'éclat lumineux à l'horizon, le fog le fait fondre. */}
+            <color attach="background" args={['#010205']} />
+            {/* Fog couleur "halo lune" foncée : transition douce entre la
+                chaussée et le mur noir du fond. Range étiré (8→45) pour que
+                les bâtiments restent nets et que l'horizon respire. */}
+            <fog attach="fog" args={['#0a1626', 8, 45]} />
+            {/* Environment HDRI 'night' avec blur=0.8 → l'environnement
+                contribue aux reflets des matériaux métalliques mais flou
+                empêche les détails (arbre, bâtiments du HDRI) d'être visibles
+                comme silhouettes nettes. background={false} = HDRI invisible. */}
+            <Environment preset="night" blur={0.8} background={false} environmentIntensity={0.4} />
+            {/* Ambient très bas : la lune fait le travail principal, l'ambient
+                évite juste les noirs purs. */}
+            <ambientLight intensity={0.08} color="#b9d5ff" />
             {/* Caméra libre : OrbitControls pour inspecter les câbles. */}
             <OrbitControls
                 makeDefault
@@ -808,7 +996,24 @@ function Scene({ progressRef }: { progressRef: ProgressRef }) {
             <ParticleBurst progressRef={progressRef} />
             <GameCity progressRef={progressRef} />
 
-            <EffectComposer multisampling={0} enableNormalPass={false}>
+            {/* frameBufferType=HalfFloatType : pipeline 16-bit float pour que
+                les valeurs HDR émissives (toneMapped:false, intensity > 1) ne
+                clippent pas à 1.0 dans le buffer — sans ça les néons saturés
+                ressortent en "trous noirs" après Bloom/DoF. */}
+            <EffectComposer
+                multisampling={0}
+                enableNormalPass={false}
+                frameBufferType={HalfFloatType}
+            >
+                {/* Ordre cinéma : DoF AVANT Bloom. Le flou s'applique sur
+                    l'image nette, puis le glow s'ajoute sur les zones floues
+                    sans créer d'anneau sombre au bord du bokeh. */}
+                <DepthOfField
+                    worldFocusDistance={15}
+                    worldFocusRange={4}
+                    bokehScale={3}
+                    height={480}
+                />
                 {/* Bloom calibré "Cinéma Noir" : seuls les pixels très brillants
                     (fenêtres immeubles, HUD) bavent. Les câbles à emissive 0.05
                     restent SOUS le seuil → tressage net sans halo. */}
@@ -819,16 +1024,6 @@ function Scene({ progressRef }: { progressRef: ProgressRef }) {
                     mipmapBlur
                     height={300}
                 />
-                {/* Depth of Field en unités monde : focus pile sur le bâtiment
-                    (~15u devant la caméra), zone de netteté étroite (4u) →
-                    le câble qui frôle au premier plan flou, fond de rue qui
-                    se perd. C'est ce qui fait basculer l'image en "cinéma". */}
-                <DepthOfField
-                    worldFocusDistance={15}
-                    worldFocusRange={4}
-                    bokehScale={5}
-                    height={480}
-                />
                 {/* Vignette : assombrissement périphérique → focus naturel
                     sur le centre, renforce la profondeur cinéma. */}
                 <Vignette
@@ -836,12 +1031,12 @@ function Scene({ progressRef }: { progressRef: ProgressRef }) {
                     offset={0.32}
                     blendFunction={BlendFunction.NORMAL}
                 />
-                {/* Grain pellicule : casse les aplats numériques. Très discret
-                    (4%) en SOFT_LIGHT pour ne pas grésiller les noirs. */}
+                {/* Grain pellicule en NORMAL avec opacité minuscule. SOFT_LIGHT
+                    + premultiply assombrissait les pixels HDR (formule × alpha
+                    pré-multipliée sur base > 1 produit du noir au centre). */}
                 <Noise
-                    premultiply
-                    opacity={0.04}
-                    blendFunction={BlendFunction.SOFT_LIGHT}
+                    opacity={0.025}
+                    blendFunction={BlendFunction.NORMAL}
                 />
             </EffectComposer>
         </>
@@ -1006,6 +1201,7 @@ export default function GameUniverseTransition() {
                     gl={{ antialias: false, powerPreference: 'high-performance' }}
                     dpr={[1, 1]}
                     frameloop={frameloop}
+                    shadows="soft"
                 >
                     <Scene progressRef={progressRef} />
                 </Canvas>

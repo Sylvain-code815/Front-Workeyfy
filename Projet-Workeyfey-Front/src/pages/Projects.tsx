@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import DataPager from '../tunnel/DataPager';
 import ContactButton from '../components/layout/ContactButton';
 import Cog3D from '../components/canvas/Cog3D';
 import Globe3D from '../components/canvas/Globe3D';
+import GlobalFluidMesh from '../components/canvas/GlobalFluidMesh';
 import AnalyticsDashboard from '../components/sections/AnalyticsDashboard';
 import { usePageTheme, type Theme } from '../contexts/PageThemeContext';
+import { useTunnel } from '../tunnel/TunnelContext';
+import ScanlineSweep from '../tunnel/ScanlineSweep';
+import Typewriter from '../tunnel/Typewriter';
 import './Projects.css';
 
 type Service = { name: string; status: string };
@@ -19,6 +24,16 @@ type MemberSlide = {
 };
 
 const picsum = (seed: string) => `https://picsum.photos/seed/${seed}/1280/800`;
+
+// Deterministic pseudo-coordinates from slide id — keeps the corner metadata
+// stable per project (no jitter on re-render) without hand-curating values.
+function deriveLocCoord(id: string): string {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    const lat = ((h % 9000) / 100).toFixed(3);
+    const lon = (((h >> 10) % 9000) / 100).toFixed(2);
+    return `${lat} // ${lon}`;
+}
 
 const memberSlides: MemberSlide[] = [
     {
@@ -264,14 +279,12 @@ const memberSlides: MemberSlide[] = [
 ];
 
 const SAMPLE_VIDEOS = [
-    'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
-    'https://test-videos.co.uk/vids/jellyfish/mp4/h264/360/Jellyfish_360_10s_1MB.mp4',
-    'https://test-videos.co.uk/vids/sintel/mp4/h264/360/Sintel_360_10s_1MB.mp4',
-    'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_2MB.mp4',
-    'https://test-videos.co.uk/vids/jellyfish/mp4/h264/720/Jellyfish_720_10s_2MB.mp4',
-    'https://test-videos.co.uk/vids/sintel/mp4/h264/720/Sintel_720_10s_2MB.mp4',
-    'https://www.w3schools.com/html/mov_bbb.mp4',
-    'https://www.w3schools.com/html/movie.mp4',
+    'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/1080/Big_Buck_Bunny_1080_10s_5MB.mp4',
+    'https://test-videos.co.uk/vids/jellyfish/mp4/h264/1080/Jellyfish_1080_10s_5MB.mp4',
+    'https://test-videos.co.uk/vids/sintel/mp4/h264/1080/Sintel_1080_10s_5MB.mp4',
+    'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/1080/Big_Buck_Bunny_1080_10s_10MB.mp4',
+    'https://test-videos.co.uk/vids/jellyfish/mp4/h264/1080/Jellyfish_1080_10s_10MB.mp4',
+    'https://test-videos.co.uk/vids/sintel/mp4/h264/1080/Sintel_1080_10s_10MB.mp4',
 ];
 
 function pickRandom<T>(arr: T[]): T {
@@ -420,13 +433,25 @@ export default function Projects() {
     const [isSwiping, setIsSwiping] = useState<boolean>(false);
     const [swipeDir, setSwipeDir] = useState<'prev' | 'next' | null>(null);
     const [activeSection, setActiveSection] = useState<SectionId>(1);
+    const [scrollProgress, setScrollProgress] = useState(0);
+    const [revealStart, setRevealStart] = useState(false);
     const { setTheme } = usePageTheme();
+    const tunnel = useTunnel();
+
+    // Wait for the tunnel overlay to begin clearing (~30% faded) before
+    // launching the scanline sweep + typewriters. Avoids materializing the
+    // page behind a still-opaque overlay (= wasted animation cycles + a
+    // visual "pop" when the overlay finishes fading). Direct deep-link works
+    // too — finishArrival fires immediately if overlay is already at 0.
+    useEffect(() => {
+        setRevealStart(false);
+        tunnel.finishArrival(() => setRevealStart(true));
+    }, [tunnel]);
 
     const section1Ref = useRef<HTMLElement>(null);
     const section2Ref = useRef<HTMLElement>(null);
     const section3Ref = useRef<HTMLElement>(null);
     const swipeTimerRef = useRef<number | null>(null);
-
     const totalSlides = memberSlides.length;
     const currentSlide = memberSlides[slideIndex];
 
@@ -503,8 +528,47 @@ export default function Projects() {
         return () => observer.disconnect();
     }, []);
 
+    // Drive the global fluid mesh: 0 at top of section 1, 1 once section 3
+    // dominates the viewport. rAF-throttled so we never run more than one
+    // calc per frame, even on a noisy scroll wheel.
+    useEffect(() => {
+        let rafId: number | null = null;
+        const compute = () => {
+            rafId = null;
+            const s1 = section1Ref.current;
+            const s3 = section3Ref.current;
+            if (!s1 || !s3) return;
+            const start = s1.offsetTop;
+            const end = s3.offsetTop + s3.offsetHeight * 0.5;
+            const y = window.scrollY + window.innerHeight * 0.5;
+            const p = (y - start) / Math.max(1, end - start);
+            setScrollProgress(Math.min(1, Math.max(0, p)));
+        };
+        const onScroll = () => {
+            if (rafId !== null) return;
+            rafId = window.requestAnimationFrame(compute);
+        };
+        compute();
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', onScroll);
+        return () => {
+            window.removeEventListener('scroll', onScroll);
+            window.removeEventListener('resize', onScroll);
+            if (rafId !== null) window.cancelAnimationFrame(rafId);
+        };
+    }, []);
+
     return (
-        <main className="Projects">
+        <ScanlineSweep play={revealStart}>
+            <main className="Projects">
+            {/* Persistent fluid canvas — bridges section 1 (cyan calm) and
+                section 3 (magenta energetic). Lives behind every section.   */}
+            <div className="Projects-fluidBg" aria-hidden="true">
+                <GlobalFluidMesh
+                    className="Projects-fluidBg-canvas"
+                    progress={scrollProgress}
+                />
+            </div>
             {/* SECTION 1 — Carousel membres (back <-> front) */}
             <section
                 ref={section1Ref}
@@ -514,10 +578,16 @@ export default function Projects() {
             >
                 <div className="ProjectsBack-top">
                     <span
-                        className="ProjectsBack-label"
                         style={{ visibility: section1View === 'back' ? 'visible' : 'hidden' }}
                     >
-                        BACKEND ARCHITECTURE
+                        <Typewriter
+                            as="span"
+                            text="BACKEND ARCHITECTURE"
+                            delay={0.4}
+                            className="ProjectsBack-label"
+                            cursor={false}
+                            play={revealStart}
+                        />
                     </span>
                 </div>
 
@@ -544,6 +614,24 @@ export default function Projects() {
                     >
                         <div className="ProjectsBack-grid">
                             <div className="ProjectsBack-info">
+                                <span
+                                    className="ProjectsBack-coord ProjectsBack-coord--tr"
+                                    aria-hidden="true"
+                                >
+                                    LOC: {deriveLocCoord(currentSlide.id)}
+                                </span>
+                                <span
+                                    className="ProjectsBack-coord ProjectsBack-coord--bl"
+                                    aria-hidden="true"
+                                >
+                                    ID: {currentSlide.id.toUpperCase()}
+                                </span>
+                                <span
+                                    className="ProjectsBack-coord ProjectsBack-coord--br"
+                                    aria-hidden="true"
+                                >
+                                    REV: 1.0.4
+                                </span>
                                 <h2 className="ProjectsBack-title">{currentSlide.title}</h2>
                                 <a
                                     href={`https://${currentSlide.domain}`}
@@ -639,29 +727,13 @@ export default function Projects() {
                     </div>
                 </div>
 
-                <div
-                    className="ProjectsBack-counter"
-                    aria-label={`Projet ${slideIndex + 1} sur ${totalSlides}`}
-                >
-                    <span className="ProjectsBack-counter-current">
-                        {String(slideIndex + 1).padStart(2, '0')}
-                    </span>
-                    <span className="ProjectsBack-counter-total">
-                        / {String(totalSlides).padStart(2, '0')}
-                    </span>
-                    <span
-                        className="ProjectsBack-counter-track"
-                        aria-hidden="true"
-                    >
-                        <span
-                            className="ProjectsBack-counter-fill"
-                            style={{
-                                transform: `scaleX(${
-                                    (slideIndex + 1) / totalSlides
-                                })`,
-                            }}
-                        />
-                    </span>
+                <div className="ProjectsBack-pager">
+                    <DataPager
+                        count={totalSlides}
+                        activeIndex={slideIndex}
+                        onSelect={(i) => setSlideIndex(i)}
+                        ariaLabel={`Projet ${slideIndex + 1} sur ${totalSlides}`}
+                    />
                 </div>
             </section>
 
@@ -672,12 +744,26 @@ export default function Projects() {
                 className="Projects-section Projects-section--gaming"
                 aria-label="Gaming Productions"
             >
-                <span className="ProjectsGaming-badge">GAMING PRODUCTIONS</span>
+                <Typewriter
+                    as="span"
+                    text="GAMING PRODUCTIONS"
+                    delay={0.55}
+                    className="ProjectsGaming-badge"
+                    cursor={false}
+                    play={revealStart}
+                />
 
                 <div className="ProjectsGaming-column ProjectsGaming-column--roblox">
                     <ColumnBackground />
                     <div className="ProjectsGaming-content">
-                        <h2 className="ProjectsGaming-title">Roblox Metaverse</h2>
+                        <Typewriter
+                            as="h2"
+                            text="Roblox Metaverse"
+                            delay={0.7}
+                            className="ProjectsGaming-title"
+                            cursorColor="cyan"
+                            play={revealStart}
+                        />
                         <p className="ProjectsGaming-description">
                             Immersive experiences built with Lua scripting, custom physics
                             engines, and advanced monetization systems.
@@ -693,7 +779,14 @@ export default function Projects() {
                 <div className="ProjectsGaming-column ProjectsGaming-column--fivem">
                     <ColumnBackground />
                     <div className="ProjectsGaming-content">
-                        <h2 className="ProjectsGaming-title">FiveM Framework</h2>
+                        <Typewriter
+                            as="h2"
+                            text="FiveM Framework"
+                            delay={0.85}
+                            className="ProjectsGaming-title"
+                            cursorColor="magenta"
+                            play={revealStart}
+                        />
                         <p className="ProjectsGaming-description">
                             Advanced GTA V multiplayer servers with custom React-based HUDs,
                             real-time economy systems, and fully scripted roleplay mechanics.
@@ -718,6 +811,7 @@ export default function Projects() {
             </section>
 
             <ContactButton fixed />
-        </main>
+            </main>
+        </ScanlineSweep>
     );
 }

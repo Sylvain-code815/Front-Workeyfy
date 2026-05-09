@@ -135,7 +135,7 @@ export default function Home() {
                 <div className="Home-hero-sticky">
                     <Canvas
                         className="Home-canvas"
-                        camera={{ position: [0, 0, 0], fov: 25 }}
+                        camera={{ position: [0, 0, 0], fov: 25, near: 0.01, far: 100 }}
                         dpr={[1, 2]}
                         frameloop={heroFrameloop}
                         gl={{ antialias: true, powerPreference: 'high-performance' }}

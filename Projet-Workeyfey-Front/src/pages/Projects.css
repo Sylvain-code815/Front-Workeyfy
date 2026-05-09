@@ -1,4 +1,5 @@
 .Projects {
+    position: relative;
     width: 100%;
     margin: 0;
     padding: 0;
@@ -6,7 +7,24 @@
     flex-direction: column;
 }
 
+.Projects-fluidBg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.Projects-fluidBg-canvas {
+    position: absolute !important;
+    inset: 0;
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+}
+
 .Projects-section {
+    position: relative;
+    z-index: 1;
     width: 100%;
     margin: 0;
     box-sizing: border-box;
@@ -18,10 +36,43 @@
 
 .Projects-section--back {
     position: relative;
-    background: #0A0E27;
+    /* Fully transparent — the global fluid mesh is the canvas. Card
+       backgrounds (info / services / slot) carry their own tints to keep
+       text legible without occluding the mesh. */
+    background: transparent;
     color: var(--color-white);
     overflow: hidden;
     min-height: 100vh;
+}
+
+/* Subtle cyan dot grid — keeps the dark sections from feeling "flat" next to
+   the rich Hero canvas. Hidden behind real content (z-index 0); pointer-events
+   none so it never steals interaction. */
+.Projects-section--back::after,
+.Projects-section--gaming::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(
+        circle at 1px 1px,
+        rgba(0, 229, 255, 0.07) 1px,
+        transparent 0
+    );
+    background-size: 38px 38px;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+}
+
+/* Front (light) variant of the back section — switch to a faint magenta
+   dot pattern so it doesn't disappear on the white background. */
+.Projects-section--back-front::after {
+    background-image: radial-gradient(
+        circle at 1px 1px,
+        rgba(255, 42, 138, 0.06) 1px,
+        transparent 0
+    );
+    opacity: 0.5;
 }
 
 .ProjectsBack-top {
@@ -79,7 +130,7 @@
 .ProjectsBack-view--front {
     opacity: 0;
     pointer-events: none;
-    background: #0A0E27;
+    background: transparent;
 }
 
 .Projects-section--back-front .ProjectsBack-view--back {
@@ -180,17 +231,20 @@
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
     transform-origin: 50% 50%;
     transition:
-        transform 600ms cubic-bezier(0.22, 1, 0.36, 1),
-        opacity 600ms cubic-bezier(0.22, 1, 0.36, 1),
+        transform 720ms cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 720ms cubic-bezier(0.22, 1, 0.36, 1),
+        filter 720ms cubic-bezier(0.22, 1, 0.36, 1),
         box-shadow 600ms ease;
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
-    will-change: transform, opacity;
+    will-change: transform, opacity, filter;
 }
 
+/* Camera focus-pull: as a card travels to the centre the blur evaporates. */
 .ProjectsBack-slot--active {
     transform: rotateY(calc(0deg + var(--slot-spin, 0deg)));
     opacity: 1;
+    filter: blur(0) saturate(1) brightness(1);
     box-shadow:
         0 30px 80px rgba(0, 0, 0, 0.55),
         0 0 0 1px rgba(94, 231, 231, 0.18),
@@ -199,42 +253,51 @@
 
 .ProjectsBack-slot--prev1 {
     transform: rotateY(calc(38deg + var(--slot-spin, 0deg)));
-    opacity: 0.85;
+    opacity: 0.65;
+    filter: blur(4px) saturate(0.45) brightness(0.72);
 }
 .ProjectsBack-slot--next1 {
     transform: rotateY(calc(-38deg + var(--slot-spin, 0deg)));
-    opacity: 0.85;
+    opacity: 0.65;
+    filter: blur(4px) saturate(0.45) brightness(0.72);
 }
 
 .ProjectsBack-slot--prev2 {
     transform: rotateY(calc(50deg + var(--slot-spin, 0deg)));
-    opacity: 0.55;
+    opacity: 0.36;
+    filter: blur(8px) saturate(0.25) brightness(0.55);
 }
 .ProjectsBack-slot--next2 {
     transform: rotateY(calc(-50deg + var(--slot-spin, 0deg)));
-    opacity: 0.55;
+    opacity: 0.36;
+    filter: blur(8px) saturate(0.25) brightness(0.55);
 }
 
 .ProjectsBack-slot--prev3 {
     transform: rotateY(calc(60deg + var(--slot-spin, 0deg)));
-    opacity: 0.32;
+    opacity: 0.18;
+    filter: blur(12px) saturate(0.15) brightness(0.45);
 }
 .ProjectsBack-slot--next3 {
     transform: rotateY(calc(-60deg + var(--slot-spin, 0deg)));
-    opacity: 0.32;
+    opacity: 0.18;
+    filter: blur(12px) saturate(0.15) brightness(0.45);
 }
 
 .ProjectsBack-slot--prev4 {
     transform: rotateY(calc(66deg + var(--slot-spin, 0deg)));
-    opacity: 0.14;
+    opacity: 0.08;
+    filter: blur(16px) saturate(0.08) brightness(0.35);
 }
 .ProjectsBack-slot--next4 {
     transform: rotateY(calc(-66deg + var(--slot-spin, 0deg)));
-    opacity: 0.14;
+    opacity: 0.08;
+    filter: blur(16px) saturate(0.08) brightness(0.35);
 }
 
 .ProjectsBack-slot--hidden {
     opacity: 0;
+    filter: blur(20px);
 }
 
 .ProjectsBack-slot:not(.ProjectsBack-slot--active) .ProjectsBack-iframe,
@@ -386,85 +449,182 @@
     box-shadow: 0 0 0 2px rgba(94, 231, 231, 0.8);
 }
 
-.ProjectsBack-counter {
+/* ── DataPager — segmented timeline ──────────────────────────── */
+
+.ProjectsBack-pager {
     position: absolute;
-    bottom: 36px;
+    bottom: 38px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 5;
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    font-variant-numeric: tabular-nums;
+    width: min(720px, 78vw);
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
     pointer-events: none;
     user-select: none;
+    font-family: 'JetBrains Mono', 'Fira Code', 'IBM Plex Mono', ui-monospace,
+        'Menlo', 'Consolas', monospace;
 }
 
-.Projects-section--back-back .ProjectsBack-counter {
+.Projects-section--back-back .ProjectsBack-pager {
     display: none;
 }
 
-.ProjectsBack-counter-current {
-    font-family: 'Syne', 'Inter', sans-serif;
-    font-size: clamp(64px, 9vw, 128px);
-    font-weight: 700;
-    line-height: 0.85;
-    letter-spacing: -0.04em;
-    color: var(--color-white);
-    text-shadow:
-        0 0 24px rgba(94, 231, 231, 0.45),
-        0 0 60px rgba(94, 231, 231, 0.18);
-    transition: color 300ms ease, text-shadow 300ms ease;
-}
-
-.ProjectsBack-counter-total {
-    font-size: clamp(14px, 1.2vw, 18px);
-    font-weight: 500;
-    letter-spacing: 0.32em;
-    color: rgba(var(--color-white-rgb), 0.55);
-    align-self: flex-end;
-    padding-bottom: 0.45em;
+.ProjectsBack-pager-meta {
+    display: inline-flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: rgba(var(--color-white-rgb), 0.7);
+    text-transform: uppercase;
     transition: color 300ms ease;
 }
 
-.ProjectsBack-counter-track {
-    position: absolute;
-    bottom: -14px;
-    left: 0;
-    right: 0;
+.ProjectsBack-pager-bracket {
+    color: rgba(94, 231, 231, 0.85);
+    font-weight: 500;
+}
+
+.ProjectsBack-pager-tag {
+    color: rgba(var(--color-white-rgb), 0.55);
+    font-weight: 500;
+}
+
+.ProjectsBack-pager-colon {
+    color: rgba(94, 231, 231, 0.85);
+    margin: 0 4px;
+}
+
+.ProjectsBack-pager-index {
+    color: var(--color-white);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 12px rgba(94, 231, 231, 0.55);
+}
+
+.ProjectsBack-pager-slash {
+    color: rgba(var(--color-white-rgb), 0.35);
+    margin: 0 2px;
+}
+
+.ProjectsBack-pager-total {
+    color: rgba(var(--color-white-rgb), 0.55);
+    font-variant-numeric: tabular-nums;
+}
+
+.ProjectsBack-pager-rail {
+    position: relative;
     height: 1px;
-    background: rgba(var(--color-white-rgb), 0.18);
-    overflow: hidden;
+    width: 100%;
+    background: rgba(var(--color-white-rgb), 0.22);
+    overflow: visible;
     border-radius: 1px;
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); /* keep stacking ctx for nodes */
 }
 
-.ProjectsBack-counter-fill {
+.ProjectsBack-pager-fill {
     position: absolute;
-    inset: 0;
-    transform-origin: left center;
-    background: linear-gradient(
-        90deg,
-        rgba(94, 231, 231, 0.9) 0%,
-        rgba(120, 160, 255, 0.9) 100%
-    );
-    box-shadow: 0 0 12px rgba(94, 231, 231, 0.55);
-    transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+    top: 0;
+    left: 0;
+    height: 1px;
+    width: 0;
+    background: var(--color-white);
+    box-shadow:
+        0 0 4px rgba(255, 255, 255, 0.85),
+        0 0 12px rgba(255, 255, 255, 0.45),
+        0 0 20px rgba(94, 231, 231, 0.5);
+    will-change: width;
 }
 
-/* Adapt counter to the light iframe view */
-.Projects-section--back-front .ProjectsBack-counter-current {
+.ProjectsBack-pager-node {
+    position: absolute;
+    top: 50%;
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(var(--color-white-rgb), 0.3);
+    transform: translate(-50%, -50%);
+    transition:
+        background 350ms cubic-bezier(0.22, 1, 0.36, 1),
+        box-shadow 350ms cubic-bezier(0.22, 1, 0.36, 1),
+        width 350ms cubic-bezier(0.22, 1, 0.36, 1),
+        height 350ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ProjectsBack-pager-node--passed {
+    background: var(--color-white);
+    box-shadow: 0 0 8px rgba(94, 231, 231, 0.7);
+}
+
+.ProjectsBack-pager-node--active {
+    width: 10px;
+    height: 10px;
+    background: var(--color-white);
+    box-shadow:
+        0 0 0 2px rgba(10, 14, 39, 1),
+        0 0 0 3px rgba(94, 231, 231, 0.9),
+        0 0 14px rgba(94, 231, 231, 0.85),
+        0 0 28px rgba(94, 231, 231, 0.45);
+}
+
+.ProjectsBack-pager-label {
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 0.32em;
+    color: rgba(var(--color-white-rgb), 0.4);
+    text-transform: uppercase;
+    transition: color 300ms ease;
+}
+
+/* Adapt pager to the light iframe view */
+.Projects-section--back-front .ProjectsBack-pager-meta,
+.Projects-section--back-front .ProjectsBack-pager-tag {
+    color: rgba(var(--color-black-rgb), 0.65);
+}
+
+.Projects-section--back-front .ProjectsBack-pager-index {
     color: var(--color-black);
-    text-shadow:
-        0 0 18px rgba(0, 0, 0, 0.18),
-        0 0 40px rgba(0, 0, 0, 0.08);
+    text-shadow: 0 0 10px rgba(94, 231, 231, 0.35);
 }
 
-.Projects-section--back-front .ProjectsBack-counter-total {
-    color: rgba(var(--color-black-rgb), 0.55);
+.Projects-section--back-front .ProjectsBack-pager-slash,
+.Projects-section--back-front .ProjectsBack-pager-total {
+    color: rgba(var(--color-black-rgb), 0.45);
 }
 
-.Projects-section--back-front .ProjectsBack-counter-track {
-    background: rgba(var(--color-black-rgb), 0.18);
+.Projects-section--back-front .ProjectsBack-pager-rail {
+    background: rgba(var(--color-black-rgb), 0.12);
+}
+
+.Projects-section--back-front .ProjectsBack-pager-fill {
+    background: var(--color-black);
+    box-shadow:
+        0 0 6px rgba(0, 0, 0, 0.45),
+        0 0 14px rgba(94, 231, 231, 0.45);
+}
+
+.Projects-section--back-front .ProjectsBack-pager-node {
+    background: rgba(var(--color-black-rgb), 0.25);
+}
+
+.Projects-section--back-front .ProjectsBack-pager-node--passed {
+    background: var(--color-black);
+    box-shadow: 0 0 7px rgba(94, 231, 231, 0.55);
+}
+
+.Projects-section--back-front .ProjectsBack-pager-node--active {
+    background: var(--color-black);
+    box-shadow:
+        0 0 0 2px var(--color-white),
+        0 0 0 3px rgba(94, 231, 231, 0.85),
+        0 0 12px rgba(94, 231, 231, 0.7);
+}
+
+.Projects-section--back-front .ProjectsBack-pager-label {
+    color: rgba(var(--color-black-rgb), 0.4);
 }
 
 .ProjectsBack-grid {
@@ -480,6 +640,7 @@
 }
 
 .ProjectsBack-info {
+    position: relative;
     padding: 32px;
     border-radius: 20px;
     background: linear-gradient(
@@ -489,6 +650,47 @@
     );
     border: 1px solid rgba(var(--color-white-rgb), 0.06);
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+    transition:
+        box-shadow 280ms ease,
+        border-color 280ms ease;
+}
+
+.ProjectsBack-info:hover {
+    border-color: rgba(0, 229, 255, 0.35);
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.32),
+        0 0 22px rgba(0, 229, 255, 0.22),
+        0 0 60px rgba(255, 42, 138, 0.10);
+}
+
+/* Tiny technical metadata in the card corners — counterbalances the
+   "Apple-soft" feel of the info panel with a "system readout" texture. */
+.ProjectsBack-coord {
+    position: absolute;
+    font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: rgba(var(--color-white-rgb), 0.32);
+    text-transform: uppercase;
+    pointer-events: none;
+    user-select: none;
+}
+
+.ProjectsBack-coord--tr { top: 12px; right: 16px; }
+.ProjectsBack-coord--bl { bottom: 12px; left: 16px; }
+.ProjectsBack-coord--br { bottom: 12px; right: 16px; }
+
+.ProjectsBack-info:hover .ProjectsBack-coord {
+    color: rgba(0, 229, 255, 0.55);
+}
+
+/* Front-view (light theme) variant — invert the coord color so it stays
+   readable against the white card. */
+.Projects-section--back-front .ProjectsBack-coord {
+    color: rgba(var(--color-black-rgb), 0.32);
+}
+.Projects-section--back-front .ProjectsBack-info:hover .ProjectsBack-coord {
+    color: rgba(255, 42, 138, 0.65);
 }
 
 .ProjectsBack-title {
@@ -564,7 +766,10 @@
 
 .Projects-section--gaming {
     position: relative;
-    background: #050A1A;
+    /* Fully transparent — the morphing mesh is the canvas under section 2.
+       Column backgrounds (ProjectsGaming-content, VideoCard) carry their
+       own tints. */
+    background: transparent;
     min-height: 100vh;
     display: flex;
     flex-direction: row;

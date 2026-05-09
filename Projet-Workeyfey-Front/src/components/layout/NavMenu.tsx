@@ -1,4 +1,6 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import type { MouseEvent } from 'react';
+import { useTunnel } from '../../tunnel/TunnelContext';
 import './NavMenu.css';
 
 type NavMenuProps = {
@@ -12,10 +14,33 @@ type NavItem =
 const items: NavItem[] = [
     { kind: 'route', to: '/', label: 'Home' },
     { kind: 'route', to: '/projects', label: 'Projects' },
+    { kind: 'route', to: '/lab', label: 'Lab' },
     { kind: 'mailto', href: 'mailto:hello@workify.com', label: 'Contact' },
 ];
 
 export default function NavMenu({ onClose }: NavMenuProps) {
+    const navigate = useNavigate();
+    const tunnel = useTunnel();
+
+    const handleProjectsClick = (e: MouseEvent<HTMLAnchorElement>) => {
+        // Only intercept plain left-click (no modifiers, no middle-click).
+        if (
+            e.defaultPrevented ||
+            e.button !== 0 ||
+            e.metaKey ||
+            e.ctrlKey ||
+            e.shiftKey ||
+            e.altKey
+        ) {
+            onClose();
+            return;
+        }
+        e.preventDefault();
+        // Close the menu visually first, then start the tunnel.
+        onClose();
+        tunnel.startTunnel(() => navigate('/projects'));
+    };
+
     return (
         <div
             className="NavMenu"
@@ -40,7 +65,11 @@ export default function NavMenu({ onClose }: NavMenuProps) {
                             key={item.to}
                             to={item.to}
                             className="NavMenu-item"
-                            onClick={onClose}
+                            onClick={
+                                item.to === '/projects'
+                                    ? handleProjectsClick
+                                    : onClose
+                            }
                         >
                             {item.label}
                         </Link>
