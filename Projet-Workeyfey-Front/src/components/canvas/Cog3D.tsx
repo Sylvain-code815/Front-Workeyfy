@@ -40,9 +40,11 @@ function CogModel({ spinning, hovered }: CogModelProps) {
         };
     }, [scene]);
 
-    // Glossy-black chrome with cyan-tinted edges. The low cyan emissive
-    // makes the rims glow softly even where the environment doesn't reflect,
-    // turning the cog into a "noir brillant avec arêtes cyan" object.
+    // Bijou Chrome — polished mirror metal with an injected Fresnel rim that
+    // makes the silhouette glow when grazing the camera, the way real
+    // chrome reads when the room lights wrap around it. The rim picks up
+    // the refraction-white tint so the cog harmonizes with the blue/green
+    // streams flowing across the page background instead of competing.
     useEffect(() => {
         scene.traverse((obj) => {
             const mesh = obj as THREE.Mesh;
@@ -52,11 +54,40 @@ function CogModel({ spinning, hovered }: CogModelProps) {
                 const m = mat as THREE.MeshStandardMaterial;
                 if (!('metalness' in m)) return;
                 m.metalness = 1;
-                m.roughness = 0.08;
+                m.roughness = 0.1;
                 if (m.color) m.color.set('#0a0d14');
-                if (m.emissive) m.emissive.set('#00E5FF');
-                m.emissiveIntensity = 0.22;
-                m.envMapIntensity = 1.6;
+                if (m.emissive) m.emissive.set('#cdfbff');
+                m.emissiveIntensity = 0.55;
+                m.envMapIntensity = 4.5;
+
+                // Inject a Fresnel rim term into the standard shader without
+                // forking the material. We piggyback on emissive_fragment so
+                // the rim reads as additive light, not as a tinted base.
+                m.onBeforeCompile = (shader) => {
+                    shader.uniforms.uRimColor = { value: new THREE.Color('#cdfbff') };
+                    shader.uniforms.uRimPower = { value: 3.0 };
+                    shader.uniforms.uRimStrength = { value: 1.6 };
+                    shader.fragmentShader = shader.fragmentShader
+                        .replace(
+                            '#include <common>',
+                            `#include <common>
+                             uniform vec3 uRimColor;
+                             uniform float uRimPower;
+                             uniform float uRimStrength;`,
+                        )
+                        .replace(
+                            '#include <emissivemap_fragment>',
+                            `#include <emissivemap_fragment>
+                             // pow(1 - dot(N, V), uRimPower) — classic Fresnel
+                             // edge factor. Strongest where the surface grazes
+                             // the camera, zero where it faces head-on.
+                             float fresnelTerm = pow(
+                                 clamp(1.0 - dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0),
+                                 uRimPower
+                             );
+                             totalEmissiveRadiance += uRimColor * fresnelTerm * uRimStrength;`,
+                        );
+                };
                 m.needsUpdate = true;
             });
         });
@@ -64,10 +95,15 @@ function CogModel({ spinning, hovered }: CogModelProps) {
 
     useFrame((_, delta) => {
         if (!groupRef.current) return;
+        // Cap delta — frames dropped during fast scroll otherwise produce
+        // visible rotation jumps that read as "the cog is spinning faster
+        // because I'm scrolling". 1/30 s keeps the idle / drift speeds
+        // truly constant from the user's POV.
+        const dt = Math.min(delta, 1 / 30);
         const speed = spinning ? ENGAGE_SPEED : hovered ? HOVER_SPEED : IDLE_SPEED;
-        groupRef.current.rotation.z -= delta * speed;
+        groupRef.current.rotation.z -= dt * speed;
         if (yDriftRef.current) {
-            yDriftRef.current.rotation.y += delta * Y_DRIFT_SPEED;
+            yDriftRef.current.rotation.y += dt * Y_DRIFT_SPEED;
         }
     });
 
@@ -122,15 +158,34 @@ export default function Cog3D({ onActivate, className, ariaLabel }: Cog3DProps) 
                 gl={{ alpha: true, antialias: true }}
                 dpr={[1, 2]}
             >
-                <ambientLight intensity={0.18} />
-                <directionalLight position={[2, 3, 4]} intensity={0.45} />
-                {/* Cyan rim — sharp specular hits on the chrome teeth */}
+                <ambientLight intensity={0.22} />
+                <directionalLight position={[2, 3, 4]} intensity={0.55} />
+                {/* Bijou Chrome lighting matched to the data-flow palette:
+                    Roblox blue from one side, FiveM toxic green from the
+                    other. The chrome teeth catch both as crisp specular
+                    rims that mirror the streams flowing across the page. */}
                 <pointLight
-                    position={[0.6, 0.6, 1.4]}
-                    intensity={6.5}
-                    distance={6}
-                    decay={1.4}
-                    color="#00E5FF"
+                    position={[-1.0, 0.5, 1.3]}
+                    intensity={18}
+                    distance={5}
+                    decay={1.6}
+                    color="#1A78FF"
+                />
+                <pointLight
+                    position={[1.0, 0.4, 1.3]}
+                    intensity={18}
+                    distance={5}
+                    decay={1.6}
+                    color="#1FE873"
+                />
+                {/* Top fill — pulls highlights onto the upper bezel so the
+                    Fresnel rim has something brighter to roll off into. */}
+                <pointLight
+                    position={[0, 1.4, 1.6]}
+                    intensity={8}
+                    distance={5}
+                    decay={1.8}
+                    color="#FFFFFF"
                 />
                 <Suspense fallback={null}>
                     <Environment preset="city" />

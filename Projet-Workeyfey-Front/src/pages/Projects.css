@@ -12,6 +12,7 @@
     inset: 0;
     z-index: 0;
     pointer-events: none;
+    opacity: 1;
 }
 
 .Projects-fluidBg-canvas {
@@ -36,62 +37,15 @@
 
 .Projects-section--back {
     position: relative;
-    /* Fully transparent — the global fluid mesh is the canvas. Card
-       backgrounds (info / services / slot) carry their own tints to keep
-       text legible without occluding the mesh. */
+    /* Mesh is the canvas — nothing in the section should occlude it. */
     background: transparent;
     color: var(--color-white);
     overflow: hidden;
     min-height: 100vh;
 }
 
-/* Subtle cyan dot grid — keeps the dark sections from feeling "flat" next to
-   the rich Hero canvas. Hidden behind real content (z-index 0); pointer-events
-   none so it never steals interaction. */
-.Projects-section--back::after,
-.Projects-section--gaming::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: radial-gradient(
-        circle at 1px 1px,
-        rgba(0, 229, 255, 0.07) 1px,
-        transparent 0
-    );
-    background-size: 38px 38px;
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0.6;
-}
-
-/* Front (light) variant of the back section — switch to a faint magenta
-   dot pattern so it doesn't disappear on the white background. */
-.Projects-section--back-front::after {
-    background-image: radial-gradient(
-        circle at 1px 1px,
-        rgba(255, 42, 138, 0.06) 1px,
-        transparent 0
-    );
-    opacity: 0.5;
-}
-
-.ProjectsBack-top {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 5;
-    padding: 24px 80px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: transparent;
-    pointer-events: none;
-}
-
-.ProjectsBack-top > * {
-    pointer-events: auto;
-}
+/* Sobriety pivot: dot grids removed. The blurred mesh is now the only
+   ambient texture — adding a grid on top fights the "Digital Quiet" goal. */
 
 .ProjectsBack-stage {
     position: absolute;
@@ -115,17 +69,8 @@
     pointer-events: auto;
 }
 
-.ProjectsBack-view--back::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(
-        ellipse 60% 50% at 50% 50%,
-        rgba(94, 231, 231, 0.06),
-        transparent 70%
-    );
-    pointer-events: none;
-}
+/* Centre-darkening cyan vignette removed — it was muting the mesh exactly
+   where it should read brightest. */
 
 .ProjectsBack-view--front {
     opacity: 0;
@@ -374,13 +319,6 @@
 
 .ProjectsBack-stage3d--swiping.ProjectsBack-stage3d--swipe-prev {
     animation: vinyl-kick-prev 600ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.ProjectsBack-label {
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.28em;
-    color: #5EE7E7;
 }
 
 .ProjectsBack-corner-btn {
@@ -641,26 +579,55 @@
 
 .ProjectsBack-info {
     position: relative;
-    padding: 32px;
+    padding: 32px 32px 132px;
     border-radius: 20px;
-    background: linear-gradient(
-        180deg,
-        rgba(20, 30, 60, 0.6),
-        rgba(10, 14, 39, 0.4)
-    );
-    border: 1px solid rgba(var(--color-white-rgb), 0.06);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+    /* Spec: rgba(10, 12, 18, 0.8) + blur(25px). Opaque enough to read as
+       a "blade" component, translucent enough to still feel layered over
+       the fluid mesh. */
+    background: rgba(10, 12, 18, 0.8);
+    backdrop-filter: blur(25px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(25px) saturate(140%) !important;
+    border: 1px solid rgba(127, 227, 255, 0.18);
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
     transition:
         box-shadow 280ms ease,
         border-color 280ms ease;
+    overflow: hidden;
+}
+
+/* Hairline blue→green border accent — picks up the data-fluid theme on
+   hover. Pseudo-element so it can sit above the backdrop-filtered base
+   without breaking the blur. */
+.ProjectsBack-info::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, #1A78FF 0%, transparent 50%, #4ADE80 100%);
+    -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 280ms ease;
 }
 
 .ProjectsBack-info:hover {
-    border-color: rgba(0, 229, 255, 0.35);
+    border-color: rgba(127, 227, 255, 0.35);
     box-shadow:
-        0 12px 40px rgba(0, 0, 0, 0.32),
-        0 0 22px rgba(0, 229, 255, 0.22),
-        0 0 60px rgba(255, 42, 138, 0.10);
+        0 12px 40px rgba(0, 0, 0, 0.5),
+        0 0 28px rgba(26, 120, 255, 0.22),
+        0 0 60px rgba(74, 222, 128, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.ProjectsBack-info:hover::after {
+    opacity: 1;
 }
 
 /* Tiny technical metadata in the card corners — counterbalances the
@@ -720,6 +687,103 @@
     font-size: 14px;
     line-height: 1.7;
     color: rgba(var(--color-white-rgb), 0.7);
+}
+
+/* ── Infrastructure Blade — KPI block + terminal feed ─────────── */
+
+.ProjectsBack-meta {
+    margin: 18px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-family: 'JetBrains Mono', 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.ProjectsBack-metaRow {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    align-items: baseline;
+    gap: 12px;
+}
+
+.ProjectsBack-metaKey {
+    margin: 0;
+    color: rgba(127, 227, 255, 0.55);
+    letter-spacing: 0.08em;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.ProjectsBack-metaVal {
+    margin: 0;
+    color: var(--color-white);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-shadow: 0 0 12px rgba(74, 222, 128, 0.18);
+}
+
+/* Subdued live-log terminal in the bottom band of the card. Ticks past
+   continuously via CSS keyframes — the duplicated stream means the loop
+   point is never visible. opacity 0.3 keeps it noise-level so it adds
+   "alive infrastructure" character without competing with the KPIs. */
+.ProjectsBack-terminal {
+    position: absolute;
+    left: 32px;
+    right: 32px;
+    bottom: 24px;
+    height: 86px;
+    overflow: hidden;
+    opacity: 0.3;
+    pointer-events: none;
+    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+    padding-top: 12px;
+    font-family: 'JetBrains Mono', 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
+    font-size: 10px;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.85);
+    /* Top-edge mask so log lines fade in instead of popping. */
+    -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent 0%,
+        #000 25%,
+        #000 100%
+    );
+    mask-image: linear-gradient(
+        to bottom,
+        transparent 0%,
+        #000 25%,
+        #000 100%
+    );
+}
+
+.ProjectsBack-terminal-stream {
+    animation: ProjectsBack-logScroll 22s linear infinite;
+    will-change: transform;
+}
+
+.ProjectsBack-terminal-line {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ProjectsBack-terminal-prompt {
+    color: rgba(74, 222, 128, 0.95);
+    margin-right: 8px;
+}
+
+@keyframes ProjectsBack-logScroll {
+    0%   { transform: translateY(0); }
+    100% { transform: translateY(-50%); }
+}
+
+/* In light front view the card isn't shown, but if it ever flickers, keep
+   the description hidden — it's been replaced by the meta block. */
+.ProjectsBack-description {
+    display: none;
 }
 
 .ProjectsBack-services {

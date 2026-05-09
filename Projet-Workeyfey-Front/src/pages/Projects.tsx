@@ -4,6 +4,7 @@ import ContactButton from '../components/layout/ContactButton';
 import Cog3D from '../components/canvas/Cog3D';
 import Globe3D from '../components/canvas/Globe3D';
 import GlobalFluidMesh from '../components/canvas/GlobalFluidMesh';
+import BackgroundAtmosphere from '../components/canvas/BackgroundAtmosphere';
 import AnalyticsDashboard from '../components/sections/AnalyticsDashboard';
 import { usePageTheme, type Theme } from '../contexts/PageThemeContext';
 import { useTunnel } from '../tunnel/TunnelContext';
@@ -33,6 +34,66 @@ function deriveLocCoord(id: string): string {
     const lat = ((h % 9000) / 100).toFixed(3);
     const lon = (((h >> 10) % 9000) / 100).toFixed(2);
     return `${lat} // ${lon}`;
+}
+
+// "Infrastructure Blade" metadata — derived deterministically from the slide
+// id so the panel reads as project-specific telemetry without us having to
+// curate values for every entry. Looks live, stays stable.
+const STACK_POOL = [
+    'NODE.JS / RUST / GRPC',
+    'GO / POSTGRES / NATS',
+    'PYTHON / FASTAPI / REDIS',
+    'KOTLIN / KAFKA / K8S',
+    'ELIXIR / PHOENIX / EDGE',
+    'TS / DENO / SQLITE',
+    'RUST / TOKIO / WASM',
+];
+const REGION_POOL = [
+    'EU-WEST-3',
+    'US-EAST-1',
+    'AP-SOUTHEAST-2',
+    'EU-CENTRAL-1',
+    'US-WEST-2',
+    'SA-EAST-1',
+];
+const LOG_POOL = [
+    'svc-auth-v2.4.1 → deployed',
+    'ingress: 2.4 GB/s steady',
+    'replicas: 12 / 12 healthy',
+    'db: vacuum complete (412ms)',
+    'edge cache hit ratio: 0.94',
+    'tracing: 0 anomalies (5m)',
+    'tls: cert renewed (320d)',
+    'queue lag: 38ms p99',
+    'audit: 0 secrets exposed',
+    'gc pause: 6ms p99',
+    'rolling restart: pod-7 OK',
+    'k8s: hpa scaled 4 → 6',
+];
+
+function hashId(id: string): number {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    return h;
+}
+
+type Infra = {
+    uptime: string;
+    latency: number;
+    stack: string;
+    region: string;
+    logs: string[];
+};
+
+function deriveInfra(id: string): Infra {
+    const h = hashId(id);
+    return {
+        uptime: (99.9 + (h % 10) / 100).toFixed(2),
+        latency: 8 + (h % 38),
+        stack: STACK_POOL[h % STACK_POOL.length],
+        region: REGION_POOL[(h >> 8) % REGION_POOL.length],
+        logs: Array.from({ length: 6 }, (_, i) => LOG_POOL[(h + i * 17) % LOG_POOL.length]),
+    };
 }
 
 const memberSlides: MemberSlide[] = [
@@ -568,6 +629,7 @@ export default function Projects() {
                     className="Projects-fluidBg-canvas"
                     progress={scrollProgress}
                 />
+                <BackgroundAtmosphere />
             </div>
             {/* SECTION 1 — Carousel membres (back <-> front) */}
             <section
@@ -576,21 +638,6 @@ export default function Projects() {
                 className={`Projects-section Projects-section--back Projects-section--back-${section1View}`}
                 aria-label={`Showcase membre — ${currentSlide.id}`}
             >
-                <div className="ProjectsBack-top">
-                    <span
-                        style={{ visibility: section1View === 'back' ? 'visible' : 'hidden' }}
-                    >
-                        <Typewriter
-                            as="span"
-                            text="BACKEND ARCHITECTURE"
-                            delay={0.4}
-                            className="ProjectsBack-label"
-                            cursor={false}
-                            play={revealStart}
-                        />
-                    </span>
-                </div>
-
                 <div className="ProjectsBack-toggle">
                     {section1View === 'front' ? (
                         <Cog3D
@@ -642,9 +689,58 @@ export default function Projects() {
                                     {currentSlide.domain}
                                     <ExternalLinkIcon />
                                 </a>
-                                <p className="ProjectsBack-description">
-                                    {currentSlide.description}
-                                </p>
+
+                                {/* Infrastructure Blade — KPI block. The
+                                    description paragraph is gone in favor of
+                                    machine-flavoured telemetry. */}
+                                {(() => {
+                                    const infra = deriveInfra(currentSlide.id);
+                                    return (
+                                        <>
+                                            <dl className="ProjectsBack-meta">
+                                                <div className="ProjectsBack-metaRow">
+                                                    <dt className="ProjectsBack-metaKey">[ UPTIME ]</dt>
+                                                    <dd className="ProjectsBack-metaVal">{infra.uptime}%</dd>
+                                                </div>
+                                                <div className="ProjectsBack-metaRow">
+                                                    <dt className="ProjectsBack-metaKey">[ LATENCY ]</dt>
+                                                    <dd className="ProjectsBack-metaVal">{infra.latency}ms</dd>
+                                                </div>
+                                                <div className="ProjectsBack-metaRow">
+                                                    <dt className="ProjectsBack-metaKey">[ STACK ]</dt>
+                                                    <dd className="ProjectsBack-metaVal">{infra.stack}</dd>
+                                                </div>
+                                                <div className="ProjectsBack-metaRow">
+                                                    <dt className="ProjectsBack-metaKey">[ REGION ]</dt>
+                                                    <dd className="ProjectsBack-metaVal">{infra.region}</dd>
+                                                </div>
+                                            </dl>
+
+                                            {/* Subdued log feed — opacity 0.3,
+                                                seamless CSS-driven scroll. The
+                                                stream is duplicated in the DOM
+                                                so the loop is invisible. */}
+                                            <div
+                                                className="ProjectsBack-terminal"
+                                                aria-hidden="true"
+                                            >
+                                                <div className="ProjectsBack-terminal-stream">
+                                                    {[...infra.logs, ...infra.logs].map((line, i) => (
+                                                        <div
+                                                            className="ProjectsBack-terminal-line"
+                                                            key={i}
+                                                        >
+                                                            <span className="ProjectsBack-terminal-prompt">
+                                                                &gt;
+                                                            </span>
+                                                            {line}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                             </div>
 
                             <div className="ProjectsBack-services">

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { EffectComposer, Bloom, DepthOfField, Vignette, Noise } from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
-import { useTexture, OrbitControls, useGLTF, Environment, MeshReflectorMaterial } from '@react-three/drei';
+import { useTexture, useGLTF, Environment, MeshReflectorMaterial, PerspectiveCamera } from '@react-three/drei';
 import { useControls } from 'leva';
 import * as THREE from 'three';
 import { HalfFloatType } from 'three';
@@ -13,6 +13,11 @@ import diffuseUrl from '../../assets/faux_fur_geometric_1k/faux_fur_geometric_di
 import normalUrl from '../../assets/faux_fur_geometric_1k/faux_fur_geometric_nor_gl_1k.jpg';
 import roughUrl from '../../assets/faux_fur_geometric_1k/faux_fur_geometric_rough_1k.jpg';
 import './GameUniverseTransition.css';
+
+// Bleu nuit très profond — couleur unique pour le ciel, le fond Environment
+// (cubemap = aplat → reflets neutres sombres) et le fog. Une seule source de
+// vérité : zéro seam entre fond, brouillard et cubemap.
+const NIGHT_BG = '#010409';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -328,18 +333,6 @@ function CityCables({ buildings }: { buildings: Building[] }) {
             );
         });
 
-        // Cross cables (suspended above the street, connecting opposite facades)
-        for (let i = 0; i < buildings.length; i += 4) {
-            const b = buildings[i];
-            if (!b) continue;
-            const z = b.pos[2];
-            const high = 3.2 + (i % 3) * 0.4;
-            const left = new THREE.Vector3(-3.3, 1.4, z);
-            const archA = new THREE.Vector3(-1.2, high, z + 0.15);
-            const archB = new THREE.Vector3(1.2, high, z - 0.15);
-            const right = new THREE.Vector3(3.3, 1.4, z);
-            result.push(new THREE.CatmullRomCurve3([left, archA, archB, right]));
-        }
 
         return result;
     }, [buildings]);
@@ -494,6 +487,68 @@ function useCityHorizonTexture() {
     }, []);
 }
 
+// Normal map "asphalte granuleux" : micro-aspérités majoritairement
+// isotropes + une trace résiduelle de stries longitudinales pour garder un
+// peu du caractère "humide". Avec ce grain, le reflet de la lune n'est plus
+// une ligne droite parfaite (look kitsch CG) — il scintille sur les
+// aspérités du sol comme du vrai asphalte mouillé. L'anisotropy max=16
+// conserve la netteté du grain au glancing angle.
+function useRainNormalMap() {
+    return useMemo(() => {
+        const w = 384, h = 384;
+        const data = new Uint8Array(w * h * 4);
+        let s = 9001;
+        const rand = () => {
+            s = (s * 9301 + 49297) % 233280;
+            return s / 233280;
+        };
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const u = x / w;
+                const v = y / h;
+                // Trace résiduelle de stries longitudinales (très atténuées
+                // par rapport à l'ancienne version) — donne juste un soupçon
+                // de "wet character" sans imposer une ligne de reflet.
+                const ridge =
+                    Math.sin(u * 28 + v * 2.0) * 0.10 +
+                    Math.sin(u * 11 + v * 1.4 + 1.3) * 0.06;
+                // Quelques gouttes rondes éparses pour la lecture matière.
+                const drop =
+                    Math.exp(-(((u - 0.27) * 14) ** 2 + ((v - 0.43) * 11) ** 2)) * 0.35 +
+                    Math.exp(-(((u - 0.71) * 16) ** 2 + ((v - 0.78) * 13) ** 2)) * 0.30 +
+                    Math.exp(-(((u - 0.43) * 20) ** 2 + ((v - 0.18) * 17) ** 2)) * 0.25;
+                // GRAIN isotrope haute fréquence — le moteur principal du
+                // scintillement. dx et dy reçoivent du grain INDÉPENDANT
+                // (pas le même `noise` appliqué partout) → vraies aspérités
+                // 3D, pas une vague qui ondule en bloc.
+                const grainX = (rand() - 0.5) * 0.95;
+                const grainY = (rand() - 0.5) * 0.95;
+                const dx = ridge * 0.4 + drop * 0.3 + grainX;
+                const dy = ridge * 0.25 + drop * 0.3 + grainY;
+                const len = Math.sqrt(dx * dx + dy * dy + 1);
+                const nx = dx / len, ny = dy / len, nz = 1 / len;
+                const idx = (y * w + x) * 4;
+                data[idx] = Math.floor((nx * 0.5 + 0.5) * 255);
+                data[idx + 1] = Math.floor((ny * 0.5 + 0.5) * 255);
+                data[idx + 2] = Math.floor((nz * 0.5 + 0.5) * 255);
+                data[idx + 3] = 255;
+            }
+        }
+        const tex = new THREE.DataTexture(data, w, h, THREE.RGBAFormat);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        // Tile dense ET isotrope (4×4 sur le plan) → grain serré qui se lit
+        // partout sans se répéter visiblement.
+        tex.repeat.set(4, 4);
+        tex.minFilter = THREE.LinearMipMapLinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        tex.generateMipmaps = true;
+        tex.anisotropy = 16;
+        tex.needsUpdate = true;
+        return tex;
+    }, []);
+}
+
 // Roughness map procédurale pour l'asphalte mouillé : flaques sombres (faible
 // roughness → reflet net) sur fond rugueux (asphalte sec). Sans cette carte,
 // la route est un miroir uniforme — kitsch. Avec, les reflets se brisent en
@@ -528,7 +583,7 @@ function useWetRoadRoughnessMap() {
         tex.wrapS = THREE.RepeatWrapping;
         tex.wrapT = THREE.RepeatWrapping;
         tex.repeat.set(2, 6);
-        tex.anisotropy = 8;
+        tex.anisotropy = 16;
         tex.needsUpdate = true;
         return tex;
     }, []);
@@ -790,7 +845,7 @@ function DroneLamp({ position }: { position: [number, number, number] }) {
 function GameCity({ progressRef }: { progressRef: ProgressRef }) {
     const groupRef = useRef<THREE.Group>(null);
     const wetRoughnessMap = useWetRoadRoughnessMap();
-    const horizonTextures = useCityHorizonTexture();
+    const rainNormalMap = useRainNormalMap();
 
     const { showVolumes } = useControls('GameCity debug', {
         showVolumes: false,
@@ -822,20 +877,21 @@ function GameCity({ progressRef }: { progressRef: ProgressRef }) {
 
     return (
         <group ref={groupRef}>
-            {/* Lune (directionalLight) : la SEULE source clé de la scène.
-                Lumière froide bleutée venant du haut-droit légèrement en
-                arrière → bâtiments rim-lit côté droit, ombres longues sur la
-                chaussée vers la caméra. Shadow camera dimensionnée sur la
-                portée des bâtiments + route. */}
+            {/* "Lune" — directionalLight unique et clé de la scène.
+                Position [20,40,-50] : haut-droite-arrière des bâtiments →
+                rim-light côté droit + ombres longues qui rampent vers la
+                caméra sur la chaussée. C'est elle qui sculpte la traînée
+                lumineuse sur l'asphalte mouillé. Intensity 3.5 + bleu glacé
+                #d1e3ff = tone "moonlit night" cinéma. */}
             <directionalLight
-                position={[20, 30, -50]}
-                intensity={2.5}
-                color="#b9d5ff"
+                position={[20, 40, -50]}
+                intensity={3.5}
+                color="#d1e3ff"
                 castShadow
                 shadow-mapSize-width={2048}
                 shadow-mapSize-height={2048}
                 shadow-camera-near={1}
-                shadow-camera-far={120}
+                shadow-camera-far={140}
                 shadow-camera-left={-25}
                 shadow-camera-right={25}
                 shadow-camera-top={25}
@@ -854,56 +910,15 @@ function GameCity({ progressRef }: { progressRef: ProgressRef }) {
                 <directionalLight position={[8, 18, 6]} intensity={0.4} color="#b9d5ff" />
             )}
 
-            {/* Drone lamps : trois sphères émissives suspendues qui injectent
-                de la chaleur localisée dans la scène nocturne. Asymétriques
-                pour éviter le rythme régulier des lampadaires. */}
-            <DroneLamp position={[-3.2, 4.8, -8]} />
-            <DroneLamp position={[2.6, 5.4, -16]} />
-            <DroneLamp position={[-1.4, 4.2, -23]} />
 
-            {/* Lune visible au fond + halo : disque émissif blanc-bleu qui
-                bloomera et donnera l'éclat à l'horizon. fog=false pour qu'elle
-                ne se perde pas dans le brouillard. */}
-            <group position={[10, 13, -45]}>
-                <mesh>
-                    <circleGeometry args={[2.4, 64]} />
-                    <meshBasicMaterial color="#dbe8ff" toneMapped={false} fog={false} />
-                </mesh>
-                <mesh position={[0, 0, -0.02]}>
-                    <circleGeometry args={[5.5, 64]} />
-                    <meshBasicMaterial color="#b9d5ff" transparent opacity={0.35} toneMapped={false} fog={false} depthWrite={false} />
-                </mesh>
-                <mesh position={[0, 0, -0.04]}>
-                    <circleGeometry args={[10, 64]} />
-                    <meshBasicMaterial color="#7a9cd8" transparent opacity={0.12} toneMapped={false} fog={false} depthWrite={false} />
-                </mesh>
-            </group>
 
             <CityBuildings buildings={buildings} />
 
-            {/* Plan d'horizon : silhouette urbaine au fond de la rue. fog=false
-                pour qu'il soit visible derrière le brouillard, depthWrite=false
-                pour ne pas couper le rendu des objets devant. Bouche le "vide
-                noir" derrière les bâtiments et fait respirer la profondeur. */}
-            <mesh position={[0, 2.5, -22]} renderOrder={-1}>
-                <planeGeometry args={[32, 7]} />
-                <meshStandardMaterial
-                    map={horizonTextures.colorTex}
-                    emissive="#ffffff"
-                    emissiveMap={horizonTextures.emissiveTex}
-                    emissiveIntensity={5}
-                    transparent
-                    depthWrite={false}
-                    fog={false}
-                    toneMapped={false}
-                />
-            </mesh>
 
-            {/* Route miroir lune : metalness 0.9 + roughness 0.2 → la chaussée
-                devient un miroir sombre qui capte la lune et le ciel HDRI.
-                Le roughnessMap reste actif pour casser le reflet en flaques.
-                receiveShadow = true pour cueillir les ombres projetées par
-                les bâtiments sous la lumière directionnelle. */}
+            {/* Route miroir lune avec rain normal map : les micro-stries en X
+                local (perpendiculaire au sens de la rue) étirent le highlight
+                de la lune en longue traînée verticale vers la caméra → le
+                vrai look "wet asphalt" Mann/Blade Runner. */}
             <mesh
                 position={[0, 0.001, -18]}
                 rotation={[-Math.PI / 2, 0, 0]}
@@ -912,15 +927,25 @@ function GameCity({ progressRef }: { progressRef: ProgressRef }) {
                 <planeGeometry args={[7, 50]} />
                 <MeshReflectorMaterial
                     resolution={512}
-                    mirror={0.85}
-                    blur={[300, 80]}
-                    mixBlur={1.0}
-                    mixStrength={2.2}
-                    mixContrast={1.05}
+                    mirror={0.9}
+                    blur={[260, 60]}
+                    mixBlur={0.85}
+                    mixStrength={2.5}
+                    mixContrast={1.1}
                     color="#04080c"
-                    metalness={0.9}
-                    roughness={0.2}
+                    // metalness 0.7 + roughness 0.35 : on garde l'effet
+                    // mouillé (reflectivité métallique) mais on tue le côté
+                    // miroir parfait. L'asphalte n'est PAS du verre — il
+                    // diffuse, il accroche la lumière en plaques.
+                    metalness={0.7}
+                    roughness={0.35}
                     roughnessMap={wetRoughnessMap}
+                    // Grain isotrope (cf. useRainNormalMap) → reflet de lune
+                    // brisé en scintillements au lieu d'une ligne droite.
+                    // normalScale isotrope (0.45/0.45) : pas de favoritisme
+                    // axial, le grain joue dans toutes les directions.
+                    normalMap={rainNormalMap}
+                    normalScale={new THREE.Vector2(0.45, 0.45)}
                     depthScale={0.4}
                     minDepthThreshold={0.6}
                     maxDepthThreshold={1.4}
@@ -961,36 +986,186 @@ function GameCity({ progressRef }: { progressRef: ProgressRef }) {
     );
 }
 
+// Horizon : grand plan placé loin derrière les bâtiments avec un dégradé
+// radial bleu-électrique → noir. Simule la lueur diffuse d'une mégapole
+// lointaine (bandeau d'enseignes/lumières urbaines) sans modéliser le moindre
+// bâtiment. UV plane = (0..1)², centre 0.5 → ellipse de glow proportionnée
+// à l'aspect du plan (large et basse → glow horizontal de "skyline").
+//
+// Opacité pilotée par progressRef : reste à 0 (invisible) pendant les phases
+// fusion/flash/explosion, fade-in sur la même courbe que la révélation des
+// buildings (smoothstep p ∈ [GAME_START, GAME_START+0.18]) → on voit
+// d'abord le noir, puis la ville et son ciel apparaissent ensemble.
+function Horizon({ progressRef }: { progressRef: ProgressRef }) {
+    const material = useMemo(() => {
+        return new THREE.ShaderMaterial({
+            uniforms: {
+                centerColor: { value: new THREE.Color('#0d3a8a') },
+                edgeColor: { value: new THREE.Color('#000000') },
+                falloff: { value: 1.6 },
+                opacity: { value: 0 },
+            },
+            vertexShader: /* glsl */ `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: /* glsl */ `
+                uniform vec3 centerColor;
+                uniform vec3 edgeColor;
+                uniform float falloff;
+                uniform float opacity;
+                varying vec2 vUv;
+                void main() {
+                    vec2 d = vUv - 0.5;
+                    float r = clamp(length(d) * 2.0, 0.0, 1.0);
+                    float t = pow(r, falloff);
+                    gl_FragColor = vec4(mix(centerColor, edgeColor, t), opacity);
+                }
+            `,
+            transparent: true,
+            depthWrite: false,
+            toneMapped: false,
+        });
+    }, []);
+
+    useFrame(() => {
+        const p = progressRef.current.value;
+        const reveal = THREE.MathUtils.smoothstep(p, GAME_START, GAME_START + 0.18);
+        material.uniforms.opacity.value = reveal;
+    });
+
+    return (
+        // z=-100 : largement derrière les bâtiments (z=-10) et la fin de
+        // route (z=-43). renderOrder bas pour passer derrière tout le reste
+        // sans dépendre du depth test (depthWrite off de toute façon).
+        <mesh material={material} position={[0, 4, -100]} renderOrder={-200}>
+            <planeGeometry args={[260, 80]} />
+        </mesh>
+    );
+}
+
+// Anime la caméra : Y=0 pendant l'intro (la boule de fusion à l'origine
+// reste donc parfaitement centrée à l'écran) → lerp vers la cible leva
+// (Y~2.5) sur la fenêtre de reveal des bâtiments. L'angle "city" reste
+// pilotable en live via leva, l'intro reste centrée sans toucher aux
+// composants d'animation.
+function CameraRig({
+    progressRef,
+    target,
+}: {
+    progressRef: ProgressRef;
+    target: { posX: number; posY: number; posZ: number; fov: number };
+}) {
+    const { camera } = useThree();
+    useFrame(() => {
+        const p = progressRef.current.value;
+        const reveal = THREE.MathUtils.smoothstep(p, GAME_START, GAME_START + 0.18);
+        camera.position.x = target.posX;
+        camera.position.y = THREE.MathUtils.lerp(0, target.posY, reveal);
+        camera.position.z = target.posZ;
+        const persp = camera as THREE.PerspectiveCamera;
+        if (persp.isPerspectiveCamera && persp.fov !== target.fov) {
+            persp.fov = target.fov;
+            persp.updateProjectionMatrix();
+        }
+    });
+    return null;
+}
+
+// Pilote scene.background et scene.fog : pur noir pendant les phases intro
+// (fusion → flash → explosion), lerp vers NIGHT_BG sur la même fenêtre que
+// la révélation des bâtiments. Pas un <color attach> statique : il faut un
+// useFrame pour interpoler les couleurs en temps réel.
+function BackgroundController({ progressRef }: { progressRef: ProgressRef }) {
+    const { scene } = useThree();
+    const black = useMemo(() => new THREE.Color('#000000'), []);
+    const night = useMemo(() => new THREE.Color(NIGHT_BG), []);
+
+    useEffect(() => {
+        const bg = new THREE.Color('#000000');
+        const fog = new THREE.Fog('#000000', 8, 45);
+        const prevBg = scene.background;
+        const prevFog = scene.fog;
+        scene.background = bg;
+        scene.fog = fog;
+        return () => {
+            scene.background = prevBg;
+            scene.fog = prevFog;
+        };
+    }, [scene]);
+
+    useFrame(() => {
+        const p = progressRef.current.value;
+        const reveal = THREE.MathUtils.smoothstep(p, GAME_START, GAME_START + 0.18);
+        if (scene.background instanceof THREE.Color) {
+            scene.background.lerpColors(black, night, reveal);
+        }
+        if (scene.fog instanceof THREE.Fog) {
+            scene.fog.color.lerpColors(black, night, reveal);
+        }
+    });
+
+    return null;
+}
+
 function Scene({ progressRef }: { progressRef: ProgressRef }) {
+    // Petit panneau de tuning : ambient pour remonter les noirs si la lune
+    // ne suffit pas. Le reste (couleur du fond, position lune, route) est
+    // hardcodé selon la spec — pas de surface leva pour ce qui ne bouge pas.
+    const sky = useControls('Sky (night premium)', {
+        ambientIntensity: { value: 0.08, min: 0, max: 1, step: 0.01 },
+    });
+    // Caméra fixe (pas d'OrbitControls) mais paramétrable en live via leva.
+    // Le prop `camera` du <Canvas> ne sert qu'au mount initial → pour ajuster
+    // sans hard-reload il faut une vraie <PerspectiveCamera makeDefault>.
+    const cam = useControls('Camera', {
+        posX: { value: 0, min: -10, max: 10, step: 0.1 },
+        posY: { value: 2.5, min: -2, max: 12, step: 0.1 },
+        posZ: { value: 5, min: -2, max: 20, step: 0.1 },
+        fov: { value: 45, min: 20, max: 90, step: 1 },
+    });
     return (
         <>
-            {/* Background sombre uniforme. La lune visible (mesh dans GameCity)
-                fournit l'éclat lumineux à l'horizon, le fog le fait fondre. */}
-            <color attach="background" args={['#010205']} />
-            {/* Fog couleur "halo lune" foncée : transition douce entre la
-                chaussée et le mur noir du fond. Range étiré (8→45) pour que
-                les bâtiments restent nets et que l'horizon respire. */}
-            <fog attach="fog" args={['#0a1626', 8, 45]} />
-            {/* Environment HDRI 'night' avec blur=0.8 → l'environnement
-                contribue aux reflets des matériaux métalliques mais flou
-                empêche les détails (arbre, bâtiments du HDRI) d'être visibles
-                comme silhouettes nettes. background={false} = HDRI invisible. */}
-            <Environment preset="night" blur={0.8} background={false} environmentIntensity={0.4} />
-            {/* Ambient très bas : la lune fait le travail principal, l'ambient
-                évite juste les noirs purs. */}
-            <ambientLight intensity={0.08} color="#b9d5ff" />
-            {/* Caméra libre : OrbitControls pour inspecter les câbles. */}
-            <OrbitControls
+            {/* Caméra par défaut : pose "intro" (Y=0) hardcodée pour que le
+                premier frame cadre la boule de fusion centrée. Tout le reste
+                (lerp vers Y leva pendant le reveal, fov réactif) est piloté
+                par <CameraRig> en useFrame → réactif aux changements leva
+                ET au progressRef sans flicker. */}
+            <PerspectiveCamera
                 makeDefault
-                enableDamping
-                dampingFactor={0.06}
-                enablePan
-                enableZoom
-                enableRotate
-                target={[0, 1.5, -10]}
-                minDistance={1}
-                maxDistance={60}
+                position={[0, 0, 5]}
+                fov={45}
+                near={0.1}
+                far={1000}
             />
+            <CameraRig progressRef={progressRef} target={cam} />
+            {/* Background + fog noirs pendant la fusion/explosion, lerp vers
+                NIGHT_BG dès que GameCity commence sa révélation. Pas de
+                <color attach> statique : on a besoin d'un useFrame pour
+                interpoler en temps réel sur le progressRef. */}
+            <BackgroundController progressRef={progressRef} />
+            {/* <Environment> sans preset : ses children sont rendus dans une
+                cubemap qui devient l'envMap des Standard/Reflector materials.
+                Ici juste un aplat bleu nuit → reflets neutres et sombres,
+                pas de "ciel HDRI" qui imposerait sa propre ambiance.
+                Pendant l'intro, GameCity est invisible donc aucun matériau
+                ne consomme cette envMap → pas la peine de la gater. */}
+            <Environment frames={1} resolution={64}>
+                <color attach="background" args={[NIGHT_BG]} />
+            </Environment>
+            {/* Skyline glow : grand plan loin derrière les bâtiments,
+                dégradé radial bleu électrique → noir. Opacité pilotée par
+                progressRef → reste invisible pendant l'intro, fade-in avec
+                la révélation des bâtiments. */}
+            <Horizon progressRef={progressRef} />
+            {/* Ambient pilotable : remonte les noirs si la lune ne suffit pas. */}
+            <ambientLight intensity={sky.ambientIntensity} color="#b9d5ff" />
+            {/* Caméra fixe — pas d'OrbitControls : l'utilisateur regarde la
+                scène cadrée par défaut (camera.position [0,0,5], fov 45),
+                la mise en scène contrôle ce qu'on voit. */}
             <FusionNodes progressRef={progressRef} />
             <CoreFlash progressRef={progressRef} />
             <ParticleBurst progressRef={progressRef} />
@@ -1007,22 +1182,34 @@ function Scene({ progressRef }: { progressRef: ProgressRef }) {
             >
                 {/* Ordre cinéma : DoF AVANT Bloom. Le flou s'applique sur
                     l'image nette, puis le glow s'ajoute sur les zones floues
-                    sans créer d'anneau sombre au bord du bokeh. */}
+                    sans créer d'anneau sombre au bord du bokeh.
+                    worldFocusDistance=15 ≈ distance caméra→bâtiment principal
+                    (cam y=2.5/z=5 → bâtiment z=-10) → façade parfaitement
+                    nette. worldFocusRange=3 resserre la zone nette pour que
+                    les câbles proches (distance ~4-5) ET l'horizon (≥100)
+                    sortent du focus. focalLength=0.04 → bokeh prononcé hors
+                    zone, bokehScale=3.0 calibre la taille des cercles. */}
                 <DepthOfField
                     worldFocusDistance={15}
-                    worldFocusRange={4}
-                    bokehScale={3}
+                    worldFocusRange={3}
+                    focalLength={0.04}
+                    bokehScale={3.0}
                     height={480}
                 />
-                {/* Bloom calibré "Cinéma Noir" : seuls les pixels très brillants
-                    (fenêtres immeubles, HUD) bavent. Les câbles à emissive 0.05
-                    restent SOUS le seuil → tressage net sans halo. */}
+                {/* Bloom recalibré "néons dominants" : threshold 0.7 → seules
+                    les emissives très brillantes (fenêtres bâtiment à
+                    intensity=3) passent largement, les surfaces moyennement
+                    lumineuses (data pulse 1.4, câbles ~1.4) passent moins
+                    fort, la route reste sous le seuil → les néons "bavent"
+                    plus dans l'atmosphère bleue, pas le sol. intensity 1.15
+                    + smoothing 0.55 = transition franche dans le bloom,
+                    halo plus présent autour des fenêtres allumées. */}
                 <Bloom
-                    intensity={0.85}
-                    luminanceThreshold={0.6}
-                    luminanceSmoothing={0.85}
+                    intensity={1.15}
+                    luminanceThreshold={0.7}
+                    luminanceSmoothing={0.55}
                     mipmapBlur
-                    height={300}
+                    height={360}
                 />
                 {/* Vignette : assombrissement périphérique → focus naturel
                     sur le centre, renforce la profondeur cinéma. */}
@@ -1198,7 +1385,11 @@ export default function GameUniverseTransition() {
                 <Canvas
                     className="GameUniverse-canvas"
                     camera={{ position: [0, 0, 5], fov: 45 }}
-                    gl={{ antialias: false, powerPreference: 'high-performance' }}
+                    gl={{
+                        antialias: false,
+                        powerPreference: 'high-performance',
+                        toneMappingExposure: 0.5,
+                    }}
                     dpr={[1, 1]}
                     frameloop={frameloop}
                     shadows="soft"
