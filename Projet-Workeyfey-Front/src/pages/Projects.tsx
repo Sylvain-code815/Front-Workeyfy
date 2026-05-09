@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import ContactButton from '../components/layout/ContactButton';
 import Cog3D from '../components/canvas/Cog3D';
 import Globe3D from '../components/canvas/Globe3D';
@@ -263,6 +263,21 @@ const memberSlides: MemberSlide[] = [
     },
 ];
 
+const SAMPLE_VIDEOS = [
+    'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
+    'https://test-videos.co.uk/vids/jellyfish/mp4/h264/360/Jellyfish_360_10s_1MB.mp4',
+    'https://test-videos.co.uk/vids/sintel/mp4/h264/360/Sintel_360_10s_1MB.mp4',
+    'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_2MB.mp4',
+    'https://test-videos.co.uk/vids/jellyfish/mp4/h264/720/Jellyfish_720_10s_2MB.mp4',
+    'https://test-videos.co.uk/vids/sintel/mp4/h264/720/Sintel_720_10s_2MB.mp4',
+    'https://www.w3schools.com/html/mov_bbb.mp4',
+    'https://www.w3schools.com/html/movie.mp4',
+];
+
+function pickRandom<T>(arr: T[]): T {
+    return arr[Math.floor(Math.random() * arr.length)];
+}
+
 const robloxGames = [
     { id: 'tycoon-empire', label: 'Tycoon Empire' },
     { id: 'racing-arena', label: 'Racing Arena' },
@@ -293,20 +308,80 @@ function ExternalLinkIcon() {
     );
 }
 
-function PlayButton({ label, accent }: { label: string; accent: Accent }) {
+function VideoCard({ label, accent }: { label: string; accent: Accent }) {
+    const posterSeed = useMemo(() => Math.random().toString(36).slice(2, 10), []);
     return (
-        <div className="ProjectsGaming-play">
-            <button
-                type="button"
-                className={`ProjectsGaming-play-btn ProjectsGaming-play-btn--${accent}`}
-                aria-label={`Lancer ${label}`}
-            >
-                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <div
+            className={`ProjectsGaming-card ProjectsGaming-card--${accent}`}
+            aria-label={label}
+        >
+            <img
+                className="ProjectsGaming-card-thumb"
+                src={`https://picsum.photos/seed/${posterSeed}/400/225`}
+                alt=""
+                loading="lazy"
+            />
+            <span className="ProjectsGaming-card-overlay" aria-hidden="true" />
+            <span className="ProjectsGaming-card-play" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="22" height="22">
                     <path d="M8 5v14l11-7L8 5z" fill="currentColor" />
                 </svg>
-            </button>
-            <span className="ProjectsGaming-play-label">{label}</span>
+            </span>
+            <span className="ProjectsGaming-card-label">{label}</span>
         </div>
+    );
+}
+
+function ColumnBackground() {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const videoSrc = useMemo(() => pickRandom(SAMPLE_VIDEOS), []);
+    const [muted, setMuted] = useState(true);
+    const [failed, setFailed] = useState(false);
+
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+        const column = video.closest('.ProjectsGaming-column');
+        if (!column) return;
+
+        const handleEnter = () => {
+            video.play().catch(() => {});
+        };
+        const handleLeave = () => {
+            video.pause();
+            video.muted = true;
+            setMuted(true);
+        };
+
+        column.addEventListener('mouseenter', handleEnter);
+        column.addEventListener('mouseleave', handleLeave);
+        return () => {
+            column.removeEventListener('mouseenter', handleEnter);
+            column.removeEventListener('mouseleave', handleLeave);
+        };
+    }, []);
+
+    if (failed) return null;
+
+    return (
+        <video
+            ref={videoRef}
+            className="ProjectsGaming-bg-video"
+            src={videoSrc}
+            muted={muted}
+            loop
+            playsInline
+            preload="auto"
+            aria-hidden="true"
+            onError={() => setFailed(true)}
+            onClick={(e) => {
+                e.stopPropagation();
+                const v = videoRef.current;
+                if (!v) return;
+                v.muted = !v.muted;
+                setMuted(v.muted);
+            }}
+        />
     );
 }
 
@@ -600,30 +675,32 @@ export default function Projects() {
                 <span className="ProjectsGaming-badge">GAMING PRODUCTIONS</span>
 
                 <div className="ProjectsGaming-column ProjectsGaming-column--roblox">
+                    <ColumnBackground />
                     <div className="ProjectsGaming-content">
                         <h2 className="ProjectsGaming-title">Roblox Metaverse</h2>
                         <p className="ProjectsGaming-description">
                             Immersive experiences built with Lua scripting, custom physics
                             engines, and advanced monetization systems.
                         </p>
-                        <div className="ProjectsGaming-buttons">
+                        <div className="ProjectsGaming-cards">
                             {robloxGames.map((g) => (
-                                <PlayButton key={g.id} label={g.label} accent="cyan" />
+                                <VideoCard key={g.id} label={g.label} accent="cyan" />
                             ))}
                         </div>
                     </div>
                 </div>
 
                 <div className="ProjectsGaming-column ProjectsGaming-column--fivem">
+                    <ColumnBackground />
                     <div className="ProjectsGaming-content">
                         <h2 className="ProjectsGaming-title">FiveM Framework</h2>
                         <p className="ProjectsGaming-description">
                             Advanced GTA V multiplayer servers with custom React-based HUDs,
                             real-time economy systems, and fully scripted roleplay mechanics.
                         </p>
-                        <div className="ProjectsGaming-buttons">
+                        <div className="ProjectsGaming-cards">
                             {fivemGames.map((g) => (
-                                <PlayButton key={g.id} label={g.label} accent="green" />
+                                <VideoCard key={g.id} label={g.label} accent="green" />
                             ))}
                         </div>
                     </div>

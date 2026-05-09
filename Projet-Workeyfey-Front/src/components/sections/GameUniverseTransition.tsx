@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { EffectComposer, Bloom } from '@react-three/postprocessing';
-import { SpotLight, useTexture, OrbitControls, useGLTF, Environment } from '@react-three/drei';
+import { EffectComposer, Bloom, DepthOfField, Vignette, Noise } from '@react-three/postprocessing';
+import { BlendFunction } from 'postprocessing';
+import { SpotLight, useTexture, OrbitControls, useGLTF, Environment, MeshReflectorMaterial } from '@react-three/drei';
 import { useControls } from 'leva';
 import * as THREE from 'three';
 import gsap from 'gsap';
@@ -174,6 +175,7 @@ function ParticleBurst({ progressRef, count = 200 }: { progressRef: ProgressRef;
 type Building = {
     pos: [number, number, number];
     size: [number, number, number];
+    rotY?: number;
 };
 
 function CityCables({ buildings }: { buildings: Building[] }) {
@@ -183,6 +185,38 @@ function CityCables({ buildings }: { buildings: Building[] }) {
         normal: normalUrl,
         rough: roughUrl,
     });
+
+    // Data pulses : texture procédurale 4×64 avec deux bandes brillantes
+    // étroites. Tilée 6× le long du tube + scroll rapide → impulsions qui
+    // filent dans le câble comme du flux d'information.
+    const pulseTexture = useMemo(() => {
+        const w = 4, h = 64;
+        const data = new Uint8Array(w * h * 4);
+        for (let y = 0; y < h; y++) {
+            const v = y / h;
+            const band = Math.max(
+                Math.exp(-Math.pow((v - 0.18) * 14, 2)),
+                Math.exp(-Math.pow((v - 0.55) * 22, 2)) * 0.55,
+            );
+            const value = Math.floor(Math.min(1, band) * 255);
+            for (let x = 0; x < w; x++) {
+                const i = (y * w + x) * 4;
+                data[i] = value;
+                data[i + 1] = value;
+                data[i + 2] = value;
+                data[i + 3] = 255;
+            }
+        }
+        const tex = new THREE.DataTexture(data, w, h, THREE.RGBAFormat);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(1, 6);
+        tex.minFilter = THREE.LinearMipMapLinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        tex.generateMipmaps = true;
+        tex.needsUpdate = true;
+        return tex;
+    }, []);
 
     useEffect(() => {
         const list = [
@@ -214,13 +248,15 @@ function CityCables({ buildings }: { buildings: Building[] }) {
             roughness: 0.8,
             metalness: 0.6,
             emissive: new THREE.Color(CYAN),
-            emissiveMap: cableTextures.diffuse,
-            emissiveIntensity: 0.05,
+            // emissiveMap dédié aux data pulses → indépendant du diffuse,
+            // scroll rapide. Le diffuse continue à habiller les câbles.
+            emissiveMap: pulseTexture,
+            emissiveIntensity: 1.4,
             toneMapped: false,
         });
         mat.color.set('#00E5FF');
         return mat;
-    }, [cableTextures]);
+    }, [cableTextures, pulseTexture]);
 
     const curves = useMemo(() => {
         const result: THREE.CatmullRomCurve3[] = [];
@@ -253,22 +289,41 @@ function CityCables({ buildings }: { buildings: Building[] }) {
             const sideSign = b.pos[0] > 0 ? 1 : -1;
             const curbX = sideSign * 3.5;
             const z = b.pos[2];
-            // Facade face that looks toward the street
-            const facadeX = b.pos[0] - sideSign * (b.size[0] / 2 + 0.02);
+            // Demi-largeur monde-X selon la rotation Y appliquée au bâtiment :
+            // après une rotation de ±π/2, c'est size[2] (profondeur locale) qui
+            // devient l'extension le long de X, pas size[0].
+            const rotY = b.rotY ?? 0;
+            const halfWorldX =
+                Math.abs(Math.cos(rotY)) * (b.size[0] / 2) +
+                Math.abs(Math.sin(rotY)) * (b.size[2] / 2);
+            // Façade face vers la rue. plungeX est légèrement à l'intérieur du
+            // mur → le câble pénètre la façade au lieu de mourir à 2 cm de
+            // distance (effet "spaghetti qui flotte").
+            const facadeX = b.pos[0] - sideSign * (halfWorldX + 0.02);
+            const plungeX = facadeX + sideSign * 0.18;
             const facadeTopY = Math.min(b.size[1] - 0.4, 1.2 + (i % 5) * 0.7);
             const climbY = facadeTopY * 0.55;
 
-            const start = new THREE.Vector3(curbX, 0.04, z + 0.1);
-            const sag = new THREE.Vector3(
-                (curbX + facadeX) * 0.5,
-                0.18,
+            // Sag prononcé : le câble pèse, on descend presque au ras du sol
+            // au milieu de la portée curb→façade. Petite asymétrie en Z pour
+            // que le câble paraisse "vivant".
+            const start = new THREE.Vector3(curbX, 0.06, z + 0.1);
+            const sagDeep = new THREE.Vector3(
+                curbX * 0.65 + facadeX * 0.35,
+                0.05,
+                z + 0.04,
+            );
+            const sagRise = new THREE.Vector3(
+                curbX * 0.25 + facadeX * 0.75,
+                0.32,
                 z - 0.05,
             );
-            const wallBase = new THREE.Vector3(facadeX, 0.5, z);
+            // wallBase plonge à l'intérieur de la façade → connexion physique.
+            const wallBase = new THREE.Vector3(plungeX, 0.5, z);
             const wallMid = new THREE.Vector3(facadeX, climbY, z);
             const wallTop = new THREE.Vector3(facadeX, facadeTopY, z);
             result.push(
-                new THREE.CatmullRomCurve3([start, sag, wallBase, wallMid, wallTop]),
+                new THREE.CatmullRomCurve3([start, sagDeep, sagRise, wallBase, wallMid, wallTop]),
             );
         });
 
@@ -288,14 +343,39 @@ function CityCables({ buildings }: { buildings: Building[] }) {
         return result;
     }, [buildings]);
 
+    // Boîtes de dérivation : petits boîtiers émissifs aux extrémités des
+    // câbles de branche → suggère que les câbles sont VRAIMENT branchés sur
+    // quelque chose, plus de "spaghetti dans le vide". Une au pied du
+    // trottoir, une au bas de la façade côté rue.
+    const junctionBoxes = useMemo(() => {
+        return buildings.map((b) => {
+            const sideSign = b.pos[0] > 0 ? 1 : -1;
+            const curbX = sideSign * 3.5;
+            const z = b.pos[2];
+            const rotY = b.rotY ?? 0;
+            const halfWorldX =
+                Math.abs(Math.cos(rotY)) * (b.size[0] / 2) +
+                Math.abs(Math.sin(rotY)) * (b.size[2] / 2);
+            const facadeX = b.pos[0] - sideSign * (halfWorldX + 0.02);
+            return {
+                curb: [curbX, 0.08, z + 0.1] as [number, number, number],
+                facade: [facadeX - sideSign * 0.04, 0.5, z] as [number, number, number],
+            };
+        });
+    }, [buildings]);
+
     useFrame(({ clock }) => {
         const t = clock.elapsedTime;
-        material.emissiveIntensity = 0.05 + 0.02 * Math.sin(t * 0.7);
-        const offsetY = -t * 0.06;
-        if (material.map) material.map.offset.y = offsetY;
-        if (material.emissiveMap) material.emissiveMap.offset.y = offsetY;
-        if (material.normalMap) material.normalMap.offset.y = offsetY;
-        if (material.roughnessMap) material.roughnessMap.offset.y = offsetY;
+        // Diffuse / normal / rough : scroll lent, donne de la matière au tube.
+        const offsetSlow = -t * 0.06;
+        if (material.map) material.map.offset.y = offsetSlow;
+        if (material.normalMap) material.normalMap.offset.y = offsetSlow;
+        if (material.roughnessMap) material.roughnessMap.offset.y = offsetSlow;
+        // Pulse texture : scroll rapide pour faire courir les bandes brillantes
+        // dans le sens du câble, comme un flux de données.
+        if (material.emissiveMap) material.emissiveMap.offset.y = -t * 0.55;
+        // Légère respiration globale pour ne pas figer l'intensité.
+        material.emissiveIntensity = 1.3 + 0.2 * Math.sin(t * 1.4);
     });
 
     return (
@@ -307,8 +387,77 @@ function CityCables({ buildings }: { buildings: Building[] }) {
                     <tubeGeometry args={[curve, 128, 0.04, 12, false]} />
                 </mesh>
             ))}
+            {junctionBoxes.map((jb, i) => (
+                <group key={`jb-${i}`}>
+                    {/* Boîtier au pied du trottoir : noir mat avec liseré
+                        cyan émissif → grippe les câbles à la rue. */}
+                    <mesh position={jb.curb}>
+                        <boxGeometry args={[0.18, 0.14, 0.14]} />
+                        <meshStandardMaterial
+                            color="#0a0d12"
+                            roughness={0.45}
+                            metalness={0.7}
+                            emissive={CYAN}
+                            emissiveIntensity={0.5}
+                            toneMapped={false}
+                        />
+                    </mesh>
+                    {/* Port de connexion sur la façade (un peu plus petit). */}
+                    <mesh position={jb.facade}>
+                        <boxGeometry args={[0.14, 0.18, 0.12]} />
+                        <meshStandardMaterial
+                            color="#0a0d12"
+                            roughness={0.45}
+                            metalness={0.7}
+                            emissive={i % 2 === 0 ? CYAN : MAGENTA}
+                            emissiveIntensity={0.6}
+                            toneMapped={false}
+                        />
+                    </mesh>
+                </group>
+            ))}
         </group>
     );
+}
+
+// Roughness map procédurale pour l'asphalte mouillé : flaques sombres (faible
+// roughness → reflet net) sur fond rugueux (asphalte sec). Sans cette carte,
+// la route est un miroir uniforme — kitsch. Avec, les reflets se brisent en
+// plaques irrégulières → look cyberpunk Awwwards.
+function useWetRoadRoughnessMap() {
+    return useMemo(() => {
+        const size = 256;
+        const data = new Uint8Array(size * size);
+        let s = 1337;
+        const rand = () => {
+            s = (s * 9301 + 49297) % 233280;
+            return s / 233280;
+        };
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                const u = x / size;
+                const v = y / size;
+                // Plusieurs sinusoïdes basse fréquence → blobs de flaques.
+                let n =
+                    Math.sin(u * 6.0 + v * 3.7) * 0.35 +
+                    Math.sin(u * 13.0 - v * 9.0 + 1.7) * 0.22 +
+                    Math.sin(u * 27.0 + v * 19.0 + 4.3) * 0.13;
+                // Grain fin pour l'asphalte (pas un miroir uniforme).
+                n += (rand() - 0.5) * 0.35;
+                // Centré autour de 0.7 (asphalte rugueux dominant), descend
+                // vers 0 sur les blobs (flaques très lisses → reflets nets).
+                const v01 = Math.max(0, Math.min(1, 0.7 + n));
+                data[y * size + x] = Math.floor(v01 * 255);
+            }
+        }
+        const tex = new THREE.DataTexture(data, size, size, THREE.RedFormat);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(2, 6);
+        tex.anisotropy = 8;
+        tex.needsUpdate = true;
+        return tex;
+    }, []);
 }
 
 const BUILDING_URL = encodeURI('/cyberpunk v2.glb');
@@ -347,23 +496,81 @@ function CityBuildings({ buildings }: { buildings: Building[] }) {
         emissiveMap?: THREE.Texture | null;
         emissiveIntensity?: number;
         toneMapped?: boolean;
+        userData: { baseEmissive?: number };
     };
+    type StandardLike = THREE.Material & {
+        envMapIntensity?: number;
+        metalness?: number;
+        roughness?: number;
+    };
+    // Liste des matériaux émissifs pour le flicker. Les matériaux sont
+    // partagés entre les clones (Object3D.clone() ne clone pas les materials)
+    // → un flicker affecte simultanément tous les bâtiments, ce qui se lit
+    // comme une "ondulation néon" cohérente sur la rue.
+    const emissiveMatsRef = useRef<EmissiveLike[]>([]);
     useEffect(() => {
+        const collected: EmissiveLike[] = [];
         gltf.scene.traverse((obj) => {
             const mesh = obj as THREE.Mesh;
             if (!mesh.isMesh || !mesh.material) return;
             const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
             for (const mat of list) {
                 const m = mat as EmissiveLike;
+                // Booste les reflets spéculaires sur tous les matériaux du
+                // building : envMapIntensity 1.6 → le métal/verre accroche
+                // vraiment l'environnement "night", on sort du look plastique.
+                const std = m as StandardLike;
+                if (std.envMapIntensity !== undefined) {
+                    std.envMapIntensity = 1.6;
+                }
                 const hasEmissiveColor = !!m.emissive && (m.emissive.r > 0 || m.emissive.g > 0 || m.emissive.b > 0);
                 const hasEmissiveMap = !!m.emissiveMap;
-                if (!hasEmissiveColor && !hasEmissiveMap) continue;
+                if (!hasEmissiveColor && !hasEmissiveMap) {
+                    m.needsUpdate = true;
+                    continue;
+                }
                 if (m.emissiveIntensity !== undefined) m.emissiveIntensity = 3;
                 if (m.toneMapped !== undefined) m.toneMapped = false;
+                m.userData.baseEmissive = 3;
                 m.needsUpdate = true;
+                if (!collected.includes(m)) collected.push(m);
             }
         });
+        emissiveMatsRef.current = collected;
     }, [gltf.scene]);
+
+    // Flicker : à intervalles aléatoires (~ toutes les 4-10s), une enseigne
+    // grésille pendant 150-350ms (alternance rapide à 30Hz). Le reste du
+    // temps tout est stable → c'est la rareté qui rend l'effet crédible.
+    const flickerRef = useRef<{ matIdx: number; until: number; phase: number }>({
+        matIdx: -1,
+        until: -1,
+        phase: 0,
+    });
+    useFrame((_, dt) => {
+        const list = emissiveMatsRef.current;
+        if (list.length === 0) return;
+        const f = flickerRef.current;
+        f.phase += dt;
+        if (f.matIdx < 0) {
+            // Probabilité ~0.15/s → un flicker toutes les ~6.5s en moyenne.
+            if (Math.random() < dt * 0.15) {
+                f.matIdx = Math.floor(Math.random() * list.length);
+                f.until = f.phase + 0.15 + Math.random() * 0.2;
+            }
+        } else {
+            const m = list[f.matIdx];
+            const base = m.userData.baseEmissive ?? 3;
+            if (f.phase > f.until) {
+                m.emissiveIntensity = base;
+                f.matIdx = -1;
+            } else {
+                // Carré 30Hz → grésillement net, pas une rampe
+                const on = Math.floor(f.phase * 30) % 2 === 0;
+                m.emissiveIntensity = on ? base : base * 0.12;
+            }
+        }
+    });
 
     // Un clone par instance : geometries/materials restent partagés (pas de
     // coût GPU supplémentaire), seuls les Object3D sont dupliqués.
@@ -378,6 +585,7 @@ function CityBuildings({ buildings }: { buildings: Building[] }) {
                 <group
                     key={i}
                     position={b.pos}
+                    rotation={[0, b.rotY ?? 0, 0]}
                     scale={fit}
                 >
                     <primitive
@@ -392,6 +600,7 @@ function CityBuildings({ buildings }: { buildings: Building[] }) {
 
 function GameCity({ progressRef }: { progressRef: ProgressRef }) {
     const groupRef = useRef<THREE.Group>(null);
+    const wetRoughnessMap = useWetRoadRoughnessMap();
 
     const { showVolumes } = useControls('GameCity debug', {
         showVolumes: false,
@@ -403,17 +612,12 @@ function GameCity({ progressRef }: { progressRef: ProgressRef }) {
     const gltf = useGLTF(BUILDING_URL);
     const { visualSize } = useBuildingFit(gltf.scene);
 
-    // 3 paires d'immeubles alignées le long de la rue, espacées de 12 unités
-    // en Z pour laisser passer les câbles tressés entre les façades.
-    // X = ±5.5 : façade interne posée juste à l'extérieur de la rue (3.5)
-    // pour qu'on voie la rue rouler au pied des immeubles.
+    // Deux immeubles face à face le long de la rue à Z=-10, reculés à X=±9
+    // pour laisser la chaussée dégagée. Le bâtiment de gauche est tourné de
+    // 180° par rapport à celui de droite (rotY: 0 vs π) → façades opposées.
     const buildings = useMemo<Building[]>(() => [
-        { pos: [-5.5, 0, -10], size: visualSize },
-        { pos: [5.5, 0, -10], size: visualSize },
-        { pos: [-5.5, 0, -22], size: visualSize },
-        { pos: [5.5, 0, -22], size: visualSize },
-        { pos: [-5.5, 0, -34], size: visualSize },
-        { pos: [5.5, 0, -34], size: visualSize },
+        { pos: [9, 0, -10], size: visualSize, rotY: Math.PI },
+        { pos: [-9, 0, -10], size: visualSize, rotY: 0 },
     ], [visualSize]);
 
     useFrame(() => {
@@ -509,13 +713,27 @@ function GameCity({ progressRef }: { progressRef: ProgressRef }) {
 
             <CityBuildings buildings={buildings} />
 
-            {/* Wet asphalt road */}
-            <mesh position={[0, 0, -18]} rotation={[-Math.PI / 2, 0, 0]}>
+            {/* Wet asphalt road : MeshReflectorMaterial → vraies réflexions
+                planaires de la géométrie environnante (façades émissives,
+                enseignes néon). Le roughnessMap procédural casse les reflets
+                en flaques (zones sombres = miroir, zones claires = brouillé)
+                pour éviter l'effet "patinoire uniforme". */}
+            <mesh position={[0, 0.001, -18]} rotation={[-Math.PI / 2, 0, 0]}>
                 <planeGeometry args={[7, 50]} />
-                <meshStandardMaterial
+                <MeshReflectorMaterial
+                    resolution={512}
+                    mirror={0.85}
+                    blur={[300, 80]}
+                    mixBlur={1.0}
+                    mixStrength={2.4}
+                    mixContrast={1.1}
                     color="#04080c"
-                    roughness={0.32}
-                    metalness={0.55}
+                    metalness={0.9}
+                    roughness={0.35}
+                    roughnessMap={wetRoughnessMap}
+                    depthScale={0.4}
+                    minDepthThreshold={0.6}
+                    maxDepthThreshold={1.4}
                 />
             </mesh>
 
@@ -567,15 +785,17 @@ function Scene({ progressRef }: { progressRef: ProgressRef }) {
             <color attach="background" args={['#02050a']} />
             {/* Brouillard épais : la rue se perd dans le néant après 18m. */}
             <fog attach="fog" args={['#040a14', 5, 18]} />
-            {/* Environment "night" en intensité basse : juste assez pour que
-                le métal/verre du building accroche un reflet, sans tuer le
-                noir cinéma. ambient à 0.1 = soulève les ombres complètes. */}
-            <Environment preset="night" environmentIntensity={0.25} />
-            <ambientLight intensity={0.1} />
+            {/* Environment "night" : on monte à 0.7 pour que le métal/verre
+                du building accroche vraiment des reflets spéculaires sur les
+                arrêtes — sans ça le bâtiment paraît "plastique mat". L'ambient
+                reste très bas (0.08) pour préserver les noirs profonds. */}
+            <Environment preset="night" environmentIntensity={0.7} />
+            <ambientLight intensity={0.08} />
             {/* Caméra libre : OrbitControls pour inspecter les câbles. */}
             <OrbitControls
                 makeDefault
                 enableDamping
+                dampingFactor={0.06}
                 enablePan
                 enableZoom
                 enableRotate
@@ -598,6 +818,30 @@ function Scene({ progressRef }: { progressRef: ProgressRef }) {
                     luminanceSmoothing={0.85}
                     mipmapBlur
                     height={300}
+                />
+                {/* Depth of Field en unités monde : focus pile sur le bâtiment
+                    (~15u devant la caméra), zone de netteté étroite (4u) →
+                    le câble qui frôle au premier plan flou, fond de rue qui
+                    se perd. C'est ce qui fait basculer l'image en "cinéma". */}
+                <DepthOfField
+                    worldFocusDistance={15}
+                    worldFocusRange={4}
+                    bokehScale={5}
+                    height={480}
+                />
+                {/* Vignette : assombrissement périphérique → focus naturel
+                    sur le centre, renforce la profondeur cinéma. */}
+                <Vignette
+                    darkness={0.55}
+                    offset={0.32}
+                    blendFunction={BlendFunction.NORMAL}
+                />
+                {/* Grain pellicule : casse les aplats numériques. Très discret
+                    (4%) en SOFT_LIGHT pour ne pas grésiller les noirs. */}
+                <Noise
+                    premultiply
+                    opacity={0.04}
+                    blendFunction={BlendFunction.SOFT_LIGHT}
                 />
             </EffectComposer>
         </>
@@ -684,6 +928,69 @@ export default function GameUniverseTransition() {
             });
         }, el);
         return () => ctx.revert();
+    }, []);
+
+    // Parallax HUD au mouvement souris : chaque panneau a sa propre profondeur
+    // (server proche, link plus loin, queue au premier plan) → vraie 3D
+    // perçue entre l'écran et la scène. Smoothing rAF avec lerp 0.07 pour que
+    // le mouvement traîne légèrement, jamais saccadé.
+    useEffect(() => {
+        const section = sectionRef.current;
+        const hud = hudRef.current;
+        const overlay = overlayRef.current;
+        if (!section || !hud || !overlay) return;
+
+        const panels = Array.from(
+            hud.querySelectorAll<HTMLElement>('.GameUniverse-hud-panel'),
+        );
+        // Profondeurs en px : amplitude maximale du translate.
+        const panelDepths = [9, 7, 11];
+        const target = { x: 0, y: 0 };
+        const current = { x: 0, y: 0 };
+        let rafId = 0;
+
+        const onMove = (e: MouseEvent) => {
+            const rect = section.getBoundingClientRect();
+            target.x = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
+            target.y = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
+        };
+        const onLeave = () => {
+            target.x = 0;
+            target.y = 0;
+        };
+
+        // Micro-vibration "digital judder" : updated 12x/s, amplitude < 1px.
+        // C'est l'âme tech qui manque au HUD — il vibre comme un vrai écran.
+        const jitter = { x: 0, y: 0, last: 0 };
+        const tick = () => {
+            current.x += (target.x - current.x) * 0.07;
+            current.y += (target.y - current.y) * 0.07;
+            const now = performance.now();
+            if (now - jitter.last > 80) {
+                jitter.x = (Math.random() - 0.5) * 0.9;
+                jitter.y = (Math.random() - 0.5) * 0.6;
+                jitter.last = now;
+            }
+            panels.forEach((p, i) => {
+                const d = panelDepths[i] ?? 6;
+                p.style.transform = `translate3d(${current.x * d + jitter.x}px, ${current.y * d + jitter.y}px, 0)`;
+            });
+            // L'overlay garde son centrage X (translateX(-50%) hérité du CSS) :
+            // on compose avec calc() pour ne pas le casser.
+            overlay.style.transform = `translate3d(calc(-50% + ${current.x * 5 + jitter.x * 0.4}px), ${current.y * 4 + jitter.y * 0.4}px, 0)`;
+            rafId = requestAnimationFrame(tick);
+        };
+
+        section.addEventListener('mousemove', onMove);
+        section.addEventListener('mouseleave', onLeave);
+        rafId = requestAnimationFrame(tick);
+        return () => {
+            section.removeEventListener('mousemove', onMove);
+            section.removeEventListener('mouseleave', onLeave);
+            cancelAnimationFrame(rafId);
+            panels.forEach((p) => { p.style.transform = ''; });
+            overlay.style.transform = '';
+        };
     }, []);
 
     return (

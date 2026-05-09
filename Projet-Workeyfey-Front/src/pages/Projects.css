@@ -600,10 +600,11 @@
     box-sizing: border-box;
     overflow: hidden;
     cursor: pointer;
+    filter: grayscale(0.9) brightness(0.55);
     transition:
         flex-basis 700ms cubic-bezier(0.65, 0, 0.35, 1),
         padding 700ms cubic-bezier(0.65, 0, 0.35, 1),
-        filter 700ms cubic-bezier(0.65, 0, 0.35, 1);
+        filter 500ms cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 .ProjectsGaming-column--roblox {
@@ -618,7 +619,20 @@
         linear-gradient(to top, rgba(0, 77, 0, 0.3), transparent 60%);
 }
 
+.ProjectsGaming-bg-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+    opacity: 0.9;
+    cursor: pointer;
+}
+
 .ProjectsGaming-content {
+    position: relative;
+    z-index: 1;
     max-width: 480px;
     width: 100%;
     display: flex;
@@ -659,10 +673,10 @@
         transform 500ms cubic-bezier(0.22, 1, 0.36, 1) 600ms;
 }
 
-.ProjectsGaming-buttons {
+.ProjectsGaming-cards {
     display: flex;
     flex-direction: row;
-    gap: 28px;
+    gap: 18px;
     margin-top: 16px;
     will-change: opacity, transform;
     transition:
@@ -673,13 +687,12 @@
 /* Hover effect: expand the hovered column to 90% and collapse the other to 10% */
 .Projects-section--gaming:hover .ProjectsGaming-column {
     flex-basis: 10%;
-    filter: grayscale(0.6) brightness(0.5);
     padding: 32px 12px;
 }
 
 /* Roblox column (left) — content slides outward to the LEFT, fast & visible */
 .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-description,
-.Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-buttons {
+.Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-cards {
     opacity: 0;
     transform: translateX(-220px);
     pointer-events: none;
@@ -690,7 +703,7 @@
 
 /* FiveM column (right) — content slides outward to the RIGHT, fast & visible */
 .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-description,
-.Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-buttons {
+.Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-cards {
     opacity: 0;
     transform: translateX(220px);
     pointer-events: none;
@@ -717,51 +730,94 @@
     justify-content: flex-start;
 }
 
-.ProjectsGaming-play {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-}
-
-.ProjectsGaming-play-btn {
-    width: 56px;
-    height: 56px;
+.ProjectsGaming-card {
+    position: relative;
+    width: 200px;
+    aspect-ratio: 16 / 9;
     border-radius: 12px;
+    overflow: hidden;
     border: 1px solid rgba(var(--color-white-rgb), 0.1);
     background: rgba(var(--color-black-rgb), 0.45);
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     padding: 0;
     transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
 }
 
-.ProjectsGaming-play-btn--cyan {
+.ProjectsGaming-card-thumb {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.ProjectsGaming-card-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.15) 55%, rgba(0, 0, 0, 0) 100%);
+    pointer-events: none;
+}
+
+.ProjectsGaming-card-play {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    transition: transform 200ms ease, background 200ms ease;
+}
+
+.ProjectsGaming-card-label {
+    position: absolute;
+    bottom: 10px;
+    left: 12px;
+    right: 12px;
+    font-size: 12px;
+    color: var(--color-white);
+    letter-spacing: 0.04em;
+    text-align: left;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+}
+
+.ProjectsGaming-card--cyan .ProjectsGaming-card-play {
     color: #5EE7E7;
 }
 
-.ProjectsGaming-play-btn--cyan:hover {
+.ProjectsGaming-card--green .ProjectsGaming-card-play {
+    color: #4ADE80;
+}
+
+.ProjectsGaming-card--cyan:hover {
     border-color: rgba(94, 231, 231, 0.55);
     box-shadow: 0 0 24px rgba(94, 231, 231, 0.35);
     transform: translateY(-2px);
 }
 
-.ProjectsGaming-play-btn--green {
-    color: #4ADE80;
+.ProjectsGaming-card--cyan:hover .ProjectsGaming-card-play {
+    transform: translate(-50%, -50%) scale(1.1);
+    background: rgba(0, 0, 0, 0.7);
 }
 
-.ProjectsGaming-play-btn--green:hover {
+.ProjectsGaming-card--green:hover {
     border-color: rgba(74, 222, 128, 0.55);
     box-shadow: 0 0 24px rgba(74, 222, 128, 0.35);
     transform: translateY(-2px);
 }
 
-.ProjectsGaming-play-label {
-    font-size: 12px;
-    color: rgba(var(--color-white-rgb), 0.55);
-    letter-spacing: 0.04em;
+.ProjectsGaming-card--green:hover .ProjectsGaming-card-play {
+    transform: translate(-50%, -50%) scale(1.1);
+    background: rgba(0, 0, 0, 0.7);
 }
 
 /* ============================================== */

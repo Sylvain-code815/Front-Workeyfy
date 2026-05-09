@@ -36,11 +36,19 @@
 
 .GameUniverse-hud-panel {
     position: relative;
-    background: linear-gradient(
-        180deg,
-        rgba(8, 14, 22, 0.62),
-        rgba(4, 8, 14, 0.46)
-    );
+    background:
+        /* Scanlines : très discrètes (3% alpha tous les 3px), lues comme
+           une "trame écran" sans masquer le contenu. */
+        repeating-linear-gradient(
+            0deg,
+            rgba(255, 255, 255, 0.04) 0 1px,
+            transparent 1px 3px
+        ),
+        linear-gradient(
+            180deg,
+            rgba(8, 14, 22, 0.62),
+            rgba(4, 8, 14, 0.46)
+        );
     border: 1px solid rgba(0, 229, 255, 0.18);
     border-radius: 4px;
     padding: 16px 18px 18px;
@@ -52,6 +60,14 @@
     font-size: 13px;
     line-height: 1.45;
     color: rgba(220, 240, 255, 0.6);
+    /* Anim de scanline qui défile lentement → l'écran "vit". */
+    animation: GameUniverse-scanline-drift 6s linear infinite;
+    will-change: background-position;
+}
+
+@keyframes GameUniverse-scanline-drift {
+    from { background-position: 0 0, 0 0; }
+    to   { background-position: 0 -120px, 0 0; }
 }
 
 .GameUniverse-hud-panel::before {
@@ -67,6 +83,22 @@
         rgba(0, 229, 255, 0.35),
         transparent
     );
+    z-index: 1;
+}
+
+/* Glow CRT subtil + glitch occasionnel sur l'overlay du panneau. */
+.GameUniverse-hud-panel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    background: radial-gradient(
+        120% 80% at 50% 0%,
+        rgba(0, 229, 255, 0.06),
+        transparent 60%
+    );
+    mix-blend-mode: screen;
 }
 
 .GameUniverse-hud-panel-head {
