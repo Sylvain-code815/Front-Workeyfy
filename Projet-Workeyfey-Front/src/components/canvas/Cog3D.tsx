@@ -40,11 +40,12 @@ function CogModel({ spinning, hovered }: CogModelProps) {
         };
     }, [scene]);
 
-    // Bijou Chrome — polished mirror metal with an injected Fresnel rim that
-    // makes the silhouette glow when grazing the camera, the way real
-    // chrome reads when the room lights wrap around it. The rim picks up
-    // the refraction-white tint so the cog harmonizes with the blue/green
-    // streams flowing across the page background instead of competing.
+    // Bijou Chrome — polished mirror metal with an injected bi-color Fresnel
+    // rim. The rim mirrors the two coloured pointLights flanking the cog:
+    // FiveM green (#1FE873) on the right, Roblox blue (#1A78FF) on the left,
+    // smoothly blended through the centre. This makes the silhouette read as
+    // physically *bathed* in the page's blue/green ambient duo rather than
+    // sitting flat as a chrome cutout pasted on top of it.
     useEffect(() => {
         scene.traverse((obj) => {
             const mesh = obj as THREE.Mesh;
@@ -64,14 +65,16 @@ function CogModel({ spinning, hovered }: CogModelProps) {
                 // forking the material. We piggyback on emissive_fragment so
                 // the rim reads as additive light, not as a tinted base.
                 m.onBeforeCompile = (shader) => {
-                    shader.uniforms.uRimColor = { value: new THREE.Color('#cdfbff') };
-                    shader.uniforms.uRimPower = { value: 3.0 };
-                    shader.uniforms.uRimStrength = { value: 1.6 };
+                    shader.uniforms.uRimColorGreen = { value: new THREE.Color('#1FE873') };
+                    shader.uniforms.uRimColorBlue = { value: new THREE.Color('#1A78FF') };
+                    shader.uniforms.uRimPower = { value: 2.4 };
+                    shader.uniforms.uRimStrength = { value: 2.2 };
                     shader.fragmentShader = shader.fragmentShader
                         .replace(
                             '#include <common>',
                             `#include <common>
-                             uniform vec3 uRimColor;
+                             uniform vec3 uRimColorGreen;
+                             uniform vec3 uRimColorBlue;
                              uniform float uRimPower;
                              uniform float uRimStrength;`,
                         )
@@ -85,7 +88,15 @@ function CogModel({ spinning, hovered }: CogModelProps) {
                                  clamp(1.0 - dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0),
                                  uRimPower
                              );
-                             totalEmissiveRadiance += uRimColor * fresnelTerm * uRimStrength;`,
+                             // vViewPosition points fragment→camera in view space,
+                             // so its x flips from right-of-screen fragments. Negate
+                             // to get +1 on the right, -1 on the left, then smoothstep
+                             // into a 0..1 blend factor used to mix blue (left) into
+                             // green (right). Rotation of the cog doesn't shift this:
+                             // it tracks the visible silhouette, not mesh-local axes.
+                             float side = smoothstep(-0.3, 0.3, -vViewPosition.x);
+                             vec3 rimTint = mix(uRimColorBlue, uRimColorGreen, side);
+                             totalEmissiveRadiance += rimTint * fresnelTerm * uRimStrength;`,
                         );
                 };
                 m.needsUpdate = true;

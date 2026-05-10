@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { EffectComposer, Bloom, DepthOfField, Vignette, Noise } from '@react-three/postprocessing';
-import { BlendFunction } from 'postprocessing';
+import { EffectComposer, Bloom, DepthOfField, Vignette, Noise, BrightnessContrast } from '@react-three/postprocessing';
+import { BlendFunction, BloomEffect, EffectPass, type EffectComposer as EffectComposerImpl } from 'postprocessing';
 import { useTexture, useGLTF, Environment, MeshReflectorMaterial, PerspectiveCamera } from '@react-three/drei';
 import { useControls } from 'leva';
 import * as THREE from 'three';
@@ -192,18 +192,17 @@ function CityCables({ buildings }: { buildings: Building[] }) {
         rough: roughUrl,
     });
 
-    // Data pulses : texture procédurale 4×64 avec deux bandes brillantes
-    // étroites. Tilée 6× le long du tube + scroll rapide → impulsions qui
-    // filent dans le câble comme du flux d'information.
+    // Data pulses : texture procédurale 4×128 avec UN seul pic très étroit
+    // suivi de noir. Tilée 6× le long du tube → 6 étincelles bien espacées.
+    // Combiné au scroll non-linéaire (sinus + bursts) en useFrame, on obtient
+    // des "étincelles" de données qui passent par à-coups, pas un tapis roulant.
     const pulseTexture = useMemo(() => {
-        const w = 4, h = 64;
+        const w = 4, h = 128;
         const data = new Uint8Array(w * h * 4);
         for (let y = 0; y < h; y++) {
             const v = y / h;
-            const band = Math.max(
-                Math.exp(-Math.pow((v - 0.18) * 14, 2)),
-                Math.exp(-Math.pow((v - 0.55) * 22, 2)) * 0.55,
-            );
+            // Gaussienne très resserrée (sigma ≈ 0.02) → pic net, vide ailleurs.
+            const band = Math.exp(-Math.pow((v - 0.5) * 50, 2));
             const value = Math.floor(Math.min(1, band) * 255);
             for (let x = 0; x < w; x++) {
                 const i = (y * w + x) * 4;
@@ -358,16 +357,23 @@ function CityCables({ buildings }: { buildings: Building[] }) {
         });
     }, [buildings]);
 
-    useFrame(({ clock }) => {
+    // Offset accumulé pour la pulse : on pilote la VITESSE (pas la position),
+    // donc on intègre dt par frame. Scroll non-linéaire = étincelles par bursts.
+    const pulseOffsetRef = useRef(0);
+    useFrame(({ clock }, dt) => {
         const t = clock.elapsedTime;
         // Diffuse / normal / rough : scroll lent, donne de la matière au tube.
         const offsetSlow = -t * 0.06;
         if (material.map) material.map.offset.y = offsetSlow;
         if (material.normalMap) material.normalMap.offset.y = offsetSlow;
         if (material.roughnessMap) material.roughnessMap.offset.y = offsetSlow;
-        // Pulse texture : scroll rapide pour faire courir les bandes brillantes
-        // dans le sens du câble, comme un flux de données.
-        if (material.emissiveMap) material.emissiveMap.offset.y = -t * 0.55;
+        // Pulse : vitesse de base très lente + bursts quand le sinus dépasse
+        // 0.5 (déclenche un coup d'accélérateur ~2.5s puis silence ~6s, soit
+        // une étincelle qui passe puis plus rien — pas un flux continu).
+        const burst = Math.max(0, Math.sin(t * 0.7) - 0.5) * 4;
+        const pulseSpeed = 0.05 + burst * 0.5;
+        pulseOffsetRef.current += pulseSpeed * dt;
+        if (material.emissiveMap) material.emissiveMap.offset.y = -pulseOffsetRef.current;
         // Légère respiration globale pour ne pas figer l'intensité.
         material.emissiveIntensity = 1.3 + 0.2 * Math.sin(t * 1.4);
     });
@@ -632,19 +638,24 @@ function CityBuildings({ buildings }: { buildings: Building[] }) {
         metalness?: number;
         roughness?: number;
     };
-    // Liste des matériaux émissifs pour le flicker. Les matériaux sont
-    // partagés entre les clones (Object3D.clone() ne clone pas les materials)
-    // → un flicker affecte simultanément tous les bâtiments, ce qui se lit
-    // comme une "ondulation néon" cohérente sur la rue.
-    const emissiveMatsRef = useRef<EmissiveLike[]>([]);
+    // Une seule enseigne grésille — pas tout le bâtiment. Sélection au mount :
+    //   1. mesh nommé open/sign/neon → cible évidente.
+    //   2. fallback : matériau au teint chaud (jaune/orange).
+    //   3. fallback ultime : premier matériau émissif détecté (déterministe).
+    // Stocké en ref → la même enseigne grésille à chaque cycle, c'est crédible
+    // (un néon usé qui fatigue, pas une ondulation aléatoire).
+    const flickerTargetRef = useRef<EmissiveLike | null>(null);
     useEffect(() => {
-        const collected: EmissiveLike[] = [];
+        let byName: EmissiveLike | null = null;
+        let byWarmHue: EmissiveLike | null = null;
+        let firstEmissive: EmissiveLike | null = null;
         gltf.scene.traverse((obj) => {
             const mesh = obj as THREE.Mesh;
             if (!mesh.isMesh || !mesh.material) return;
             // Active la projection d'ombres sous la lumière de la lune.
             mesh.castShadow = true;
             mesh.receiveShadow = true;
+            const meshNameMatch = /open|sign|neon|enseigne/i.test(mesh.name);
             const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
             for (const mat of list) {
                 const m = mat as EmissiveLike;
@@ -655,51 +666,101 @@ function CityBuildings({ buildings }: { buildings: Building[] }) {
                 if (std.envMapIntensity !== undefined) {
                     std.envMapIntensity = 1.6;
                 }
+                // Anisotropy max sur toutes les maps : sans ça, le filtrage
+                // trilinear bave les détails (climatiseurs, antennes, joints
+                // de fenêtre) en perspective, surtout sur les façades vues de
+                // biais. 16x = limite GPU desktop, on récupère le piqué.
+                const mapKeys = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap'] as const;
+                for (const key of mapKeys) {
+                    const tex = (m as unknown as Record<string, THREE.Texture | null | undefined>)[key];
+                    if (tex) {
+                        tex.anisotropy = 16;
+                        tex.needsUpdate = true;
+                    }
+                }
+                // Boost léger du relief : normalScale (1.2, 1.2) si normalMap
+                // présente → le béton et le métal accrochent la lune sans
+                // virer "plastique lisse". Pas plus, sinon ça pixel-crawl.
+                const stdMat = m as THREE.MeshStandardMaterial;
+                if (stdMat.normalMap && stdMat.normalScale) {
+                    stdMat.normalScale.set(1.2, 1.2);
+                }
                 const hasEmissiveColor = !!m.emissive && (m.emissive.r > 0 || m.emissive.g > 0 || m.emissive.b > 0);
                 const hasEmissiveMap = !!m.emissiveMap;
                 if (!hasEmissiveColor && !hasEmissiveMap) {
                     m.needsUpdate = true;
                     continue;
                 }
-                if (m.emissiveIntensity !== undefined) m.emissiveIntensity = 3;
+                // Détection texte/placard vert fluo : émissive nettement
+                // dominée par le canal vert. On NE boost PAS leur intensity à
+                // 3, sinon ils passent largement le seuil Bloom (0.85) et le
+                // halo mange les contours → texte illisible. En gardant leur
+                // intensity native (~1), ils restent sous le seuil et lisibles.
+                const e = m.emissive;
+                const isGreenFluoSign = !!e && e.g > 0.6 && e.r < 0.4 && e.b < 0.4;
+                if (isGreenFluoSign) {
+                    const baseI = m.emissiveIntensity ?? 1;
+                    m.userData.baseEmissive = baseI;
+                } else {
+                    if (m.emissiveIntensity !== undefined) m.emissiveIntensity = 3;
+                    m.userData.baseEmissive = 3;
+                }
                 if (m.toneMapped !== undefined) m.toneMapped = false;
-                m.userData.baseEmissive = 3;
                 m.needsUpdate = true;
-                if (!collected.includes(m)) collected.push(m);
+
+                if (!firstEmissive) firstEmissive = m;
+                if (meshNameMatch && !byName) byName = m;
+                if (!byWarmHue && m.emissive) {
+                    const { r, g, b } = m.emissive;
+                    if (r > 0.6 && g > 0.4 && b < 0.3) byWarmHue = m;
+                }
             }
         });
-        emissiveMatsRef.current = collected;
+        flickerTargetRef.current = byName ?? byWarmHue ?? firstEmissive;
     }, [gltf.scene]);
 
-    // Flicker : à intervalles aléatoires (~ toutes les 4-10s), une enseigne
-    // grésille pendant 150-350ms (alternance rapide à 30Hz). Le reste du
-    // temps tout est stable → c'est la rareté qui rend l'effet crédible.
-    const flickerRef = useRef<{ matIdx: number; until: number; phase: number }>({
-        matIdx: -1,
-        until: -1,
+    // Grésillement réaliste : longue stabilité (5-7s) puis BURST de 3-4
+    // clignotements très rapides (40-90ms par état). Pas de "fade", c'est du
+    // on/off net comme un néon qui fatigue. Une seule enseigne concernée.
+    const flickerRef = useRef({
         phase: 0,
+        nextStartT: 3 + Math.random() * 2,
+        burstActive: false,
+        blinksLeft: 0,
+        nextBlinkT: 0,
+        isOn: true,
     });
     useFrame((_, dt) => {
-        const list = emissiveMatsRef.current;
-        if (list.length === 0) return;
+        const target = flickerTargetRef.current;
+        if (!target) return;
         const f = flickerRef.current;
         f.phase += dt;
-        if (f.matIdx < 0) {
-            // Probabilité ~0.15/s → un flicker toutes les ~6.5s en moyenne.
-            if (Math.random() < dt * 0.15) {
-                f.matIdx = Math.floor(Math.random() * list.length);
-                f.until = f.phase + 0.15 + Math.random() * 0.2;
+        const base = target.userData.baseEmissive ?? 3;
+
+        if (!f.burstActive) {
+            target.emissiveIntensity = base;
+            if (f.phase >= f.nextStartT) {
+                f.burstActive = true;
+                f.blinksLeft = 6 + Math.floor(Math.random() * 3); // 3-4 cycles on/off complets
+                f.isOn = false;
+                f.nextBlinkT = f.phase + 0.04 + Math.random() * 0.05;
             }
         } else {
-            const m = list[f.matIdx];
-            const base = m.userData.baseEmissive ?? 3;
-            if (f.phase > f.until) {
-                m.emissiveIntensity = base;
-                f.matIdx = -1;
-            } else {
-                // Carré 30Hz → grésillement net, pas une rampe
-                const on = Math.floor(f.phase * 30) % 2 === 0;
-                m.emissiveIntensity = on ? base : base * 0.12;
+            target.emissiveIntensity = f.isOn ? base : base * 0.08;
+            if (f.phase >= f.nextBlinkT) {
+                f.blinksLeft -= 1;
+                if (f.blinksLeft <= 0) {
+                    // Fin du burst → on remet ON, et on programme la prochaine
+                    // crise de grésillement entre 5 et 7 secondes (5s de
+                    // stabilité minimum pour que l'effet reste "rare").
+                    f.burstActive = false;
+                    f.isOn = true;
+                    target.emissiveIntensity = base;
+                    f.nextStartT = f.phase + 5 + Math.random() * 2;
+                } else {
+                    f.isOn = !f.isOn;
+                    f.nextBlinkT = f.phase + 0.04 + Math.random() * 0.05;
+                }
             }
         }
     });
@@ -808,9 +869,10 @@ function CenterLineDataPulse() {
     );
 }
 
-// Drone lamp : sphère émissive blanc-bleu suspendue avec une petite pointlight
-// intégrée. Sert de remplissage chaleureux ponctuel dans la scène moonlight.
-// Petite oscillation verticale pour qu'elle ait l'air de flotter en lévitation.
+// Drone lamp : sphère émissive blanc-bleu suspendue. Pas de pointLight :
+// on laisse la lune (directionalLight) et les surfaces émissives du building
+// porter tout l'éclairage local — le bulb se contente d'être visible (et fait
+// son boulot dans le Bloom). Petite oscillation verticale pour la vie.
 function DroneLamp({ position }: { position: [number, number, number] }) {
     const groupRef = useRef<THREE.Group>(null);
     const baseY = position[1];
@@ -837,7 +899,6 @@ function DroneLamp({ position }: { position: [number, number, number] }) {
                     depthWrite={false}
                 />
             </mesh>
-            <pointLight color="#b9d5ff" intensity={2.2} distance={7} decay={2} />
         </group>
     );
 }
@@ -1060,12 +1121,19 @@ function CameraRig({
     target: { posX: number; posY: number; posZ: number; fov: number };
 }) {
     const { camera } = useThree();
-    useFrame(() => {
+    useFrame((state) => {
         const p = progressRef.current.value;
         const reveal = THREE.MathUtils.smoothstep(p, GAME_START, GAME_START + 0.18);
         camera.position.x = target.posX;
         camera.position.y = THREE.MathUtils.lerp(0, target.posY, reveal);
         camera.position.z = target.posZ;
+        // Breathing : oscillation lente en X/Y, amplitude 0.05/0.04 unités,
+        // fréquences 0.18/0.23 rad/s déphasées. Période ~30s → invisible
+        // consciemment, juste assez pour que la vue ne soit pas figée.
+        // Atténué par `reveal` : pas de drift pendant l'intro fusion/flash.
+        const t = state.clock.elapsedTime;
+        camera.position.x += Math.sin(t * 0.18) * 0.05 * reveal;
+        camera.position.y += Math.sin(t * 0.23 + 1.7) * 0.04 * reveal;
         const persp = camera as THREE.PerspectiveCamera;
         if (persp.isPerspectiveCamera && persp.fov !== target.fov) {
             persp.fov = target.fov;
@@ -1111,7 +1179,52 @@ function BackgroundController({ progressRef }: { progressRef: ProgressRef }) {
     return null;
 }
 
-function Scene({ progressRef }: { progressRef: ProgressRef }) {
+// Module l'intensity du Bloom selon la vélocité de scroll (ScrollTrigger).
+// Au repos : 1.15 (calibrage cinéma). Scroll rapide : jusqu'à 1.75 → halos
+// qui débordent → sensation de vitesse en traversant la ville.
+//
+// On NE peut PAS passer un ref sur <Bloom> directement : la factory de
+// @react-three/postprocessing fait un JSON.stringify(props) dans une useMemo
+// deps array, et le ref pointe sur un BloomEffect qui contient parent/children
+// circulaires → "Converting circular structure to JSON". Workaround : récupérer
+// l'effet en parcourant les passes de l'EffectComposer après mount.
+function BloomScrollVelocity({ composerRef }: { composerRef: React.MutableRefObject<EffectComposerImpl | null> }) {
+    const bloomEffectRef = useRef<BloomEffect | null>(null);
+    useEffect(() => {
+        const composer = composerRef.current;
+        if (!composer) return;
+        // Les Effect simples (Bloom, Vignette, Noise) sont regroupés par
+        // l'EffectComposer dans des EffectPass. On les déballe pour trouver
+        // le BloomEffect.
+        for (const pass of composer.passes) {
+            if (pass instanceof EffectPass) {
+                // EffectPass.effects est privé mais accessible via l'API JS.
+                const effects = (pass as unknown as { effects: unknown[] }).effects ?? [];
+                for (const effect of effects) {
+                    if (effect instanceof BloomEffect) {
+                        bloomEffectRef.current = effect;
+                        return;
+                    }
+                }
+            }
+        }
+    }, [composerRef]);
+    useFrame(() => {
+        const eff = bloomEffectRef.current;
+        if (!eff) return;
+        const triggers = ScrollTrigger.getAll();
+        let v = 0;
+        for (const tr of triggers) v = Math.max(v, Math.abs(tr.getVelocity()));
+        // 3000 px/s ≈ scroll très rapide → 1.0 normalisé.
+        const vNorm = Math.min(1, v / 3000);
+        // Baseline 1.2 (bloom ciselé), boost jusqu'à 1.7 sur scroll rapide.
+        const targetIntensity = 1.2 + vNorm * 0.5;
+        eff.intensity += (targetIntensity - eff.intensity) * 0.08;
+    });
+    return null;
+}
+
+function Scene({ progressRef, composerRef }: { progressRef: ProgressRef; composerRef: React.MutableRefObject<EffectComposerImpl | null> }) {
     // Petit panneau de tuning : ambient pour remonter les noirs si la lune
     // ne suffit pas. Le reste (couleur du fond, position lune, route) est
     // hardcodé selon la spec — pas de surface leva pour ce qui ne bouge pas.
@@ -1170,47 +1283,52 @@ function Scene({ progressRef }: { progressRef: ProgressRef }) {
             <CoreFlash progressRef={progressRef} />
             <ParticleBurst progressRef={progressRef} />
             <GameCity progressRef={progressRef} />
+            <BloomScrollVelocity composerRef={composerRef} />
 
             {/* frameBufferType=HalfFloatType : pipeline 16-bit float pour que
                 les valeurs HDR émissives (toneMapped:false, intensity > 1) ne
                 clippent pas à 1.0 dans le buffer — sans ça les néons saturés
                 ressortent en "trous noirs" après Bloom/DoF. */}
             <EffectComposer
+                ref={composerRef}
                 multisampling={0}
                 enableNormalPass={false}
                 frameBufferType={HalfFloatType}
             >
-                {/* Ordre cinéma : DoF AVANT Bloom. Le flou s'applique sur
-                    l'image nette, puis le glow s'ajoute sur les zones floues
-                    sans créer d'anneau sombre au bord du bokeh.
-                    worldFocusDistance=15 ≈ distance caméra→bâtiment principal
-                    (cam y=2.5/z=5 → bâtiment z=-10) → façade parfaitement
-                    nette. worldFocusRange=3 resserre la zone nette pour que
-                    les câbles proches (distance ~4-5) ET l'horizon (≥100)
-                    sortent du focus. focalLength=0.04 → bokeh prononcé hors
-                    zone, bokehScale=3.0 calibre la taille des cercles. */}
+                {/* Ordre cinéma : DoF AVANT Bloom. worldFocusDistance=15.2 :
+                    distance euclidienne caméra (0, 2.5, 5) → bâtiment principal
+                    (Z=-10) = √(2.5² + 15²) ≈ 15.2. Façade calée pile sur le
+                    plan focal. worldFocusRange=4 élargit légèrement la zone
+                    nette pour que les détails de toit (climatiseurs, antennes)
+                    restent lisibles malgré la perspective. bokehScale=2.0 :
+                    flou subtil hors zone, on garde la silhouette des bâtiments
+                    lisible plutôt que noyée dans le bokeh. */}
                 <DepthOfField
-                    worldFocusDistance={15}
-                    worldFocusRange={3}
+                    worldFocusDistance={15.2}
+                    worldFocusRange={4}
                     focalLength={0.04}
-                    bokehScale={3.0}
-                    height={480}
+                    bokehScale={2.0}
+                    height={720}
                 />
-                {/* Bloom recalibré "néons dominants" : threshold 0.7 → seules
-                    les emissives très brillantes (fenêtres bâtiment à
-                    intensity=3) passent largement, les surfaces moyennement
-                    lumineuses (data pulse 1.4, câbles ~1.4) passent moins
-                    fort, la route reste sous le seuil → les néons "bavent"
-                    plus dans l'atmosphère bleue, pas le sol. intensity 1.15
-                    + smoothing 0.55 = transition franche dans le bloom,
-                    halo plus présent autour des fenêtres allumées. */}
+                {/* Bloom "ciselé" : threshold 0.95 → seul l'extrême haut de
+                    gamme (fenêtres ultra-saturées, néons calibrés à intensity
+                    élevée) déclenche un halo. Tout le reste — texte fluo,
+                    placards, câbles, route — passe sous le seuil et reste
+                    parfaitement net. intensity 1.2 = éclat élégant. Smoothing
+                    0.55 garde une transition franche dans le bloom. */}
                 <Bloom
-                    intensity={1.15}
-                    luminanceThreshold={0.7}
+                    intensity={1.2}
+                    luminanceThreshold={0.95}
                     luminanceSmoothing={0.55}
                     mipmapBlur
-                    height={360}
+                    height={720}
                 />
+                {/* BrightnessContrast après le Bloom : creuse les noirs
+                    (silhouettes de bâtiments contre le ciel nuit) et durcit
+                    les arrêtes des volumes. Contrast +0.1 = sensation "piqué"
+                    sans virer en HDR aggressif. brightness=0 pour ne pas
+                    altérer l'exposition globale calibrée par toneMappingExposure. */}
+                <BrightnessContrast brightness={0} contrast={0.1} />
                 {/* Vignette : assombrissement périphérique → focus naturel
                     sur le centre, renforce la profondeur cinéma. */}
                 <Vignette
@@ -1237,6 +1355,9 @@ export default function GameUniverseTransition() {
     const overlayRef = useRef<HTMLDivElement>(null);
     const hudRef = useRef<HTMLDivElement>(null);
     const progressRef = useRef<{ value: number }>({ value: 0 });
+    // Ref vers l'EffectComposer — BloomScrollVelocity y trouve le BloomEffect
+    // pour muter son intensity selon ScrollTrigger.getVelocity().
+    const composerRef = useRef<EffectComposerImpl | null>(null);
     const frameloop = useCanvasFrameloop(sectionRef);
 
     useEffect(() => {
@@ -1386,15 +1507,15 @@ export default function GameUniverseTransition() {
                     className="GameUniverse-canvas"
                     camera={{ position: [0, 0, 5], fov: 45 }}
                     gl={{
-                        antialias: false,
+                        antialias: true,
                         powerPreference: 'high-performance',
                         toneMappingExposure: 0.5,
                     }}
-                    dpr={[1, 1]}
+                    dpr={[1, 2]}
                     frameloop={frameloop}
                     shadows="soft"
                 >
-                    <Scene progressRef={progressRef} />
+                    <Scene progressRef={progressRef} composerRef={composerRef} />
                 </Canvas>
 
                 <div ref={hudRef} className="GameUniverse-hud" aria-hidden="true">

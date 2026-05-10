@@ -29,11 +29,15 @@
     color: inherit;
 }
 
+/* Locked to black regardless of the page's light/dark theme — keeps the
+   brand mark legible on every section without flipping with the header
+   color. No pill background: it stays plain text. */
 .Header-logo {
     padding: 32px;
     margin: 0;
     font-size: 1.8rem;
     font-weight: 600;
+    color: var(--color-white);
 }
 
 .Header-nav-btn {
@@ -50,20 +54,10 @@
     border-radius: 999px;
     cursor: pointer;
     box-shadow: 0 8px 24px rgba(var(--color-black-rgb), 0.18);
-    transition: transform 200ms ease, box-shadow 200ms ease, background-color 250ms ease, color 250ms ease;
-}
-
-.Header--light .Header-nav-btn {
-    background-color: var(--color-black);
-    color: var(--color-white);
-    box-shadow: 0 8px 24px rgba(var(--color-black-rgb), 0.3);
+    transition: transform 200ms ease, box-shadow 200ms ease;
 }
 
 .Header-nav-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 12px 32px rgba(var(--color-black-rgb), 0.25);
-}
-
-.Header--light .Header-nav-btn:hover {
-    box-shadow: 0 12px 32px rgba(var(--color-black-rgb), 0.4);
 }
