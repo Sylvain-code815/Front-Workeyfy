@@ -67,11 +67,10 @@ function ScreenRAL({
 }
 
 export default function Scene({ progressRef }: SceneProps) {
-    const { camera, scene, pointer } = useThree();
+    const { camera, scene } = useThree();
     const screenRef = useRef<HTMLDivElement>(null);
     const godRayRef1 = useRef<THREE.SpotLight>(null);
     const godRayRef2 = useRef<THREE.SpotLight>(null);
-    const inspectorLightRef = useRef<THREE.PointLight>(null);
 
     const fog = useControls('Atmosphere', {
         bg: '#000000',
@@ -355,25 +354,6 @@ export default function Scene({ progressRef }: SceneProps) {
             THREE.MathUtils.lerp(cam.lookNear[2], cam.lookFar[2], ease),
         );
 
-        // Mouse light : suit le curseur en NDC [-1, 1] mappé sur le plan
-        // x:[-3, 3], y:[0.2, 2.6]. Z fixe à 2 (devant le desk) pour que la
-        // lumière accroche le relief par-devant.
-        if (inspectorLightRef.current) {
-            const targetX = pointer.x * 3;
-            const targetY = 1.4 + pointer.y * 1.2;
-            inspectorLightRef.current.position.x = THREE.MathUtils.lerp(
-                inspectorLightRef.current.position.x,
-                targetX,
-                0.12,
-            );
-            inspectorLightRef.current.position.y = THREE.MathUtils.lerp(
-                inspectorLightRef.current.position.y,
-                targetY,
-                0.12,
-            );
-            inspectorLightRef.current.position.z = 2;
-        }
-
         if (screenRef.current) {
             const fade = 1 - THREE.MathUtils.smoothstep(t, 0.55, 0.95);
             screenRef.current.style.opacity = String(fade);
@@ -489,20 +469,8 @@ export default function Scene({ progressRef }: SceneProps) {
                 scale={deskScale}
             />
 
-            {/* AmbientLight très faible : préserve les silhouettes dans
-                les zones que la mouse light n'atteint pas. */}
+            {/* AmbientLight très faible pour préserver les silhouettes. */}
             <ambientLight intensity={0.05} />
-
-            {/* PointLight "Mouse" : suit le curseur, accroche les normal maps
-                du desk et des câbles tressés. Z fixe à 2 (plan devant le bureau). */}
-            <pointLight
-                ref={inspectorLightRef}
-                position={[0, 1.4, 2]}
-                color="#ffffff"
-                intensity={1.5}
-                distance={8}
-                decay={2}
-            />
 
             <Produit screenMaterials={peripheralMaterials} />
 

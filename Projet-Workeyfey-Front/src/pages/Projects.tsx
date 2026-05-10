@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import DataPager from '../tunnel/DataPager';
+import DashPager from '../tunnel/DashPager';
 import ContactButton from '../components/layout/ContactButton';
 import Cog3D from '../components/canvas/Cog3D';
 import Globe3D from '../components/canvas/Globe3D';
@@ -824,7 +824,7 @@ export default function Projects() {
                 </div>
 
                 <div className="ProjectsBack-pager">
-                    <DataPager
+                    <DashPager
                         count={totalSlides}
                         activeIndex={slideIndex}
                         onSelect={(i) => setSlideIndex(i)}
