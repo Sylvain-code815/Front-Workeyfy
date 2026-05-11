@@ -27,3 +27,21 @@ html.Home-snap body {
     width: 100% !important;
     height: 100% !important;
 }
+
+/* Mobile: the 3D scene becomes background décor rather than content.
+   A dark veil + light blur sits between the canvas and the foreground
+   copy so headlines/cards stay legible against the busy mesh. The veil
+   is inert (pointer-events: none) so 3D interactions still bubble up.
+   Sized to cover the sticky area without trapping clicks. */
+@media (max-width: 768px) {
+    .Home-hero-sticky::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        background: rgba(4, 8, 14, 0.32);
+        backdrop-filter: blur(3px) saturate(0.95);
+        -webkit-backdrop-filter: blur(3px) saturate(0.95);
+        pointer-events: none;
+    }
+}

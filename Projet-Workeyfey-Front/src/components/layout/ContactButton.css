@@ -25,3 +25,12 @@
     bottom: 32px;
     z-index: 100;
 }
+
+/* iPhone-SE / mobile : on retire le bouton flottant qui chevauche les
+   sections 3D et coupe l'immersion. La nav-menu (round 44px) contient
+   déjà un item Contact → l'utilisateur y arrive en un tap. */
+@media (max-width: 768px) {
+    .ContactButton--fixed {
+        display: none;
+    }
+}

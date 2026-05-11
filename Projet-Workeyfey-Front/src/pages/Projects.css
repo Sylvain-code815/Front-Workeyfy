@@ -226,6 +226,23 @@
     z-index: 1;
 }
 
+/* iPhone-SE-first: profile cards eat the whole viewport so they never
+   get clipped by the page padding and never overlap the mesh edges. The
+   prev/next translate offsets (±70%/±122%/…) push the inactive cards
+   safely off-screen at 100vw, so the carousel still works for swipe. */
+@media (max-width: 768px) {
+    .ProjectsBack-view--back {
+        padding: 0;
+    }
+    .ProjectsBack-slotPos {
+        width: 100vw;
+        height: 100svh;
+    }
+    .ProjectsBack-slot {
+        border-radius: 0;
+    }
+}
+
 .ProjectsBack-slot {
     position: absolute;
     inset: 0;
@@ -1448,10 +1465,20 @@ html.Projects-snap .Footer {
         flex-direction: column;
     }
 
+    /* Le Header est fixed à 72px de haut sur mobile : le badge GAMING
+       PRODUCTIONS à top:32px tombait dessous, et le toggle à top:78px
+       passait pile sous le bord du header, créant la collision visuelle.
+       On reflow les 3 couches avec 16px d'air entre chacune. */
+    .ProjectsGaming-badge {
+        top: 88px;       /* 72px header + 16px gap */
+        font-size: 11px;
+        padding: 8px 18px;
+    }
+
     .ProjectsGaming-universeToggle {
         display: inline-flex;
         position: absolute;
-        top: 78px;
+        top: 136px;      /* 88 + ~32 badge + 16px gap */
         left: 50%;
         transform: translateX(-50%);
         z-index: 3;
@@ -1518,12 +1545,73 @@ html.Projects-snap .Footer {
         display: none;
     }
 
-    /* La colonne active reprend la pleine hauteur sans grayscale héritage. */
+    /* La colonne active reprend la pleine hauteur sans grayscale héritage.
+       padding-top accru : 136 (toggle) + ~44 (toggle height) + 20 air. */
     .Projects-section--gaming[data-active-universe='roblox'] .ProjectsGaming-column--roblox,
     .Projects-section--gaming[data-active-universe='fivem'] .ProjectsGaming-column--fivem {
         flex: 1 1 100%;
         width: 100%;
         filter: none;
-        padding-top: 140px; /* dégage le toggle */
+        padding-top: 200px;
+    }
+
+    /* Description du sous-titre : on la masque sur mobile pour laisser
+       respirer le bouton actions. Elle est déjà accessible en desktop. */
+    .ProjectsGaming-description {
+        display: none;
+    }
+
+    /* Title : on tape fort. clamp(1.75–2.5rem) écrase l'arrière-plan 3D
+       et chevauche le toggle. On revient à un poids éditorial mais à un
+       calibre qui laisse respirer le shader derrière. */
+    .ProjectsGaming-title {
+        font-size: clamp(1rem, 4.6vw, 1.3rem);
+        line-height: 1.15;
+        white-space: normal;
+        width: auto;
+        max-width: 78vw;
+    }
+
+    /* Description sous le titre : on raccourcit la hauteur de ligne et
+       on plafonne la largeur pour éviter qu'elle ne descende jusque sur
+       la barre de cartes. */
+    .ProjectsGaming-description {
+        font-size: 13px;
+        line-height: 1.45;
+        max-width: 88vw;
+    }
+
+    /* Cards : on les sort du flux normal et on les colle en bas en mode
+       barre swipable horizontale. Snap par tuile pour que chaque carte
+       s'aligne propre en fin de swipe. */
+    .ProjectsGaming-cards {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 16px;
+        margin-top: 0;
+        padding: 0 16px;
+        gap: 12px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .ProjectsGaming-cards::-webkit-scrollbar {
+        display: none;
+    }
+    .ProjectsGaming-card {
+        flex: 0 0 auto;
+        width: 168px;
+        scroll-snap-align: start;
+    }
+
+    /* Padding-bottom sur la colonne active pour que la description ne
+       passe pas sous la barre de cartes en bas. */
+    .Projects-section--gaming[data-active-universe='roblox'] .ProjectsGaming-column--roblox,
+    .Projects-section--gaming[data-active-universe='fivem'] .ProjectsGaming-column--fivem {
+        padding-bottom: 140px;
     }
 }
