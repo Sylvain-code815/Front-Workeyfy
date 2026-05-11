@@ -475,4 +475,14 @@
         backdrop-filter: blur(8px) saturate(140%);
         -webkit-backdrop-filter: blur(8px) saturate(140%);
     }
+    /* JetBrains Mono à 400 devient illisible en extérieur sur les reflets
+       de l'écran du téléphone. On remonte à 500 pour ces nœuds HUD dont
+       le poids n'est pas déjà surchargé ailleurs (.GameUniverse-tech=500). */
+    .GameUniverse-hud-tag,
+    .GameUniverse-hud-val,
+    .GameUniverse-hud-mono,
+    .GameUniverse-hud-queue-list li,
+    .GameUniverse-overlay-eyebrow {
+        font-weight: 500;
+    }
 }

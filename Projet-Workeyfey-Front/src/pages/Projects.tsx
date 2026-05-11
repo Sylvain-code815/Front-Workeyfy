@@ -678,6 +678,12 @@ export default function Projects() {
     // onActiveSlideChange callback. Used to source the fluid-mesh palette
     // when section 3 dominates the viewport.
     const [s3ActiveSlide, setS3ActiveSlide] = useState<AnalyticsSlide | null>(null);
+    // Mobile-only HUD toggle for Section 2 — splits the FiveM ↔ Metaverse
+    // dual column into two switchable views (vertical stacking under 768px
+    // killed the comparison effect). Pulse nonce drives a one-shot CSS
+    // animation on the activated segment for the "click" visual feedback.
+    const [activeUniverse, setActiveUniverse] = useState<'roblox' | 'fivem'>('roblox');
+    const [universePulseNonce, setUniversePulseNonce] = useState(0);
     const { setTheme } = usePageTheme();
     const tunnel = useTunnel();
 
@@ -722,6 +728,17 @@ export default function Projects() {
             const palette = resolvePalette(currentSlide);
             return { ...palette, speed: currentSlide.speed ?? DEFAULT_SPEED };
         }
+        if (activeSection === 2) {
+            // Mobile-only toggle drives the fluid mesh palette so the shader
+            // ambient transition reinforces the switch between universes.
+            // Desktop stays on Liquid Silver (dual column = no single
+            // dominant universe). roblox = cyan/blue calm, fivem = neon
+            // green/magenta energetic.
+            if (activeUniverse === 'roblox') {
+                return { colorLeft: '#5EE7E7', colorRight: '#3B82F6', speed: 0.05 };
+            }
+            return { colorLeft: '#4ADE80', colorRight: '#FF3DCB', speed: 0.08 };
+        }
         if (activeSection === 3 && s3ActiveSlide) {
             const palette = resolvePalette(s3ActiveSlide);
             return { ...palette, speed: s3ActiveSlide.speed ?? DEFAULT_SPEED };
@@ -731,7 +748,22 @@ export default function Projects() {
             colorRight: LIQUID_SILVER_RIGHT,
             speed: DEFAULT_SPEED,
         };
-    }, [activeSection, currentSlide, s3ActiveSlide]);
+    }, [activeSection, currentSlide, s3ActiveSlide, activeUniverse]);
+
+    // Toggle handler — short haptic + nonce bump that re-keys the activated
+    // segment so its CSS pulse animation replays on every click.
+    const switchUniverse = (u: 'roblox' | 'fivem') => {
+        if (u === activeUniverse) return;
+        setActiveUniverse(u);
+        setUniversePulseNonce((n) => n + 1);
+        if (typeof navigator !== 'undefined') {
+            try {
+                navigator.vibrate?.(8);
+            } catch {
+                /* iOS Safari silently no-op, Firefox throws outside gesture */
+            }
+        }
+    };
 
     // ── Cinematic toggle between carousel front and BackendCockpit ──
     // goToBack: slot stage explodes (scale + blur + opacity in 350ms ease-in)
@@ -749,7 +781,7 @@ export default function Projects() {
             return;
         }
         setIsTransitioning(true);
-        gsap.set(cockpit, { scale: 0.85, opacity: 0, transformOrigin: '50% 50%' });
+        gsap.set(cockpit, { scale: 0.8, opacity: 0, transformOrigin: '50% 50%' });
         gsap.set(stage, { scale: 1, filter: 'blur(0px)', opacity: 1, transformOrigin: '50% 50%' });
 
         transitionTl.current = gsap.timeline({
@@ -759,15 +791,19 @@ export default function Projects() {
                 gsap.set([stage, cockpit], { clearProps: 'all' });
             },
         });
+        // Deep-dive: the slot card lunges towards the viewer (scale 2.5)
+        // while smearing into blur(20px) before evaporating.
         transitionTl.current.to(
             stage,
-            { scale: 1.35, filter: 'blur(8px)', opacity: 0, duration: 0.35, ease: 'power2.in' },
+            { scale: 2.5, filter: 'blur(20px)', opacity: 0, duration: 0.5, ease: 'power2.in' },
             0
         );
+        // Dashboard emerges from the depth — 0.8 → 1.0 with a confident
+        // power3 settle, overlapped so the swap reads as one cut.
         transitionTl.current.to(
             cockpit,
-            { scale: 1, opacity: 1, duration: 0.3, ease: 'power3.out' },
-            0.1
+            { scale: 1, opacity: 1, duration: 0.36, ease: 'power3.out' },
+            0.2
         );
     };
 
@@ -781,7 +817,8 @@ export default function Projects() {
             return;
         }
         setIsTransitioning(true);
-        gsap.set(stage, { scale: 1.35, filter: 'blur(8px)', opacity: 0, transformOrigin: '50% 50%' });
+        // Mirror the deep-dive start state: stage is far in front + blurred.
+        gsap.set(stage, { scale: 2.5, filter: 'blur(20px)', opacity: 0, transformOrigin: '50% 50%' });
         gsap.set(cockpit, { scale: 1, opacity: 1, transformOrigin: '50% 50%' });
 
         transitionTl.current = gsap.timeline({
@@ -791,21 +828,27 @@ export default function Projects() {
                 gsap.set([stage, cockpit], { clearProps: 'all' });
             },
         });
+        // Cockpit collapses fast — sharper power3.in so the user feels the
+        // pull-back rather than a gentle fade.
         transitionTl.current.to(
             cockpit,
-            { scale: 0.85, opacity: 0, duration: 0.2, ease: 'power2.in' },
+            { scale: 0.8, opacity: 0, duration: 0.18, ease: 'power3.in' },
             0
         );
+        // Stage recomposes with a punchier elastic: tighter spring (period
+        // 0.35) + extra amplitude (1.4) so the globe snaps back into focus
+        // with a crisp overshoot. Still the one motion that exceeds the
+        // 200–400ms house rule — by design.
         transitionTl.current.to(
             stage,
             {
                 scale: 1,
                 filter: 'blur(0px)',
                 opacity: 1,
-                duration: 0.6,
-                ease: 'elastic.out(1, 0.6)',
+                duration: 0.55,
+                ease: 'elastic.out(1.4, 0.35)',
             },
-            0.1
+            0.08
         );
     };
 
@@ -1333,6 +1376,7 @@ export default function Projects() {
             <section
                 ref={section2Ref}
                 data-section="2"
+                data-active-universe={activeUniverse}
                 className="Projects-section Projects-section--gaming"
                 aria-label="Gaming Productions"
             >
@@ -1348,6 +1392,37 @@ export default function Projects() {
                     cursor={false}
                     play={revealStart}
                 />
+
+                {/* Mobile-only HUD toggle — hidden via CSS above 768px.
+                    The 2-segment switch replaces the vertical stack of
+                    columns with a single dominant universe at a time so
+                    the comparison effect survives small viewports. */}
+                <div
+                    className="ProjectsGaming-universeToggle"
+                    role="tablist"
+                    aria-label="Univers gaming"
+                >
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={activeUniverse === 'roblox'}
+                        key={`metaverse-${activeUniverse === 'roblox' ? universePulseNonce : 'idle'}`}
+                        className={`ProjectsGaming-universeToggle-segment ProjectsGaming-universeToggle-segment--metaverse${activeUniverse === 'roblox' ? ' ProjectsGaming-universeToggle-segment--active' : ''}`}
+                        onClick={() => switchUniverse('roblox')}
+                    >
+                        METAVERSE
+                    </button>
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={activeUniverse === 'fivem'}
+                        key={`fivem-${activeUniverse === 'fivem' ? universePulseNonce : 'idle'}`}
+                        className={`ProjectsGaming-universeToggle-segment ProjectsGaming-universeToggle-segment--fivem${activeUniverse === 'fivem' ? ' ProjectsGaming-universeToggle-segment--active' : ''}`}
+                        onClick={() => switchUniverse('fivem')}
+                    >
+                        FIVEM
+                    </button>
+                </div>
 
                 <GamingColumn
                     columnClass="ProjectsGaming-column--roblox"

@@ -183,3 +183,11 @@
         height: 1px;
     }
 }
+
+/* JetBrains Mono à 400 devient illisible en extérieur sur les reflets
+   de l'écran du téléphone. On remonte à 500 sur le bouton e-mail HUD. */
+@media (max-width: 768px) {
+    .ProjectDeployed-email {
+        font-weight: 500;
+    }
+}
