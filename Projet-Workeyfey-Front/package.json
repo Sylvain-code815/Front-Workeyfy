@@ -8,7 +8,8 @@
     "build": "tsc && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "model": "npx gltfjsx public/produit.glb --types --output src/components/canvas/Produit.tsx"
+    "model": "npx gltfjsx public/produit.glb --types --output src/components/canvas/Produit.tsx",
+    "colors": "node scripts/extract-colors.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
@@ -30,8 +31,11 @@
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
+    "extract-colors": "^4.1.0",
     "globals": "^17.5.0",
     "leva": "^0.10.1",
+    "puppeteer": "^23.0.0",
+    "sharp": "^0.33.0",
     "typescript": "^6.0.3",
     "vite": "^8.0.10"
   }

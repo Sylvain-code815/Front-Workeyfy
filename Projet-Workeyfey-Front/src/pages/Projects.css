@@ -31,6 +31,52 @@
     box-sizing: border-box;
 }
 
+/* Inner wrapper utilisé pour le crossfade scroll-driven : GSAP cible cette
+   couche plutôt que la section elle-même afin que le <section> reste l'ancre
+   de scroll (sa hauteur 100vh ne bouge pas). Le fluid mesh derrière n'est
+   jamais affecté. */
+.Projects-section-inner {
+    position: absolute;
+    inset: 0;
+    will-change: transform, opacity;
+}
+
+.Projects-section-inner--gaming {
+    display: flex;
+    flex-direction: row;
+}
+
+.Projects-section-inner--app {
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 96px 80px;
+    box-sizing: border-box;
+}
+
+/* Calque crème de la section 3 — émerge en opacity 0→1 pendant la couture
+   2↔3 pour ne pas couper brutalement le fluid mesh. Reçoit aussi les
+   gradients d'ambiance qui suivent le fondu. */
+.Projects-section--app-bgFade {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: #FCFBF8;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.Projects-section--app-bgFade::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse 60% 50% at 20% 30%, rgba(255, 200, 100, 0.18), transparent 70%),
+        radial-gradient(ellipse 50% 40% at 85% 70%, rgba(255, 170, 80, 0.12), transparent 70%);
+    pointer-events: none;
+}
+
 /* ============================================== */
 /* SECTION 1 — Backend Architecture / Quantum CRM */
 /* ============================================== */
@@ -41,7 +87,7 @@
     background: transparent;
     color: var(--color-white);
     overflow: hidden;
-    min-height: 100vh;
+    min-height: 100svh;
 }
 
 /* Sobriety pivot: dot grids removed. The blurred mesh is now the only
@@ -86,6 +132,19 @@
 .Projects-section--back-front .ProjectsBack-view--front {
     opacity: 1;
     pointer-events: auto;
+}
+
+/* During the GSAP exploded-view transition both layers must remain in the
+   DOM and visible — GSAP drives opacity / scale / blur via inline styles.
+   Disable the CSS crossfade transition so it doesn't fight inline values. */
+.Projects-section--transitioning .ProjectsBack-view {
+    transition: none !important;
+}
+
+.Projects-section--transitioning .ProjectsBack-view--back,
+.Projects-section--transitioning .ProjectsBack-view--front {
+    opacity: 1 !important;
+    pointer-events: none;
 }
 
 @property --slot-spin {
@@ -250,6 +309,15 @@
     pointer-events: none;
 }
 
+/* Les iframes (preview des sites membres) captaient les wheel events dans
+   leur propre document → notre snap JS au niveau window ne les voyait pas,
+   l'utilisateur devait scroller 2-3 fois quand le curseur survolait une
+   preview. On les rend non-interactives : visuelles uniquement. Le slot
+   wrapper porte de toute façon les interactions de carousel. */
+.ProjectsBack-iframe {
+    pointer-events: none;
+}
+
 .ProjectsBack-iframe {
     position: absolute;
     inset: 0;
@@ -391,7 +459,10 @@
 
 .ProjectsBack-pager {
     position: absolute;
-    bottom: 38px;
+    /* env() reserves room for the iOS home-indicator strip so the dots
+       never sit under the system gesture bar. max() keeps the existing
+       38px gap on platforms that report 0 for the safe area. */
+    bottom: max(38px, calc(20px + env(safe-area-inset-bottom)));
     left: 50%;
     transform: translateX(-50%);
     z-index: 5;
@@ -565,265 +636,6 @@
     color: rgba(var(--color-black-rgb), 0.4);
 }
 
-.ProjectsBack-grid {
-    position: relative;
-    width: 100%;
-    max-width: 1100px;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: 360px 1fr;
-    gap: 48px;
-    align-items: center;
-    z-index: 1;
-}
-
-.ProjectsBack-info {
-    position: relative;
-    padding: 32px 32px 132px;
-    border-radius: 20px;
-    /* Spec: rgba(10, 12, 18, 0.8) + blur(25px). Opaque enough to read as
-       a "blade" component, translucent enough to still feel layered over
-       the fluid mesh. */
-    background: rgba(10, 12, 18, 0.8);
-    backdrop-filter: blur(25px) saturate(140%) !important;
-    -webkit-backdrop-filter: blur(25px) saturate(140%) !important;
-    border: 1px solid rgba(127, 227, 255, 0.18);
-    box-shadow:
-        0 12px 40px rgba(0, 0, 0, 0.55),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    transition:
-        box-shadow 280ms ease,
-        border-color 280ms ease;
-    overflow: hidden;
-}
-
-/* Hairline blue→green border accent — picks up the data-fluid theme on
-   hover. Pseudo-element so it can sit above the backdrop-filtered base
-   without breaking the blur. */
-.ProjectsBack-info::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: linear-gradient(135deg, #1A78FF 0%, transparent 50%, #4ADE80 100%);
-    -webkit-mask:
-        linear-gradient(#000 0 0) content-box,
-        linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-            mask-composite: exclude;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 280ms ease;
-}
-
-.ProjectsBack-info:hover {
-    border-color: rgba(127, 227, 255, 0.35);
-    box-shadow:
-        0 12px 40px rgba(0, 0, 0, 0.5),
-        0 0 28px rgba(26, 120, 255, 0.22),
-        0 0 60px rgba(74, 222, 128, 0.18),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.ProjectsBack-info:hover::after {
-    opacity: 1;
-}
-
-/* Tiny technical metadata in the card corners — counterbalances the
-   "Apple-soft" feel of the info panel with a "system readout" texture. */
-.ProjectsBack-coord {
-    position: absolute;
-    font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
-    font-size: 9px;
-    letter-spacing: 0.12em;
-    color: rgba(var(--color-white-rgb), 0.32);
-    text-transform: uppercase;
-    pointer-events: none;
-    user-select: none;
-}
-
-.ProjectsBack-coord--tr { top: 12px; right: 16px; }
-.ProjectsBack-coord--bl { bottom: 12px; left: 16px; }
-.ProjectsBack-coord--br { bottom: 12px; right: 16px; }
-
-.ProjectsBack-info:hover .ProjectsBack-coord {
-    color: rgba(0, 229, 255, 0.55);
-}
-
-/* Front-view (light theme) variant — invert the coord color so it stays
-   readable against the white card. */
-.Projects-section--back-front .ProjectsBack-coord {
-    color: rgba(var(--color-black-rgb), 0.32);
-}
-.Projects-section--back-front .ProjectsBack-info:hover .ProjectsBack-coord {
-    color: rgba(255, 42, 138, 0.65);
-}
-
-.ProjectsBack-title {
-    margin: 0 0 8px;
-    font-size: 32px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    color: #5EE7E7;
-}
-
-.ProjectsBack-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    color: rgba(var(--color-white-rgb), 0.55);
-    text-decoration: none;
-    margin-bottom: 20px;
-}
-
-.ProjectsBack-link:hover {
-    color: #5EE7E7;
-}
-
-.ProjectsBack-description {
-    margin: 0;
-    font-size: 14px;
-    line-height: 1.7;
-    color: rgba(var(--color-white-rgb), 0.7);
-}
-
-/* ── Infrastructure Blade — KPI block + terminal feed ─────────── */
-
-.ProjectsBack-meta {
-    margin: 18px 0 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    font-family: 'JetBrains Mono', 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
-    font-size: 12px;
-    line-height: 1.4;
-}
-
-.ProjectsBack-metaRow {
-    display: grid;
-    grid-template-columns: 110px 1fr;
-    align-items: baseline;
-    gap: 12px;
-}
-
-.ProjectsBack-metaKey {
-    margin: 0;
-    color: rgba(127, 227, 255, 0.55);
-    letter-spacing: 0.08em;
-    font-weight: 500;
-    white-space: nowrap;
-}
-
-.ProjectsBack-metaVal {
-    margin: 0;
-    color: var(--color-white);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-shadow: 0 0 12px rgba(74, 222, 128, 0.18);
-}
-
-/* Subdued live-log terminal in the bottom band of the card. Ticks past
-   continuously via CSS keyframes — the duplicated stream means the loop
-   point is never visible. opacity 0.3 keeps it noise-level so it adds
-   "alive infrastructure" character without competing with the KPIs. */
-.ProjectsBack-terminal {
-    position: absolute;
-    left: 32px;
-    right: 32px;
-    bottom: 24px;
-    height: 86px;
-    overflow: hidden;
-    opacity: 0.3;
-    pointer-events: none;
-    border-top: 1px dashed rgba(255, 255, 255, 0.08);
-    padding-top: 12px;
-    font-family: 'JetBrains Mono', 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
-    font-size: 10px;
-    line-height: 1.55;
-    color: rgba(255, 255, 255, 0.85);
-    /* Top-edge mask so log lines fade in instead of popping. */
-    -webkit-mask-image: linear-gradient(
-        to bottom,
-        transparent 0%,
-        #000 25%,
-        #000 100%
-    );
-    mask-image: linear-gradient(
-        to bottom,
-        transparent 0%,
-        #000 25%,
-        #000 100%
-    );
-}
-
-.ProjectsBack-terminal-stream {
-    animation: ProjectsBack-logScroll 22s linear infinite;
-    will-change: transform;
-}
-
-.ProjectsBack-terminal-line {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.ProjectsBack-terminal-prompt {
-    color: rgba(74, 222, 128, 0.95);
-    margin-right: 8px;
-}
-
-@keyframes ProjectsBack-logScroll {
-    0%   { transform: translateY(0); }
-    100% { transform: translateY(-50%); }
-}
-
-/* In light front view the card isn't shown, but if it ever flickers, keep
-   the description hidden — it's been replaced by the meta block. */
-.ProjectsBack-description {
-    display: none;
-}
-
-.ProjectsBack-services {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-}
-
-.ProjectsBack-service {
-    padding: 20px 24px;
-    border-radius: 14px;
-    background: linear-gradient(
-        135deg,
-        rgba(25, 35, 70, 0.7),
-        rgba(15, 22, 50, 0.5)
-    );
-    border: 1px solid rgba(var(--color-white-rgb), 0.06);
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    transition: border-color 200ms ease, transform 200ms ease;
-}
-
-.ProjectsBack-service:hover {
-    border-color: rgba(94, 231, 231, 0.25);
-    transform: translateY(-2px);
-}
-
-.ProjectsBack-service-name {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--color-white);
-}
-
-.ProjectsBack-service-status {
-    font-size: 12px;
-    color: rgba(94, 231, 231, 0.7);
-    letter-spacing: 0.04em;
-}
-
 /* ============================================== */
 /* SECTION 2 — Gaming Productions                 */
 /* ============================================== */
@@ -834,7 +646,7 @@
        Column backgrounds (ProjectsGaming-content, VideoCard) carry their
        own tints. */
     background: transparent;
-    min-height: 100vh;
+    min-height: 100svh;
     display: flex;
     flex-direction: row;
     overflow: hidden;
@@ -911,7 +723,7 @@
 
 .ProjectsGaming-title {
     margin: 0;
-    font-size: 40px;
+    font-size: clamp(1.75rem, 4.4vw, 2.5rem);
     font-weight: 700;
     color: var(--color-white);
     letter-spacing: -0.01em;
@@ -1089,31 +901,220 @@
     background: rgba(0, 0, 0, 0.7);
 }
 
+/* Smooth fade when the column's background video is swapped to another card. */
+.ProjectsGaming-bg-video {
+    transition: opacity 250ms ease;
+}
+.ProjectsGaming-bg-video--fading {
+    opacity: 0;
+}
+
+/* Scanline flash — re-monté à chaque swap (via key) pour rejouer son anim.
+   Reprend le langage visuel du ScanlineSweep global (ligne lumineuse +
+   panneau qui glisse) mais scopé à la colonne et nettement plus court. */
+.ProjectsGaming-scanline {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    overflow: hidden;
+    will-change: transform, opacity;
+}
+
+.ProjectsGaming-scanline::before {
+    /* Panneau sombre qui descend en révélant la nouvelle vidéo. */
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 100%;
+    background: #02050a;
+    transform: translateY(-100%);
+    animation: ProjectsGaming-scanline-panel 0.4s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+.ProjectsGaming-scanline::after {
+    /* Trait lumineux qui suit le bord inférieur du panneau. */
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 1.5px;
+    transform: translateY(-100%);
+    animation: ProjectsGaming-scanline-line 0.4s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+.ProjectsGaming-scanline--cyan::after {
+    background: linear-gradient(90deg,
+        rgba(0, 229, 255, 0) 0%,
+        rgba(0, 229, 255, 0.6) 12%,
+        #ffffff 50%,
+        rgba(0, 229, 255, 0.6) 88%,
+        rgba(0, 229, 255, 0) 100%);
+    box-shadow:
+        0 0 4px rgba(255, 255, 255, 1),
+        0 0 14px rgba(0, 229, 255, 0.95),
+        0 0 40px rgba(0, 229, 255, 0.7);
+}
+
+.ProjectsGaming-scanline--green::after {
+    background: linear-gradient(90deg,
+        rgba(74, 222, 128, 0) 0%,
+        rgba(74, 222, 128, 0.6) 12%,
+        #ffffff 50%,
+        rgba(74, 222, 128, 0.6) 88%,
+        rgba(74, 222, 128, 0) 100%);
+    box-shadow:
+        0 0 4px rgba(255, 255, 255, 1),
+        0 0 14px rgba(74, 222, 128, 0.95),
+        0 0 40px rgba(74, 222, 128, 0.7);
+}
+
+@keyframes ProjectsGaming-scanline-panel {
+    0%   { transform: translateY(-100%); }
+    100% { transform: translateY(100%); }
+}
+
+@keyframes ProjectsGaming-scanline-line {
+    0%   { transform: translateY(0); opacity: 0; }
+    10%  { opacity: 1; }
+    100% { transform: translateY(100%); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ProjectsGaming-scanline,
+    .ProjectsGaming-scanline::before,
+    .ProjectsGaming-scanline::after {
+        animation: none !important;
+        display: none;
+    }
+}
+
+/* VideoCard is now a <button> — strip native button chrome. */
+.ProjectsGaming-card {
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: transparent;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+}
+
+/* Active card: the one whose video is currently playing in the column. */
+.ProjectsGaming-card--cyan.ProjectsGaming-card--active {
+    border-color: rgba(94, 231, 231, 0.9);
+    box-shadow: 0 0 24px rgba(94, 231, 231, 0.5);
+}
+.ProjectsGaming-card--green.ProjectsGaming-card--active {
+    border-color: rgba(74, 222, 128, 0.9);
+    box-shadow: 0 0 24px rgba(74, 222, 128, 0.5);
+}
+
+/* Pulsing dot in the corner of the currently playing card. */
+.ProjectsGaming-card--active::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 8px currentColor;
+    animation: ProjectsGaming-pulse 1.6s ease-in-out infinite;
+    z-index: 2;
+}
+.ProjectsGaming-card--cyan.ProjectsGaming-card--active::before {
+    color: #5EE7E7;
+}
+.ProjectsGaming-card--green.ProjectsGaming-card--active::before {
+    color: #4ADE80;
+}
+@keyframes ProjectsGaming-pulse {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50%      { opacity: 1; transform: scale(1.25); }
+}
+
+/* Center play/pause flash — confirms the click action on the bg video.
+   The element is mounted only during the animation window (~650ms). */
+.ProjectsGaming-flash {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 3;
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    color: var(--color-white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0;
+    animation: ProjectsGaming-flash 650ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes ProjectsGaming-flash {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+    25%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
+}
+
+/* Bottom-right mute toast — fade-in / fade-out over ~1s, indicates the
+   current mute state every time it changes. */
+.ProjectsGaming-muteToast {
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
+    z-index: 3;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    color: var(--color-white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    animation: ProjectsGaming-muteToast 1000ms ease-in-out forwards;
+}
+.ProjectsGaming-muteToast--cyan { color: #5EE7E7; }
+.ProjectsGaming-muteToast--green { color: #4ADE80; }
+@keyframes ProjectsGaming-muteToast {
+    0%   { opacity: 0; transform: translateY(8px); }
+    20%  { opacity: 1; transform: translateY(0); }
+    75%  { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ProjectsGaming-flash,
+    .ProjectsGaming-muteToast {
+        animation-duration: 1ms;
+    }
+}
+
 /* ============================================== */
 /* SECTION 3 — Application / Analytics Dashboard  */
 /* ============================================== */
 
 .Projects-section--app {
     position: relative;
-    background: #FCFBF8;
-    padding: 96px 80px;
+    /* Fond crème et padding ont été déplacés sur .Projects-section-inner--app
+       et .Projects-section--app-bgFade pour que le fluid mesh ne soit pas
+       coupé pendant la couture 2↔3 (le crème fade-in via ScrollTrigger). */
+    background: transparent;
     color: var(--color-black);
     overflow: hidden;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    box-sizing: border-box;
-}
-
-.Projects-section--app::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-        radial-gradient(ellipse 60% 50% at 20% 30%, rgba(255, 200, 100, 0.18), transparent 70%),
-        radial-gradient(ellipse 50% 40% at 85% 70%, rgba(255, 170, 80, 0.12), transparent 70%);
-    pointer-events: none;
+    min-height: 100svh;
 }
 
 .ProjectsApp-mockup {
@@ -1181,7 +1182,7 @@
 
 .ProjectsApp-mockup-heading {
     margin: 0;
-    font-size: 28px;
+    font-size: clamp(1.25rem, 3.2vw, 1.75rem);
     font-weight: 700;
     color: var(--color-white);
 }
@@ -1249,7 +1250,7 @@
 }
 
 .ProjectsApp-mockup-headline {
-    font-size: 24px;
+    font-size: clamp(1.125rem, 2.6vw, 1.5rem);
     font-weight: 700;
     color: #2A2118;
 }
@@ -1319,4 +1320,86 @@
     border-color: rgba(var(--color-black-rgb), 0.3);
     color: var(--color-black);
     transform: translateY(-2px);
+}
+
+/* ============================================== */
+/* Scroll snap — Apple-style section alignment    */
+/* ============================================== */
+
+/* Le snap est piloté en JS (voir useEffect "Smooth JS-driven snap" dans
+   Projects.tsx) — on n'utilise plus le snap CSS natif, dont le timing
+   trop court rendait le glissement brutal. Les sections gardent juste
+   leur hauteur 100svh, suffisant pour que chaque cible JS soit alignée.
+   Le footer aussi est forcé en 100svh pour devenir une cible identique. */
+html.Projects-snap .Footer {
+    min-height: 100svh;
+    box-sizing: border-box;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Responsive — Section 2 (Gaming Productions)
+   Sous 1250px : même esprit que desktop, mais sur l'axe vertical.
+   - Au repos : 50/50 en hauteur, l'autre colonne grisée comme en desktop.
+   - Au hover/tap : la colonne active prend ~90% de la hauteur (smooth),
+     l'autre se réduit à ~10% et reste grisée.
+   - On NEUTRALISE uniquement les déplacements de contenu : pas de
+     rotation de titre, pas de slide-out, pas de fade — le contenu de
+     la colonne réduite est simplement clippé par overflow: hidden.
+   ───────────────────────────────────────────────────────────────────── */
+@media (max-width: 1250px) {
+    /* Stack vertical : les deux colonnes s'empilent. */
+    .Projects-section--gaming,
+    .Projects-section-inner--gaming {
+        flex-direction: column;
+    }
+
+    /* Padding adapté aux écrans plus étroits. flex/filter/transitions
+       hérités du desktop : on garde 50/50 + grayscale + expand smooth. */
+    .ProjectsGaming-column {
+        padding: 28px 24px;
+        align-items: flex-start;
+        justify-content: flex-end;
+    }
+
+    .ProjectsGaming-column--roblox .ProjectsGaming-title,
+    .ProjectsGaming-column--fivem .ProjectsGaming-title {
+        align-self: flex-start;
+        transform-origin: left center;
+    }
+
+    /* Surcharge le padding du desktop hover (64px 80px et 32px 12px)
+       avec des valeurs adaptées au layout vertical mobile.
+       flex-basis 90/10 et filter sont conservés tels quels. */
+    .Projects-section--gaming:hover .ProjectsGaming-column {
+        padding: 12px 24px;
+    }
+
+    .Projects-section--gaming .ProjectsGaming-column:hover {
+        padding: 28px 24px;
+        align-items: flex-start;
+        justify-content: flex-end;
+    }
+
+    /* Pas de rotation du titre de la colonne réduite. */
+    .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-title,
+    .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-title {
+        transform: none;
+    }
+
+    /* Pas de slide-out ni de fade pour la description / cards :
+       le contenu reste à sa place, il est juste clippé par la colonne
+       réduite (overflow: hidden déjà actif). */
+    .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-description,
+    .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-cards,
+    .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-description,
+    .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-cards {
+        opacity: 1;
+        transform: none;
+        pointer-events: auto;
+    }
+
+    .ProjectsGaming-cards {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
 }

@@ -167,7 +167,7 @@ export default function Cog3D({ onActivate, className, ariaLabel }: Cog3DProps) 
             <Canvas
                 camera={{ position: [0, 5, 2.6], fov: 35 }}
                 gl={{ alpha: true, antialias: true }}
-                dpr={[1, 2]}
+                dpr={[1, window.matchMedia('(max-width: 768px)').matches ? 1.5 : 2]}
             >
                 <ambientLight intensity={0.22} />
                 <directionalLight position={[2, 3, 4]} intensity={0.55} />

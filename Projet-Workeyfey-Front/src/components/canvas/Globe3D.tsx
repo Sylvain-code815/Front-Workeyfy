@@ -103,7 +103,7 @@ export default function Globe3D({
             <Canvas
                 camera={{ position: [0, 0, 4.2], fov: 32 }}
                 gl={{ alpha: true, antialias: true }}
-                dpr={[1, 2]}
+                dpr={[1, window.matchMedia('(max-width: 768px)').matches ? 1.5 : 2]}
             >
                 <ambientLight intensity={0.7} />
                 <directionalLight position={[2, 3, 4]} intensity={0.8} />

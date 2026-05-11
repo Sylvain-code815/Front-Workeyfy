@@ -1,16 +1,58 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import gsap from 'gsap';
+import ScrollTrigger from 'gsap/ScrollTrigger';
 import ProjectsPager from '../tunnel/ProjectsPager';
 import ContactButton from '../components/layout/ContactButton';
 import Cog3D from '../components/canvas/Cog3D';
 import Globe3D from '../components/canvas/Globe3D';
 import GlobalFluidMesh from '../components/canvas/GlobalFluidMesh';
 import BackgroundAtmosphere from '../components/canvas/BackgroundAtmosphere';
-import AnalyticsDashboard from '../components/sections/AnalyticsDashboard';
+import AnalyticsDashboard, { type Slide as AnalyticsSlide } from '../components/sections/AnalyticsDashboard';
+import BackendCockpit from '../components/sections/BackendCockpit';
 import { usePageTheme, type Theme } from '../contexts/PageThemeContext';
 import { useTunnel } from '../tunnel/TunnelContext';
 import ScanlineSweep from '../tunnel/ScanlineSweep';
 import Typewriter from '../tunnel/Typewriter';
+import generatedPalettesRaw from '../data/generatedPalettes.json';
 import './Projects.css';
+
+gsap.registerPlugin(ScrollTrigger);
+
+// Output of `npm run colors` — keyed by project id. Missing entries are
+// fine, the runtime resolver falls back to Liquid Silver.
+type GeneratedPaletteEntry = {
+    colors: [string, string];
+    source?: string;
+    extractedAt?: string;
+};
+const generatedPalettes = generatedPalettesRaw as Record<string, GeneratedPaletteEntry>;
+
+// Liquid Silver default — low-chroma pair that triggers the shader's
+// achromatic / silver-liquid branch (uBase #050505, refraction × 1.8).
+// Used whenever neither a manual override nor a generated palette exists
+// for the active slide.
+const LIQUID_SILVER_LEFT = '#A8AEB8';
+const LIQUID_SILVER_RIGHT = '#1E2227';
+
+/**
+ * Palette resolution priority — same chain for member slides and
+ * AnalyticsDashboard slides:
+ *   1. slide.manualColors          (artistic override)
+ *   2. generatedPalettes[slide.id]  (output of `npm run colors`)
+ *   3. Liquid Silver default        (shader handles the rest)
+ */
+function resolvePalette(
+    slide: { id: string; manualColors?: [string, string] } | null | undefined,
+): { colorLeft: string; colorRight: string } {
+    if (slide?.manualColors) {
+        return { colorLeft: slide.manualColors[0], colorRight: slide.manualColors[1] };
+    }
+    const auto = slide ? generatedPalettes[slide.id]?.colors : undefined;
+    if (auto) {
+        return { colorLeft: auto[0], colorRight: auto[1] };
+    }
+    return { colorLeft: LIQUID_SILVER_LEFT, colorRight: LIQUID_SILVER_RIGHT };
+}
 
 type Service = { name: string; status: string };
 
@@ -22,79 +64,18 @@ type MemberSlide = {
     domain: string;
     description: string;
     services: Service[];
+    /** Manual palette override [left, right] — wins over the auto-extracted
+     *  palette from `generatedPalettes.json`. Use this only when the auto
+     *  pick is artistically off (e.g. site loads behind a login, hero is
+     *  a video). N&B themes work via the shader's achromatic detection. */
+    manualColors?: [string, string];
+    /** Optional absolute flow rate for the fluid mesh.
+     *  0.02 ≈ calm (portfolio / corporate), 0.06 = default,
+     *  0.08 ≈ gaming / energetic. */
+    speed?: number;
 };
 
 const picsum = (seed: string) => `https://picsum.photos/seed/${seed}/1280/800`;
-
-// Deterministic pseudo-coordinates from slide id — keeps the corner metadata
-// stable per project (no jitter on re-render) without hand-curating values.
-function deriveLocCoord(id: string): string {
-    let h = 0;
-    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-    const lat = ((h % 9000) / 100).toFixed(3);
-    const lon = (((h >> 10) % 9000) / 100).toFixed(2);
-    return `${lat} // ${lon}`;
-}
-
-// "Infrastructure Blade" metadata — derived deterministically from the slide
-// id so the panel reads as project-specific telemetry without us having to
-// curate values for every entry. Looks live, stays stable.
-const STACK_POOL = [
-    'NODE.JS / RUST / GRPC',
-    'GO / POSTGRES / NATS',
-    'PYTHON / FASTAPI / REDIS',
-    'KOTLIN / KAFKA / K8S',
-    'ELIXIR / PHOENIX / EDGE',
-    'TS / DENO / SQLITE',
-    'RUST / TOKIO / WASM',
-];
-const REGION_POOL = [
-    'EU-WEST-3',
-    'US-EAST-1',
-    'AP-SOUTHEAST-2',
-    'EU-CENTRAL-1',
-    'US-WEST-2',
-    'SA-EAST-1',
-];
-const LOG_POOL = [
-    'svc-auth-v2.4.1 → deployed',
-    'ingress: 2.4 GB/s steady',
-    'replicas: 12 / 12 healthy',
-    'db: vacuum complete (412ms)',
-    'edge cache hit ratio: 0.94',
-    'tracing: 0 anomalies (5m)',
-    'tls: cert renewed (320d)',
-    'queue lag: 38ms p99',
-    'audit: 0 secrets exposed',
-    'gc pause: 6ms p99',
-    'rolling restart: pod-7 OK',
-    'k8s: hpa scaled 4 → 6',
-];
-
-function hashId(id: string): number {
-    let h = 0;
-    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-    return h;
-}
-
-type Infra = {
-    uptime: string;
-    latency: number;
-    stack: string;
-    region: string;
-    logs: string[];
-};
-
-function deriveInfra(id: string): Infra {
-    const h = hashId(id);
-    return {
-        uptime: (99.9 + (h % 10) / 100).toFixed(2),
-        latency: 8 + (h % 38),
-        stack: STACK_POOL[h % STACK_POOL.length],
-        region: REGION_POOL[(h >> 8) % REGION_POOL.length],
-        logs: Array.from({ length: 6 }, (_, i) => LOG_POOL[(h + i * 17) % LOG_POOL.length]),
-    };
-}
 
 const memberSlides: MemberSlide[] = [
     {
@@ -112,6 +93,8 @@ const memberSlides: MemberSlide[] = [
             { name: 'CDN', status: 'Online' },
             { name: 'Message Queue', status: 'Running' },
         ],
+        manualColors: ['#5EE7E7', '#A78BFA'],
+        speed: 0.04,
     },
     {
         id: 'sylvain',
@@ -144,6 +127,8 @@ const memberSlides: MemberSlide[] = [
             { name: 'Card Issuing', status: 'Operational' },
             { name: 'Audit Trail', status: 'Sealed' },
         ],
+        manualColors: ['#FFAA00', '#FF0055'],
+        speed: 0.075,
     },
     {
         id: 'pulse-analytics',
@@ -160,6 +145,8 @@ const memberSlides: MemberSlide[] = [
             { name: 'Alerting', status: 'Armed' },
             { name: 'Exporter', status: 'Ready' },
         ],
+        manualColors: ['#22D3EE', '#4ADE80'],
+        speed: 0.065,
     },
     {
         id: 'orbit-saas',
@@ -208,6 +195,8 @@ const memberSlides: MemberSlide[] = [
             { name: 'Anti-cheat', status: 'Watching' },
             { name: 'Replays', status: 'Indexed' },
         ],
+        manualColors: ['#FF3DCB', '#22D3EE'],
+        speed: 0.085,
     },
     {
         id: 'aurora-shop',
@@ -240,6 +229,8 @@ const memberSlides: MemberSlide[] = [
             { name: 'Catalog', status: 'Curated' },
             { name: 'Royalties', status: 'Reported' },
         ],
+        manualColors: ['#6366F1', '#A78BFA'],
+        speed: 0.025,
     },
     {
         id: 'mercury-mail',
@@ -348,46 +339,49 @@ const SAMPLE_VIDEOS = [
     'https://test-videos.co.uk/vids/sintel/mp4/h264/1080/Sintel_1080_10s_10MB.mp4',
 ];
 
-function pickRandom<T>(arr: T[]): T {
-    return arr[Math.floor(Math.random() * arr.length)];
-}
+type Game = { id: string; label: string; videoUrl: string };
 
-const robloxGames = [
-    { id: 'tycoon-empire', label: 'Tycoon Empire' },
-    { id: 'racing-arena', label: 'Racing Arena' },
-    { id: 'rpg-world', label: 'RPG World' },
+const robloxGames: Game[] = [
+    { id: 'tycoon-empire', label: 'Tycoon Empire', videoUrl: SAMPLE_VIDEOS[0] },
+    { id: 'racing-arena', label: 'Racing Arena', videoUrl: SAMPLE_VIDEOS[1] },
+    { id: 'rpg-world', label: 'RPG World', videoUrl: SAMPLE_VIDEOS[2] },
 ];
 
-const fivemGames = [
-    { id: 'city-roleplay', label: 'City Roleplay' },
-    { id: 'police-simulator', label: 'Police Simulator' },
-    { id: 'racing-circuit', label: 'Racing Circuit' },
+const fivemGames: Game[] = [
+    { id: 'city-roleplay', label: 'City Roleplay', videoUrl: SAMPLE_VIDEOS[3] },
+    { id: 'police-simulator', label: 'Police Simulator', videoUrl: SAMPLE_VIDEOS[4] },
+    { id: 'racing-circuit', label: 'Racing Circuit', videoUrl: SAMPLE_VIDEOS[5] },
 ];
 
 type Accent = 'cyan' | 'green';
 type SectionId = 1 | 2 | 3;
 
-function ExternalLinkIcon() {
-    return (
-        <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
-            <path
-                d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-            />
-        </svg>
-    );
-}
-
-function VideoCard({ label, accent }: { label: string; accent: Accent }) {
+function VideoCard({
+    label,
+    accent,
+    isActive = false,
+    onClick,
+}: {
+    label: string;
+    accent: Accent;
+    isActive?: boolean;
+    onClick?: () => void;
+}) {
     const posterSeed = useMemo(() => Math.random().toString(36).slice(2, 10), []);
+    const classes = [
+        'ProjectsGaming-card',
+        `ProjectsGaming-card--${accent}`,
+        isActive ? 'ProjectsGaming-card--active' : '',
+    ]
+        .filter(Boolean)
+        .join(' ');
     return (
-        <div
-            className={`ProjectsGaming-card ProjectsGaming-card--${accent}`}
+        <button
+            type="button"
+            className={classes}
             aria-label={label}
+            aria-pressed={isActive}
+            onClick={onClick}
         >
             <img
                 className="ProjectsGaming-card-thumb"
@@ -402,31 +396,116 @@ function VideoCard({ label, accent }: { label: string; accent: Accent }) {
                 </svg>
             </span>
             <span className="ProjectsGaming-card-label">{label}</span>
-        </div>
+        </button>
     );
 }
 
-function ColumnBackground() {
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const videoSrc = useMemo(() => pickRandom(SAMPLE_VIDEOS), []);
-    const [muted, setMuted] = useState(true);
+function ColumnBackground({
+    src,
+    fading,
+    videoRef,
+    onLoaded,
+    onVideoClick,
+}: {
+    src: string;
+    fading: boolean;
+    videoRef: React.RefObject<HTMLVideoElement | null>;
+    onLoaded?: () => void;
+    onVideoClick?: () => void;
+}) {
     const [failed, setFailed] = useState(false);
 
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
-        const column = video.closest('.ProjectsGaming-column');
-        if (!column) return;
+    if (failed) return null;
 
+    const className =
+        'ProjectsGaming-bg-video' + (fading ? ' ProjectsGaming-bg-video--fading' : '');
+
+    return (
+        <video
+            ref={videoRef}
+            className={className}
+            src={src}
+            muted
+            loop
+            playsInline
+            preload="auto"
+            aria-hidden="true"
+            onError={() => setFailed(true)}
+            onLoadedData={onLoaded}
+            onClick={(e) => {
+                e.stopPropagation();
+                onVideoClick?.();
+            }}
+        />
+    );
+}
+
+function GamingColumn({
+    columnClass,
+    accent,
+    games,
+    title,
+    titleDelay,
+    titleCursorColor,
+    description,
+    revealStart,
+}: {
+    columnClass: 'ProjectsGaming-column--roblox' | 'ProjectsGaming-column--fivem';
+    accent: Accent;
+    games: Game[];
+    title: string;
+    titleDelay: number;
+    titleCursorColor: 'cyan' | 'magenta';
+    description: string;
+    revealStart: boolean;
+}) {
+    const [activeIndex, setActiveIndex] = useState(0);
+    const [fading, setFading] = useState(false);
+    const [swapKey, setSwapKey] = useState(0);
+    const [flashAction, setFlashAction] = useState<{ kind: 'play' | 'pause'; nonce: number } | null>(null);
+    const [muteToast, setMuteToast] = useState<{ muted: boolean; nonce: number } | null>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const columnRef = useRef<HTMLDivElement>(null);
+    const swapPendingRef = useRef(false);
+    const userPausedRef = useRef(false);
+    const flashTimeoutRef = useRef<number | null>(null);
+    const muteTimeoutRef = useRef<number | null>(null);
+
+    const triggerFlash = (kind: 'play' | 'pause') => {
+        if (flashTimeoutRef.current) window.clearTimeout(flashTimeoutRef.current);
+        setFlashAction({ kind, nonce: Date.now() });
+        flashTimeoutRef.current = window.setTimeout(() => setFlashAction(null), 650);
+    };
+
+    const triggerMuteToast = (muted: boolean) => {
+        if (muteTimeoutRef.current) window.clearTimeout(muteTimeoutRef.current);
+        setMuteToast({ muted, nonce: Date.now() });
+        muteTimeoutRef.current = window.setTimeout(() => setMuteToast(null), 1000);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (flashTimeoutRef.current) window.clearTimeout(flashTimeoutRef.current);
+            if (muteTimeoutRef.current) window.clearTimeout(muteTimeoutRef.current);
+        };
+    }, []);
+
+    // Hover-driven autoplay / pause + remute on leave — preserves the
+    // immersive column behavior. Respects a sticky user-pause: if the user
+    // explicitly paused via click, hovering back in shouldn't auto-resume.
+    useEffect(() => {
+        const column = columnRef.current;
+        if (!column) return;
         const handleEnter = () => {
-            video.play().catch(() => {});
+            if (userPausedRef.current) return;
+            videoRef.current?.play().catch(() => {});
         };
         const handleLeave = () => {
-            video.pause();
-            video.muted = true;
-            setMuted(true);
+            const v = videoRef.current;
+            if (!v) return;
+            v.pause();
+            v.muted = true;
         };
-
         column.addEventListener('mouseenter', handleEnter);
         column.addEventListener('mouseleave', handleLeave);
         return () => {
@@ -435,27 +514,126 @@ function ColumnBackground() {
         };
     }, []);
 
-    if (failed) return null;
+    const handleSelect = (i: number) => {
+        const v = videoRef.current;
+        if (i === activeIndex) {
+            if (v) {
+                v.muted = !v.muted;
+                triggerMuteToast(v.muted);
+            }
+            return;
+        }
+        swapPendingRef.current = true;
+        userPausedRef.current = false;
+        setFading(true);
+        setActiveIndex(i);
+        setSwapKey((k) => k + 1);
+    };
+
+    const handleLoaded = () => {
+        if (!swapPendingRef.current) return;
+        swapPendingRef.current = false;
+        setFading(false);
+        const v = videoRef.current;
+        if (!v) return;
+        v.muted = false;
+        v.play().catch(() => {});
+        triggerMuteToast(false);
+    };
+
+    const handleVideoClick = () => {
+        const v = videoRef.current;
+        if (!v) return;
+        if (v.paused) {
+            userPausedRef.current = false;
+            v.play().catch(() => {});
+            triggerFlash('play');
+        } else {
+            userPausedRef.current = true;
+            v.pause();
+            triggerFlash('pause');
+        }
+    };
 
     return (
-        <video
-            ref={videoRef}
-            className="ProjectsGaming-bg-video"
-            src={videoSrc}
-            muted={muted}
-            loop
-            playsInline
-            preload="auto"
-            aria-hidden="true"
-            onError={() => setFailed(true)}
-            onClick={(e) => {
-                e.stopPropagation();
-                const v = videoRef.current;
-                if (!v) return;
-                v.muted = !v.muted;
-                setMuted(v.muted);
-            }}
-        />
+        <div ref={columnRef} className={`ProjectsGaming-column ${columnClass}`}>
+            <ColumnBackground
+                src={games[activeIndex].videoUrl}
+                fading={fading}
+                videoRef={videoRef}
+                onLoaded={handleLoaded}
+                onVideoClick={handleVideoClick}
+            />
+            {swapKey > 0 && (
+                <div
+                    key={swapKey}
+                    className={`ProjectsGaming-scanline ProjectsGaming-scanline--${accent}`}
+                    aria-hidden="true"
+                />
+            )}
+            {flashAction && (
+                <div
+                    key={flashAction.nonce}
+                    className={`ProjectsGaming-flash ProjectsGaming-flash--${flashAction.kind}`}
+                    aria-hidden="true"
+                >
+                    {flashAction.kind === 'play' ? (
+                        <svg viewBox="0 0 24 24" width="56" height="56">
+                            <path d="M8 5v14l11-7L8 5z" fill="currentColor" />
+                        </svg>
+                    ) : (
+                        <svg viewBox="0 0 24 24" width="56" height="56">
+                            <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z" fill="currentColor" />
+                        </svg>
+                    )}
+                </div>
+            )}
+            {muteToast && (
+                <div
+                    key={muteToast.nonce}
+                    className={`ProjectsGaming-muteToast ProjectsGaming-muteToast--${accent}`}
+                    aria-hidden="true"
+                >
+                    {muteToast.muted ? (
+                        <svg viewBox="0 0 24 24" width="20" height="20">
+                            <path
+                                d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4L9.91 6.09 12 8.18V4z"
+                                fill="currentColor"
+                            />
+                        </svg>
+                    ) : (
+                        <svg viewBox="0 0 24 24" width="20" height="20">
+                            <path
+                                d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
+                                fill="currentColor"
+                            />
+                        </svg>
+                    )}
+                </div>
+            )}
+            <div className="ProjectsGaming-content">
+                <Typewriter
+                    as="h2"
+                    text={title}
+                    delay={titleDelay}
+                    className="ProjectsGaming-title"
+                    cursorColor={titleCursorColor}
+                    play={revealStart}
+                />
+                <p className="ProjectsGaming-description">{description}</p>
+                <div className="ProjectsGaming-cards">
+                    {games.map((g, i) => (
+                        <VideoCard
+                            key={g.id}
+                            label={g.label}
+                            accent={accent}
+                            isActive={i === activeIndex}
+                            onClick={() => handleSelect(i)}
+                        />
+                    ))}
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -496,6 +674,10 @@ export default function Projects() {
     const [activeSection, setActiveSection] = useState<SectionId>(1);
     const [scrollProgress, setScrollProgress] = useState(0);
     const [revealStart, setRevealStart] = useState(false);
+    // Mirror of AnalyticsDashboard's active slide — fed via its
+    // onActiveSlideChange callback. Used to source the fluid-mesh palette
+    // when section 3 dominates the viewport.
+    const [s3ActiveSlide, setS3ActiveSlide] = useState<AnalyticsSlide | null>(null);
     const { setTheme } = usePageTheme();
     const tunnel = useTunnel();
 
@@ -512,9 +694,126 @@ export default function Projects() {
     const section1Ref = useRef<HTMLElement>(null);
     const section2Ref = useRef<HTMLElement>(null);
     const section3Ref = useRef<HTMLElement>(null);
+    const mainRef = useRef<HTMLElement>(null);
+    const sec1ContentRef = useRef<HTMLDivElement>(null);
+    const sec2ContentRef = useRef<HTMLDivElement>(null);
+    const sec3ContentRef = useRef<HTMLDivElement>(null);
+    const sec3BgRef = useRef<HTMLDivElement>(null);
     const swipeTimerRef = useRef<number | null>(null);
+    // Cinematic transition (cog → cockpit / globe → carousel). GSAP
+    // drives the explode-and-recompose animation; isTransitioning forces
+    // both views to remain visible while the timeline runs.
+    const cockpitRef = useRef<HTMLDivElement>(null);
+    const slotStageRef = useRef<HTMLDivElement>(null);
+    const transitionTl = useRef<gsap.core.Timeline | null>(null);
+    const [isTransitioning, setIsTransitioning] = useState(false);
     const totalSlides = memberSlides.length;
     const currentSlide = memberSlides[slideIndex];
+
+    // "Caméléon" palette: the page-level GlobalFluidMesh absorbs colours
+    // from whichever carousel is currently driving the viewport. Every
+    // slide goes through resolvePalette() which walks the priority chain
+    // manualColors → generatedPalettes[id] → Liquid Silver. Section 2 and
+    // any project that hasn't been auto-extracted yet land on Liquid
+    // Silver, which auto-triggers the shader's achromatic mode.
+    const activePalette = useMemo(() => {
+        const DEFAULT_SPEED = 0.06;
+        if (activeSection === 1) {
+            const palette = resolvePalette(currentSlide);
+            return { ...palette, speed: currentSlide.speed ?? DEFAULT_SPEED };
+        }
+        if (activeSection === 3 && s3ActiveSlide) {
+            const palette = resolvePalette(s3ActiveSlide);
+            return { ...palette, speed: s3ActiveSlide.speed ?? DEFAULT_SPEED };
+        }
+        return {
+            colorLeft: LIQUID_SILVER_LEFT,
+            colorRight: LIQUID_SILVER_RIGHT,
+            speed: DEFAULT_SPEED,
+        };
+    }, [activeSection, currentSlide, s3ActiveSlide]);
+
+    // ── Cinematic toggle between carousel front and BackendCockpit ──
+    // goToBack: slot stage explodes (scale + blur + opacity in 350ms ease-in)
+    //           while cockpit arrives from 0.85/0 to 1/1 (300ms ease-out).
+    // goToFront: cockpit recedes (200ms ease-in), then slot stage recomposes
+    //           with a single elastic.out exception at 600ms. This is the
+    //           only mvt above the 200–400ms house rule by design.
+    const goToBack = () => {
+        if (isTransitioning || section1View === 'back') return;
+        transitionTl.current?.kill();
+        const stage = slotStageRef.current;
+        const cockpit = cockpitRef.current;
+        if (!stage || !cockpit) {
+            setSection1View('back');
+            return;
+        }
+        setIsTransitioning(true);
+        gsap.set(cockpit, { scale: 0.85, opacity: 0, transformOrigin: '50% 50%' });
+        gsap.set(stage, { scale: 1, filter: 'blur(0px)', opacity: 1, transformOrigin: '50% 50%' });
+
+        transitionTl.current = gsap.timeline({
+            onComplete: () => {
+                setSection1View('back');
+                setIsTransitioning(false);
+                gsap.set([stage, cockpit], { clearProps: 'all' });
+            },
+        });
+        transitionTl.current.to(
+            stage,
+            { scale: 1.35, filter: 'blur(8px)', opacity: 0, duration: 0.35, ease: 'power2.in' },
+            0
+        );
+        transitionTl.current.to(
+            cockpit,
+            { scale: 1, opacity: 1, duration: 0.3, ease: 'power3.out' },
+            0.1
+        );
+    };
+
+    const goToFront = () => {
+        if (isTransitioning || section1View === 'front') return;
+        transitionTl.current?.kill();
+        const stage = slotStageRef.current;
+        const cockpit = cockpitRef.current;
+        if (!stage || !cockpit) {
+            setSection1View('front');
+            return;
+        }
+        setIsTransitioning(true);
+        gsap.set(stage, { scale: 1.35, filter: 'blur(8px)', opacity: 0, transformOrigin: '50% 50%' });
+        gsap.set(cockpit, { scale: 1, opacity: 1, transformOrigin: '50% 50%' });
+
+        transitionTl.current = gsap.timeline({
+            onComplete: () => {
+                setSection1View('front');
+                setIsTransitioning(false);
+                gsap.set([stage, cockpit], { clearProps: 'all' });
+            },
+        });
+        transitionTl.current.to(
+            cockpit,
+            { scale: 0.85, opacity: 0, duration: 0.2, ease: 'power2.in' },
+            0
+        );
+        transitionTl.current.to(
+            stage,
+            {
+                scale: 1,
+                filter: 'blur(0px)',
+                opacity: 1,
+                duration: 0.6,
+                ease: 'elastic.out(1, 0.6)',
+            },
+            0.1
+        );
+    };
+
+    useEffect(() => {
+        return () => {
+            transitionTl.current?.kill();
+        };
+    }, []);
 
     const handleSlotClick = (role: SlideRole) => {
         if (role === 'active' || role === 'hidden') return;
@@ -589,6 +888,142 @@ export default function Projects() {
         return () => observer.disconnect();
     }, []);
 
+    useEffect(() => {
+        document.documentElement.classList.add('Projects-snap');
+        return () => document.documentElement.classList.remove('Projects-snap');
+    }, []);
+
+    // Smooth JS-driven snap. Le snap CSS natif (mandatory) avait un timing
+    // trop court — l'utilisateur le ressentait comme un "feu rouge". On
+    // intercepte molette / touch / clavier, on calcule la prochaine cible
+    // (sections + footer) et on anime window.scrollY via GSAP avec un
+    // power3.inOut sur 1.1s. Désactivé sous prefers-reduced-motion.
+    useEffect(() => {
+        if (
+            typeof window === 'undefined' ||
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ) {
+            return;
+        }
+
+        let isAnimating = false;
+        let touchStartY = 0;
+
+        const getTargets = (): number[] => {
+            const refs = [section1Ref.current, section2Ref.current, section3Ref.current];
+            const ys: number[] = [];
+            refs.forEach((r) => {
+                if (r) ys.push(r.offsetTop);
+            });
+            const footer = document.querySelector('.Footer') as HTMLElement | null;
+            if (footer) ys.push(footer.offsetTop);
+            return ys;
+        };
+
+        const getCurrentIndex = (targets: number[]) => {
+            const y = window.scrollY;
+            let bestI = 0;
+            let bestDist = Infinity;
+            for (let i = 0; i < targets.length; i++) {
+                const d = Math.abs(targets[i] - y);
+                if (d < bestDist) {
+                    bestDist = d;
+                    bestI = i;
+                }
+            }
+            return bestI;
+        };
+
+        const animateTo = (i: number) => {
+            const targets = getTargets();
+            const clamped = Math.max(0, Math.min(targets.length - 1, i));
+            const target = targets[clamped];
+            if (Math.abs(target - window.scrollY) < 2) return;
+            isAnimating = true;
+            const obj = { y: window.scrollY };
+            gsap.to(obj, {
+                y: target,
+                duration: 0.9,
+                ease: 'power3.inOut',
+                onUpdate: () => window.scrollTo(0, obj.y),
+                onComplete: () => {
+                    isAnimating = false;
+                },
+            });
+        };
+
+        const onWheel = (e: WheelEvent) => {
+            if (e.ctrlKey) return; // laisse passer le zoom navigateur
+            e.preventDefault();
+            if (isAnimating) return;
+            if (Math.abs(e.deltaY) < 1) return;
+            const targets = getTargets();
+            const current = getCurrentIndex(targets);
+            const next = e.deltaY > 0 ? current + 1 : current - 1;
+            if (next >= 0 && next < targets.length && next !== current) {
+                animateTo(next);
+            }
+        };
+
+        const onTouchStart = (e: TouchEvent) => {
+            touchStartY = e.touches[0].clientY;
+        };
+
+        const onTouchMove = (e: TouchEvent) => {
+            // Bloque le scroll natif pendant le geste — sinon iOS / Android
+            // déclenchent leur propre inertie qui combat notre animation.
+            if (isAnimating) e.preventDefault();
+        };
+
+        const onTouchEnd = (e: TouchEvent) => {
+            if (isAnimating) return;
+            const dy = touchStartY - e.changedTouches[0].clientY;
+            if (Math.abs(dy) < 40) return;
+            const targets = getTargets();
+            const current = getCurrentIndex(targets);
+            const next = dy > 0 ? current + 1 : current - 1;
+            if (next >= 0 && next < targets.length && next !== current) {
+                animateTo(next);
+            }
+        };
+
+        const onKey = (e: KeyboardEvent) => {
+            if (isAnimating) return;
+            const targets = getTargets();
+            const current = getCurrentIndex(targets);
+            let next = current;
+            if (e.key === 'PageDown' || e.key === 'ArrowDown' || e.key === ' ') {
+                next = current + 1;
+            } else if (e.key === 'PageUp' || e.key === 'ArrowUp') {
+                next = current - 1;
+            } else if (e.key === 'Home') {
+                next = 0;
+            } else if (e.key === 'End') {
+                next = targets.length - 1;
+            } else {
+                return;
+            }
+            e.preventDefault();
+            if (next >= 0 && next < targets.length && next !== current) {
+                animateTo(next);
+            }
+        };
+
+        window.addEventListener('wheel', onWheel, { passive: false, capture: true });
+        window.addEventListener('touchstart', onTouchStart, { passive: true });
+        window.addEventListener('touchmove', onTouchMove, { passive: false });
+        window.addEventListener('touchend', onTouchEnd, { passive: true });
+        window.addEventListener('keydown', onKey);
+
+        return () => {
+            window.removeEventListener('wheel', onWheel, { capture: true } as EventListenerOptions);
+            window.removeEventListener('touchstart', onTouchStart);
+            window.removeEventListener('touchmove', onTouchMove);
+            window.removeEventListener('touchend', onTouchEnd);
+            window.removeEventListener('keydown', onKey);
+        };
+    }, []);
+
     // Drive the global fluid mesh: 0 at top of section 1, 1 once section 3
     // dominates the viewport. rAF-throttled so we never run more than one
     // calc per frame, even on a noisy scroll wheel.
@@ -619,15 +1054,163 @@ export default function Projects() {
         };
     }, []);
 
+    // Cinematic focus transition between sections.
+    //
+    // Each section's content has 3 strictly-budgeted element categories.
+    // The split is driven by GPU cost: `filter: blur()` promotes the
+    // target to its own compositor layer, which is fine on small text
+    // nodes but ruinous on heavy DOM trees (mockup frame + screenshot)
+    // or WebGL canvases (frame-rate cliff). The fluid mesh shader is
+    // already holding one compositor slot — we keep filter strictly
+    // scoped so the rest stays on the cheap path.
+    //
+    //   focus → blur + scale + opacity. ONLY text-like nodes.
+    //   lens  → scale + opacity. Heavy containers + 3D canvases.
+    //   fade  → opacity only. Iframes / videos / images.
+    //
+    // ScrollTrigger fires onEnter/onLeave (forward) and onEnterBack/
+    // onLeaveBack (backward) with explicit scale directions so the focus
+    // pulls correctly with the user's scroll direction (lens-in coming
+    // forward, lens-back coming backward). Sections below the initial
+    // viewport pre-render in their "out-backward" state so the entry
+    // animation always plays cinematically the first time you scroll to
+    // them, not just on return.
+    useEffect(() => {
+        if (
+            typeof window === 'undefined' ||
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ) {
+            return;
+        }
+
+        const DURATION = 0.8;
+        const EASE = 'power3.inOut';
+        const BLUR_MAX = 10;
+
+        const ctx = gsap.context(() => {
+            // Three strictly-separated element categories per section. The
+            // split exists primarily to keep `will-change: filter` (which
+            // promotes the element to its own GPU layer) OFF heavy containers
+            // — only pure text nodes get filter. The shader is already eating
+            // a compositor slot; stacking a filter layer on the screenshot
+            // frame or a WebGL canvas would have older laptops audibly
+            // throttling.
+            //
+            //   focusSel → blur + scale + opacity. ONLY text-like elements
+            //              (h1/h2/p, captions, title bars). Filter is cheap
+            //              here because the layer is small and text-only.
+            //   lensSel  → scale + opacity. Heavy containers + 3D canvases.
+            //              NEVER filter (would rasterise the screenshot
+            //              subtree / re-snapshot a WebGL canvas every frame).
+            //   fadeSel  → opacity only. Iframes / videos / standalone
+            //              images. Cheapest path; opacity is free on most
+            //              compositors.
+            const sectionTargets = [
+                {
+                    section: section1Ref.current,
+                    content: sec1ContentRef.current,
+                    isInitial: true,
+                    focusSel: 'h1, h2, h3, p, .ProjectsBack-pager',
+                    lensSel: '.ProjectsBack-cog3d, .ProjectsBack-globe3d',
+                    fadeSel: '.ProjectsBack-iframe, .ProjectsBack-img',
+                },
+                {
+                    section: section2Ref.current,
+                    content: sec2ContentRef.current,
+                    isInitial: false,
+                    focusSel: 'h1, h2, h3, p, .ProjectsGaming-badge',
+                    lensSel: '',
+                    fadeSel: 'video',
+                },
+                {
+                    section: section3Ref.current,
+                    content: sec3ContentRef.current,
+                    isInitial: false,
+                    // Filter goes ONLY on the inner text nodes (caption +
+                    // title bar). The frame container — which wraps the
+                    // screenshot img — gets scale+opacity via lensSel, no
+                    // filter. The opacity cascade from the frame covers
+                    // the screenshot automatically, so we don't need a
+                    // separate fadeSel target inside the frame.
+                    focusSel: '.AnalyticsDashboard-mockup-caption, .AnalyticsDashboard-titleBar',
+                    lensSel: '.AnalyticsDashboard-frame, .AnalyticsDashboard-phoneCanvas',
+                    fadeSel: '',
+                },
+            ];
+
+            sectionTargets.forEach(({ section, content, isInitial, focusSel, lensSel, fadeSel }) => {
+                if (!section || !content) return;
+
+                const focusEls = focusSel ? content.querySelectorAll(focusSel) : ([] as unknown as NodeListOf<Element>);
+                const lensEls = lensSel ? content.querySelectorAll(lensSel) : ([] as unknown as NodeListOf<Element>);
+                const fadeEls = fadeSel ? content.querySelectorAll(fadeSel) : ([] as unknown as NodeListOf<Element>);
+
+                // GPU layer hints — kept strictly minimal: filter only where
+                // the element actually receives filter (text-only focusEls).
+                if (focusEls.length) gsap.set(focusEls, { willChange: 'filter, transform, opacity' });
+                if (lensEls.length) gsap.set(lensEls, { willChange: 'transform, opacity' });
+                if (fadeEls.length) gsap.set(fadeEls, { willChange: 'opacity' });
+
+                if (!isInitial) {
+                    if (focusEls.length) gsap.set(focusEls, { opacity: 0, scale: 0.95, filter: `blur(${BLUR_MAX}px)` });
+                    if (lensEls.length) gsap.set(lensEls, { opacity: 0, scale: 0.95 });
+                    if (fadeEls.length) gsap.set(fadeEls, { opacity: 0 });
+                }
+
+                const animateIn = () => {
+                    if (focusEls.length) gsap.to(focusEls, { opacity: 1, scale: 1, filter: 'blur(0px)', duration: DURATION, ease: EASE, overwrite: true });
+                    if (lensEls.length) gsap.to(lensEls, { opacity: 1, scale: 1, duration: DURATION, ease: EASE, overwrite: true });
+                    if (fadeEls.length) gsap.to(fadeEls, { opacity: 1, duration: DURATION, ease: EASE, overwrite: true });
+                };
+                const animateOut = (scale: number) => {
+                    if (focusEls.length) gsap.to(focusEls, { opacity: 0, scale, filter: `blur(${BLUR_MAX}px)`, duration: DURATION, ease: EASE, overwrite: true });
+                    if (lensEls.length) gsap.to(lensEls, { opacity: 0, scale, duration: DURATION, ease: EASE, overwrite: true });
+                    if (fadeEls.length) gsap.to(fadeEls, { opacity: 0, duration: DURATION, ease: EASE, overwrite: true });
+                };
+
+                ScrollTrigger.create({
+                    trigger: section,
+                    start: 'top center',
+                    end: 'bottom center',
+                    onEnter: animateIn,
+                    onLeave: () => animateOut(1.05),
+                    onEnterBack: animateIn,
+                    onLeaveBack: () => animateOut(0.95),
+                });
+            });
+
+            // Section 3 cream background — bidirectional fade, matched to
+            // the section's focus rhythm so it doesn't lag the content.
+            const sec3Bg = sec3BgRef.current;
+            if (sec3Bg) {
+                gsap.set(sec3Bg, { opacity: 0, willChange: 'opacity' });
+                ScrollTrigger.create({
+                    trigger: section3Ref.current,
+                    start: 'top center',
+                    end: 'bottom center',
+                    onEnter: () => gsap.to(sec3Bg, { opacity: 1, duration: DURATION, ease: EASE, overwrite: true }),
+                    onLeave: () => gsap.to(sec3Bg, { opacity: 0, duration: DURATION, ease: EASE, overwrite: true }),
+                    onEnterBack: () => gsap.to(sec3Bg, { opacity: 1, duration: DURATION, ease: EASE, overwrite: true }),
+                    onLeaveBack: () => gsap.to(sec3Bg, { opacity: 0, duration: DURATION, ease: EASE, overwrite: true }),
+                });
+            }
+        }, mainRef);
+
+        return () => ctx.revert();
+    }, []);
+
     return (
         <ScanlineSweep play={revealStart}>
-            <main className="Projects">
+            <main className="Projects" ref={mainRef}>
             {/* Persistent fluid canvas — bridges section 1 (cyan calm) and
                 section 3 (magenta energetic). Lives behind every section.   */}
             <div className="Projects-fluidBg" aria-hidden="true">
                 <GlobalFluidMesh
                     className="Projects-fluidBg-canvas"
                     progress={scrollProgress}
+                    colorLeft={activePalette.colorLeft}
+                    colorRight={activePalette.colorRight}
+                    speed={activePalette.speed}
                 />
                 <BackgroundAtmosphere />
             </div>
@@ -635,21 +1218,25 @@ export default function Projects() {
             <section
                 ref={section1Ref}
                 data-section="1"
-                className={`Projects-section Projects-section--back Projects-section--back-${section1View}`}
+                className={`Projects-section Projects-section--back Projects-section--back-${section1View}${isTransitioning ? ' Projects-section--transitioning' : ''}`}
                 aria-label={`Showcase membre — ${currentSlide.id}`}
             >
+                <div
+                    ref={sec1ContentRef}
+                    className="Projects-section-inner Projects-section-inner--back"
+                >
                 <div className="ProjectsBack-toggle">
                     {section1View === 'front' ? (
                         <Cog3D
                             className="ProjectsBack-cog3d"
                             ariaLabel="Voir la partie back"
-                            onActivate={() => setSection1View('back')}
+                            onActivate={goToBack}
                         />
                     ) : (
                         <Globe3D
                             className="ProjectsBack-globe3d"
                             ariaLabel="Voir la partie front"
-                            onActivate={() => setSection1View('front')}
+                            onActivate={goToFront}
                         />
                     )}
                 </div>
@@ -659,101 +1246,7 @@ export default function Projects() {
                         className="ProjectsBack-view ProjectsBack-view--back"
                         aria-hidden={section1View !== 'back'}
                     >
-                        <div className="ProjectsBack-grid">
-                            <div className="ProjectsBack-info">
-                                <span
-                                    className="ProjectsBack-coord ProjectsBack-coord--tr"
-                                    aria-hidden="true"
-                                >
-                                    LOC: {deriveLocCoord(currentSlide.id)}
-                                </span>
-                                <span
-                                    className="ProjectsBack-coord ProjectsBack-coord--bl"
-                                    aria-hidden="true"
-                                >
-                                    ID: {currentSlide.id.toUpperCase()}
-                                </span>
-                                <span
-                                    className="ProjectsBack-coord ProjectsBack-coord--br"
-                                    aria-hidden="true"
-                                >
-                                    REV: 1.0.4
-                                </span>
-                                <h2 className="ProjectsBack-title">{currentSlide.title}</h2>
-                                <a
-                                    href={`https://${currentSlide.domain}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="ProjectsBack-link"
-                                >
-                                    {currentSlide.domain}
-                                    <ExternalLinkIcon />
-                                </a>
-
-                                {/* Infrastructure Blade — KPI block. The
-                                    description paragraph is gone in favor of
-                                    machine-flavoured telemetry. */}
-                                {(() => {
-                                    const infra = deriveInfra(currentSlide.id);
-                                    return (
-                                        <>
-                                            <dl className="ProjectsBack-meta">
-                                                <div className="ProjectsBack-metaRow">
-                                                    <dt className="ProjectsBack-metaKey">[ UPTIME ]</dt>
-                                                    <dd className="ProjectsBack-metaVal">{infra.uptime}%</dd>
-                                                </div>
-                                                <div className="ProjectsBack-metaRow">
-                                                    <dt className="ProjectsBack-metaKey">[ LATENCY ]</dt>
-                                                    <dd className="ProjectsBack-metaVal">{infra.latency}ms</dd>
-                                                </div>
-                                                <div className="ProjectsBack-metaRow">
-                                                    <dt className="ProjectsBack-metaKey">[ STACK ]</dt>
-                                                    <dd className="ProjectsBack-metaVal">{infra.stack}</dd>
-                                                </div>
-                                                <div className="ProjectsBack-metaRow">
-                                                    <dt className="ProjectsBack-metaKey">[ REGION ]</dt>
-                                                    <dd className="ProjectsBack-metaVal">{infra.region}</dd>
-                                                </div>
-                                            </dl>
-
-                                            {/* Subdued log feed — opacity 0.3,
-                                                seamless CSS-driven scroll. The
-                                                stream is duplicated in the DOM
-                                                so the loop is invisible. */}
-                                            <div
-                                                className="ProjectsBack-terminal"
-                                                aria-hidden="true"
-                                            >
-                                                <div className="ProjectsBack-terminal-stream">
-                                                    {[...infra.logs, ...infra.logs].map((line, i) => (
-                                                        <div
-                                                            className="ProjectsBack-terminal-line"
-                                                            key={i}
-                                                        >
-                                                            <span className="ProjectsBack-terminal-prompt">
-                                                                &gt;
-                                                            </span>
-                                                            {line}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </>
-                                    );
-                                })()}
-                            </div>
-
-                            <div className="ProjectsBack-services">
-                                {currentSlide.services.map((s) => (
-                                    <div className="ProjectsBack-service" key={s.name}>
-                                        <span className="ProjectsBack-service-name">{s.name}</span>
-                                        <span className="ProjectsBack-service-status">
-                                            {s.status}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                        <BackendCockpit ref={cockpitRef} slide={currentSlide} />
                     </div>
 
                     <div
@@ -761,6 +1254,7 @@ export default function Projects() {
                         aria-hidden={section1View !== 'front'}
                     >
                         <div
+                            ref={slotStageRef}
                             className={`ProjectsBack-stage3d${
                                 isSwiping ? ' ProjectsBack-stage3d--swiping' : ''
                             }${swipeDir ? ` ProjectsBack-stage3d--swipe-${swipeDir}` : ''}`}
@@ -828,7 +1322,10 @@ export default function Projects() {
                         count={totalSlides}
                         activeIndex={slideIndex}
                         ariaLabel={`Projet ${slideIndex + 1} sur ${totalSlides}`}
+                        onPrev={() => triggerSwipe('prev')}
+                        onNext={() => triggerSwipe('next')}
                     />
+                </div>
                 </div>
             </section>
 
@@ -839,6 +1336,10 @@ export default function Projects() {
                 className="Projects-section Projects-section--gaming"
                 aria-label="Gaming Productions"
             >
+                <div
+                    ref={sec2ContentRef}
+                    className="Projects-section-inner Projects-section-inner--gaming"
+                >
                 <Typewriter
                     as="span"
                     text="GAMING PRODUCTIONS"
@@ -848,50 +1349,27 @@ export default function Projects() {
                     play={revealStart}
                 />
 
-                <div className="ProjectsGaming-column ProjectsGaming-column--roblox">
-                    <ColumnBackground />
-                    <div className="ProjectsGaming-content">
-                        <Typewriter
-                            as="h2"
-                            text="Roblox Metaverse"
-                            delay={0.7}
-                            className="ProjectsGaming-title"
-                            cursorColor="cyan"
-                            play={revealStart}
-                        />
-                        <p className="ProjectsGaming-description">
-                            Immersive experiences built with Lua scripting, custom physics
-                            engines, and advanced monetization systems.
-                        </p>
-                        <div className="ProjectsGaming-cards">
-                            {robloxGames.map((g) => (
-                                <VideoCard key={g.id} label={g.label} accent="cyan" />
-                            ))}
-                        </div>
-                    </div>
-                </div>
+                <GamingColumn
+                    columnClass="ProjectsGaming-column--roblox"
+                    accent="cyan"
+                    games={robloxGames}
+                    title="Roblox Metaverse"
+                    titleDelay={0.7}
+                    titleCursorColor="cyan"
+                    description="Immersive experiences built with Lua scripting, custom physics engines, and advanced monetization systems."
+                    revealStart={revealStart}
+                />
 
-                <div className="ProjectsGaming-column ProjectsGaming-column--fivem">
-                    <ColumnBackground />
-                    <div className="ProjectsGaming-content">
-                        <Typewriter
-                            as="h2"
-                            text="FiveM Framework"
-                            delay={0.85}
-                            className="ProjectsGaming-title"
-                            cursorColor="magenta"
-                            play={revealStart}
-                        />
-                        <p className="ProjectsGaming-description">
-                            Advanced GTA V multiplayer servers with custom React-based HUDs,
-                            real-time economy systems, and fully scripted roleplay mechanics.
-                        </p>
-                        <div className="ProjectsGaming-cards">
-                            {fivemGames.map((g) => (
-                                <VideoCard key={g.id} label={g.label} accent="green" />
-                            ))}
-                        </div>
-                    </div>
+                <GamingColumn
+                    columnClass="ProjectsGaming-column--fivem"
+                    accent="green"
+                    games={fivemGames}
+                    title="FiveM Framework"
+                    titleDelay={0.85}
+                    titleCursorColor="magenta"
+                    description="Advanced GTA V multiplayer servers with custom React-based HUDs, real-time economy systems, and fully scripted roleplay mechanics."
+                    revealStart={revealStart}
+                />
                 </div>
             </section>
 
@@ -902,7 +1380,17 @@ export default function Projects() {
                 className="Projects-section Projects-section--app"
                 aria-label="Analytics Dashboard Pro"
             >
-                <AnalyticsDashboard />
+                <div
+                    ref={sec3BgRef}
+                    className="Projects-section--app-bgFade"
+                    aria-hidden="true"
+                />
+                <div
+                    ref={sec3ContentRef}
+                    className="Projects-section-inner Projects-section-inner--app"
+                >
+                    <AnalyticsDashboard onActiveSlideChange={setS3ActiveSlide} />
+                </div>
             </section>
 
             <ContactButton fixed />

@@ -136,7 +136,7 @@ export default function Home() {
                     <Canvas
                         className="Home-canvas"
                         camera={{ position: [0, 0, 0], fov: 25, near: 0.01, far: 100 }}
-                        dpr={[1, 2]}
+                        dpr={[1, window.matchMedia('(max-width: 768px)').matches ? 1.5 : 2]}
                         frameloop={heroFrameloop}
                         gl={{ antialias: true, powerPreference: 'high-performance' }}
                     >

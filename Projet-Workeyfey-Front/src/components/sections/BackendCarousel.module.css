@@ -9,6 +9,7 @@
     top: 0;
     width: 100%;
     height: 100vh;
+    height: 100svh;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -89,4 +90,12 @@
     background: #9c6fff;
     transform: scale(1.4);
     box-shadow: 0 0 12px rgba(156, 111, 255, 0.7);
+}
+
+/* Mobile : blur(16px) sur les cartes anime mal en swap GSAP. */
+@media (max-width: 768px) {
+    .card {
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
 }

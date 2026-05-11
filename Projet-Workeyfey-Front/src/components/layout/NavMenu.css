@@ -48,3 +48,12 @@
 .NavMenu-item:hover {
     opacity: 0.5;
 }
+
+/* Mobile : le blur backdrop est très coûteux quand un shader Three.js
+   tourne derrière. On baisse le rayon pour libérer du GPU. */
+@media (max-width: 768px) {
+    .NavMenu {
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+}

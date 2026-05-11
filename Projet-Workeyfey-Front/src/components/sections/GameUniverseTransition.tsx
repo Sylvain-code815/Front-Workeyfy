@@ -1511,7 +1511,7 @@ export default function GameUniverseTransition() {
                         powerPreference: 'high-performance',
                         toneMappingExposure: 0.5,
                     }}
-                    dpr={[1, 2]}
+                    dpr={[1, window.matchMedia('(max-width: 768px)').matches ? 1.5 : 2]}
                     frameloop={frameloop}
                     shadows="soft"
                 >
