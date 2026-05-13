@@ -462,49 +462,150 @@ function GamingColumn({
     const [activeIndex, setActiveIndex] = useState(0);
     const [fading, setFading] = useState(false);
     const [swapKey, setSwapKey] = useState(0);
-    const [flashAction, setFlashAction] = useState<{ kind: 'play' | 'pause'; nonce: number } | null>(null);
-    const [muteToast, setMuteToast] = useState<{ muted: boolean; nonce: number } | null>(null);
+    const [muted, setMuted] = useState(true);
+    const [paused, setPaused] = useState(true);
+    // 0–1 volume mirror. The <video> element holds the canonical value;
+    // we keep this in state so the slider thumb position re-renders when
+    // the value changes from any path (drag, keyboard, mute toggle).
+    const [volume, setVolume] = useState(1);
+    // YouTube-style immersive mode: clicking the video collapses the sibling
+    // column, removes the greyscale, turns sound on, and fades the overlay
+    // (title / description / cards). The overlay reappears on column hover
+    // and clicking again exits immersive.
+    const [isImmersive, setIsImmersive] = useState(false);
+    // Panel "toutes les vidéos" — bouton "+" dans la cards row qui ouvre
+    // une liste scrollable de tous les games de l'univers. Architecture
+    // en place dès maintenant pour rester scalable quand le catalogue
+    // grandit au-delà des 3 cards qui tiennent en ligne.
+    const [allVideosOpen, setAllVideosOpen] = useState(false);
+    // Centered HUD action — play/pause/sound-on/sound-off feedback burst.
+    // Re-keyed by nonce so the same kind in a row replays the animation.
+    const [centerAction, setCenterAction] = useState<{
+        kind: 'play' | 'pause' | 'sound-on' | 'sound-off';
+        nonce: number;
+    } | null>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const columnRef = useRef<HTMLDivElement>(null);
     const swapPendingRef = useRef(false);
-    const userPausedRef = useRef(false);
-    const flashTimeoutRef = useRef<number | null>(null);
-    const muteTimeoutRef = useRef<number | null>(null);
+    const centerTimeoutRef = useRef<number | null>(null);
+    // Mirrored to a ref so the mouseenter/leave listeners (attached once,
+    // outside React's render cycle) can read the latest immersive state.
+    const isImmersiveRef = useRef(false);
+    isImmersiveRef.current = isImmersive;
 
-    const triggerFlash = (kind: 'play' | 'pause') => {
-        if (flashTimeoutRef.current) window.clearTimeout(flashTimeoutRef.current);
-        setFlashAction({ kind, nonce: Date.now() });
-        flashTimeoutRef.current = window.setTimeout(() => setFlashAction(null), 650);
+    const triggerCenterAction = (kind: 'play' | 'pause' | 'sound-on' | 'sound-off') => {
+        if (centerTimeoutRef.current) window.clearTimeout(centerTimeoutRef.current);
+        setCenterAction({ kind, nonce: Date.now() });
+        centerTimeoutRef.current = window.setTimeout(() => setCenterAction(null), 700);
     };
 
-    const triggerMuteToast = (muted: boolean) => {
-        if (muteTimeoutRef.current) window.clearTimeout(muteTimeoutRef.current);
-        setMuteToast({ muted, nonce: Date.now() });
-        muteTimeoutRef.current = window.setTimeout(() => setMuteToast(null), 1000);
+    // Single source of truth for the mute state. Writes through to the
+    // <video> element so callers don't need to touch the DOM directly.
+    const applyMuted = (next: boolean) => {
+        const v = videoRef.current;
+        if (v) v.muted = next;
+        setMuted(next);
     };
 
     useEffect(() => {
         return () => {
-            if (flashTimeoutRef.current) window.clearTimeout(flashTimeoutRef.current);
-            if (muteTimeoutRef.current) window.clearTimeout(muteTimeoutRef.current);
+            if (centerTimeoutRef.current) window.clearTimeout(centerTimeoutRef.current);
         };
     }, []);
 
-    // Hover-driven autoplay / pause + remute on leave — preserves the
-    // immersive column behavior. Respects a sticky user-pause: if the user
-    // explicitly paused via click, hovering back in shouldn't auto-resume.
+    // Mirror the <video> element's play/pause state so the toggle button
+    // shows the correct icon regardless of who initiated the change
+    // (mouse click, keyboard, or the hover-driven autoplay handlers).
+    useEffect(() => {
+        const v = videoRef.current;
+        if (!v) return;
+        const onPlay = () => setPaused(false);
+        const onPause = () => setPaused(true);
+        v.addEventListener('play', onPlay);
+        v.addEventListener('pause', onPause);
+        return () => {
+            v.removeEventListener('play', onPlay);
+            v.removeEventListener('pause', onPause);
+        };
+    }, []);
+
+    const togglePlayPause = () => {
+        const v = videoRef.current;
+        if (!v) return;
+        if (v.paused) {
+            v.play().catch(() => {});
+            triggerCenterAction('play');
+        } else {
+            v.pause();
+            triggerCenterAction('pause');
+        }
+    };
+
+    // Single write path for volume changes — slider drag, keyboard, mute
+    // toggle all funnel through here so the React state, the <video> DOM
+    // property and the centered HUD stay in lockstep.
+    const applyVolume = (next: number, flash = true) => {
+        const clamped = Math.max(0, Math.min(1, next));
+        const v = videoRef.current;
+        if (v) v.volume = clamped;
+        setVolume(clamped);
+        if (clamped === 0) {
+            if (v && !v.muted) applyMuted(true);
+            if (flash) triggerCenterAction('sound-off');
+        } else {
+            if (v && v.muted) applyMuted(false);
+            if (flash) triggerCenterAction('sound-on');
+        }
+    };
+
+    const volumeTrackRef = useRef<HTMLDivElement>(null);
+    const draggingRef = useRef(false);
+
+    const setVolumeFromClientX = (clientX: number, flash: boolean) => {
+        const track = volumeTrackRef.current;
+        if (!track) return;
+        const rect = track.getBoundingClientRect();
+        const ratio = (clientX - rect.left) / rect.width;
+        applyVolume(ratio, flash);
+    };
+
+    const handleVolumePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        draggingRef.current = true;
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        // Click-to-jump always flashes; subsequent drag updates don't,
+        // otherwise the HUD chains animations on every pointer move.
+        setVolumeFromClientX(e.clientX, true);
+    };
+
+    const handleVolumePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!draggingRef.current) return;
+        setVolumeFromClientX(e.clientX, false);
+    };
+
+    const handleVolumePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (!draggingRef.current) return;
+        draggingRef.current = false;
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    };
+
+    // Hover-driven autoplay / pause + remute on leave. Skipped while
+    // immersive so the video keeps playing with sound regardless of the
+    // cursor position.
     useEffect(() => {
         const column = columnRef.current;
         if (!column) return;
         const handleEnter = () => {
-            if (userPausedRef.current) return;
+            if (isImmersiveRef.current) return;
             videoRef.current?.play().catch(() => {});
         };
         const handleLeave = () => {
+            if (isImmersiveRef.current) return;
             const v = videoRef.current;
             if (!v) return;
             v.pause();
             v.muted = true;
+            setMuted(true);
         };
         column.addEventListener('mouseenter', handleEnter);
         column.addEventListener('mouseleave', handleLeave);
@@ -514,17 +615,54 @@ function GamingColumn({
         };
     }, []);
 
+    // Keyboard shortcuts — only active in immersive. Capture phase +
+    // stopImmediatePropagation so the page-level scroll handler doesn't
+    // also see Space (which it would otherwise interpret as "scroll down").
+    useEffect(() => {
+        if (!isImmersive) return;
+        const onKey = (e: KeyboardEvent) => {
+            const target = e.target as HTMLElement | null;
+            if (
+                target &&
+                (target.tagName === 'INPUT' ||
+                    target.tagName === 'TEXTAREA' ||
+                    target.isContentEditable)
+            ) {
+                return;
+            }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                setIsImmersive(false);
+            } else if (e.key === ' ' || e.code === 'Space') {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                togglePlayPause();
+            } else if (e.key === 'm' || e.key === 'M') {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                const v = videoRef.current;
+                if (!v) return;
+                const next = !v.muted;
+                applyMuted(next);
+                triggerCenterAction(next ? 'sound-off' : 'sound-on');
+            }
+        };
+        window.addEventListener('keydown', onKey, true);
+        return () => window.removeEventListener('keydown', onKey, true);
+    }, [isImmersive]);
+
     const handleSelect = (i: number) => {
-        const v = videoRef.current;
         if (i === activeIndex) {
+            const v = videoRef.current;
             if (v) {
-                v.muted = !v.muted;
-                triggerMuteToast(v.muted);
+                const next = !v.muted;
+                applyMuted(next);
+                triggerCenterAction(next ? 'sound-off' : 'sound-on');
             }
             return;
         }
         swapPendingRef.current = true;
-        userPausedRef.current = false;
         setFading(true);
         setActiveIndex(i);
         setSwapKey((k) => k + 1);
@@ -536,27 +674,45 @@ function GamingColumn({
         setFading(false);
         const v = videoRef.current;
         if (!v) return;
-        v.muted = false;
+        applyMuted(false);
         v.play().catch(() => {});
-        triggerMuteToast(false);
+        triggerCenterAction('sound-on');
     };
 
+    // Click on the background video toggles immersive mode: entering
+    // expands the column to 100% (sibling collapses to 0%), kills the
+    // greyscale, unmutes + forces playback, and fades the content overlay
+    // (title / description / cards / controls). Re-click or Escape exits.
     const handleVideoClick = () => {
+        const next = !isImmersive;
+        const v = videoRef.current;
+        if (v) {
+            if (next) {
+                applyMuted(false);
+                v.play().catch(() => {});
+                triggerCenterAction('sound-on');
+            } else {
+                applyMuted(true);
+                triggerCenterAction('sound-off');
+            }
+        }
+        setIsImmersive(next);
+    };
+
+    const toggleMute = () => {
         const v = videoRef.current;
         if (!v) return;
-        if (v.paused) {
-            userPausedRef.current = false;
-            v.play().catch(() => {});
-            triggerFlash('play');
-        } else {
-            userPausedRef.current = true;
-            v.pause();
-            triggerFlash('pause');
-        }
+        const next = !v.muted;
+        applyMuted(next);
+        triggerCenterAction(next ? 'sound-off' : 'sound-on');
     };
 
+    const columnClassName =
+        `ProjectsGaming-column ${columnClass}` +
+        (isImmersive ? ' ProjectsGaming-column--immersive' : '');
+
     return (
-        <div ref={columnRef} className={`ProjectsGaming-column ${columnClass}`}>
+        <div ref={columnRef} className={columnClassName}>
             <ColumnBackground
                 src={games[activeIndex].videoUrl}
                 fading={fading}
@@ -571,46 +727,63 @@ function GamingColumn({
                     aria-hidden="true"
                 />
             )}
-            {flashAction && (
+            {centerAction && (
                 <div
-                    key={flashAction.nonce}
-                    className={`ProjectsGaming-flash ProjectsGaming-flash--${flashAction.kind}`}
+                    key={centerAction.nonce}
+                    className={`ProjectsGaming-flash ProjectsGaming-flash--${accent}`}
                     aria-hidden="true"
                 >
-                    {flashAction.kind === 'play' ? (
-                        <svg viewBox="0 0 24 24" width="56" height="56">
+                    {centerAction.kind === 'play' && (
+                        <svg viewBox="0 0 24 24" width="48" height="48">
                             <path d="M8 5v14l11-7L8 5z" fill="currentColor" />
                         </svg>
-                    ) : (
-                        <svg viewBox="0 0 24 24" width="56" height="56">
+                    )}
+                    {centerAction.kind === 'pause' && (
+                        <svg viewBox="0 0 24 24" width="48" height="48">
                             <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z" fill="currentColor" />
                         </svg>
                     )}
-                </div>
-            )}
-            {muteToast && (
-                <div
-                    key={muteToast.nonce}
-                    className={`ProjectsGaming-muteToast ProjectsGaming-muteToast--${accent}`}
-                    aria-hidden="true"
-                >
-                    {muteToast.muted ? (
-                        <svg viewBox="0 0 24 24" width="20" height="20">
-                            <path
-                                d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4L9.91 6.09 12 8.18V4z"
-                                fill="currentColor"
-                            />
-                        </svg>
-                    ) : (
-                        <svg viewBox="0 0 24 24" width="20" height="20">
+                    {centerAction.kind === 'sound-on' && (
+                        <svg viewBox="0 0 24 24" width="48" height="48">
                             <path
                                 d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
                                 fill="currentColor"
                             />
                         </svg>
                     )}
+                    {centerAction.kind === 'sound-off' && (
+                        <svg viewBox="0 0 24 24" width="48" height="48">
+                            <path
+                                d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4L9.91 6.09 12 8.18V4z"
+                                fill="currentColor"
+                            />
+                        </svg>
+                    )}
                 </div>
             )}
+            <button
+                type="button"
+                className={`ProjectsGaming-soundControl ProjectsGaming-soundControl--${accent}`}
+                onClick={toggleMute}
+                aria-label={muted ? 'Activer le son' : 'Couper le son'}
+                aria-pressed={!muted}
+            >
+                {muted ? (
+                    <svg viewBox="0 0 24 24" width="20" height="20">
+                        <path
+                            d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4L9.91 6.09 12 8.18V4z"
+                            fill="currentColor"
+                        />
+                    </svg>
+                ) : (
+                    <svg viewBox="0 0 24 24" width="20" height="20">
+                        <path
+                            d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
+                            fill="currentColor"
+                        />
+                    </svg>
+                )}
+            </button>
             <div className="ProjectsGaming-content">
                 <Typewriter
                     as="h2"
@@ -631,8 +804,123 @@ function GamingColumn({
                             onClick={() => handleSelect(i)}
                         />
                     ))}
+                    <button
+                        type="button"
+                        className={`ProjectsGaming-more ProjectsGaming-more--${accent}`}
+                        onClick={() => setAllVideosOpen(true)}
+                        aria-label={`Voir toutes les vidéos ${title}`}
+                        aria-haspopup="dialog"
+                    >
+                        see more
+                    </button>
+                </div>
+                <div className={`ProjectsGaming-controls ProjectsGaming-controls--${accent}`}>
+                    <button
+                        type="button"
+                        className="ProjectsGaming-controls-btn"
+                        onClick={togglePlayPause}
+                        aria-label={paused ? 'Lecture' : 'Pause'}
+                    >
+                        {paused ? (
+                            <svg viewBox="0 0 24 24" width="18" height="18">
+                                <path d="M8 5v14l11-7L8 5z" fill="currentColor" />
+                            </svg>
+                        ) : (
+                            <svg viewBox="0 0 24 24" width="18" height="18">
+                                <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z" fill="currentColor" />
+                            </svg>
+                        )}
+                    </button>
+                    <div className="ProjectsGaming-volume">
+                        <button
+                            type="button"
+                            className="ProjectsGaming-controls-btn ProjectsGaming-volume-btn"
+                            onClick={toggleMute}
+                            aria-label={muted || volume === 0 ? 'Activer le son' : 'Couper le son'}
+                            aria-pressed={!muted && volume > 0}
+                        >
+                            {muted || volume === 0 ? (
+                                <svg viewBox="0 0 24 24" width="18" height="18">
+                                    <path
+                                        d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4L9.91 6.09 12 8.18V4z"
+                                        fill="currentColor"
+                                    />
+                                </svg>
+                            ) : (
+                                <svg viewBox="0 0 24 24" width="18" height="18">
+                                    <path
+                                        d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
+                                        fill="currentColor"
+                                    />
+                                </svg>
+                            )}
+                        </button>
+                        <div
+                            ref={volumeTrackRef}
+                            className="ProjectsGaming-volume-track"
+                            role="slider"
+                            tabIndex={0}
+                            aria-label="Volume"
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuenow={Math.round((muted ? 0 : volume) * 100)}
+                            onPointerDown={handleVolumePointerDown}
+                            onPointerMove={handleVolumePointerMove}
+                            onPointerUp={handleVolumePointerUp}
+                            onPointerCancel={handleVolumePointerUp}
+                        >
+                            <div
+                                className="ProjectsGaming-volume-fill"
+                                style={{ width: `${(muted ? 0 : volume) * 100}%` }}
+                            />
+                            <div
+                                className="ProjectsGaming-volume-thumb"
+                                style={{ left: `${(muted ? 0 : volume) * 100}%` }}
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
+            {allVideosOpen && (
+                <div
+                    className="ProjectsGaming-panel"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={`Toutes les vidéos ${title}`}
+                    onClick={() => setAllVideosOpen(false)}
+                >
+                    <div
+                        className={`ProjectsGaming-panel-inner ProjectsGaming-panel-inner--${accent}`}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <header className="ProjectsGaming-panel-head">
+                            <h3 className="ProjectsGaming-panel-title">{title}</h3>
+                            <button
+                                type="button"
+                                className="ProjectsGaming-panel-close"
+                                onClick={() => setAllVideosOpen(false)}
+                                aria-label="Fermer"
+                            >
+                                ×
+                            </button>
+                        </header>
+                        <div className="ProjectsGaming-panel-grid">
+                            {games.map((g, i) => (
+                                <VideoCard
+                                    key={g.id}
+                                    label={g.label}
+                                    accent={accent}
+                                    isActive={i === activeIndex}
+                                    onClick={() => {
+                                        if (i !== activeIndex) handleSelect(i);
+                                        setAllVideosOpen(false);
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -1289,7 +1577,12 @@ export default function Projects() {
                         className="ProjectsBack-view ProjectsBack-view--back"
                         aria-hidden={section1View !== 'back'}
                     >
-                        <BackendCockpit ref={cockpitRef} slide={currentSlide} />
+                        {/* `.Atelier` wrapper activates the editorial-list /
+                            Apple-like override pass on the cockpit. The
+                            override CSS is imported inside BackendCockpit. */}
+                        <div className="Atelier">
+                            <BackendCockpit ref={cockpitRef} slide={currentSlide} />
+                        </div>
                     </div>
 
                     <div
@@ -1368,6 +1661,21 @@ export default function Projects() {
                         onPrev={() => triggerSwipe('prev')}
                         onNext={() => triggerSwipe('next')}
                     />
+                    <div className="ProjectsBack-pager-caption" aria-live="polite">
+                        <span className="ProjectsBack-pager-caption-title">
+                            {currentSlide.title}
+                        </span>
+                        {currentSlide.domain && (
+                            <span className="ProjectsBack-pager-caption-domain">
+                                {currentSlide.domain}
+                            </span>
+                        )}
+                        <span className="ProjectsBack-pager-caption-count">
+                            {String(slideIndex + 1).padStart(2, '0')}
+                            <span className="ProjectsBack-pager-caption-slash">/</span>
+                            {String(totalSlides).padStart(2, '0')}
+                        </span>
+                    </div>
                 </div>
                 </div>
             </section>

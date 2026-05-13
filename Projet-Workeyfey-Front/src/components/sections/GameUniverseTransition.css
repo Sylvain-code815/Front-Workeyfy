@@ -6,7 +6,6 @@
     color: var(--color-white, #ffffff);
     overflow: hidden;
     scroll-snap-align: start;
-    scroll-snap-stop: always;
 }
 
 .GameUniverse-sticky {

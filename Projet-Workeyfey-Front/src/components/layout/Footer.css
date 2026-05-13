@@ -289,3 +289,102 @@
     .Footer-headline { font-size: 30px; }
     .Footer-cta-row { flex-direction: column; gap: 20px; }
 }
+
+/* Mobile : le Footer doit tenir dans 100svh pour que le scroll-snap JS
+   de Projects.tsx (cible Footer.offsetTop ligne ~1050) atterrisse
+   proprement sur une section complète. Le Footer-stage WebGL (400px de
+   canvas câble 3D) est masqué — l'effort GPU n'apporte rien sur petit
+   écran et il dépasse l'enveloppe 100svh. La colonne brand qui dépasse
+   est masquée pour garder l'essentiel : climax + nav + connect + baseline. */
+@media (max-width: 768px) {
+    .Footer-stage { display: none; }
+    .Footer {
+        min-height: 100svh;
+        display: flex;
+        flex-direction: column;
+    }
+    .Footer-inner {
+        flex: 1 1 auto;
+        padding: 48px 20px 32px;
+        gap: 32px;
+        justify-content: space-between;
+        align-items: stretch;
+    }
+    .Footer-climax {
+        margin-top: 0;
+        gap: 24px;
+    }
+    .Footer-headline {
+        font-size: clamp(1.5rem, 7vw, 2rem);
+        line-height: 1.1;
+    }
+    .Footer-cta-row {
+        width: 100%;
+        justify-content: center;
+    }
+    .Footer-cta-primary {
+        padding: 14px 24px;
+        font-size: 14px;
+    }
+    .Footer-grid {
+        gap: 0;
+        width: 100%;
+    }
+    /* Les colonnes Nav/Connect : on aligne tout l'intérieur en CENTRE
+       (titre, liens) au lieu du mix actuel `align-items: center` sur la
+       colonne + texte du <ul> aligné à gauche, qui faisait visuellement
+       un escalier. */
+    .Footer-col {
+        padding: 24px 4px;
+        gap: 12px;
+        align-items: center;
+        text-align: center;
+    }
+    .Footer-col ul {
+        align-items: center;
+        gap: 10px;
+        width: auto;
+    }
+    .Footer-col li {
+        text-align: center;
+    }
+    /* Le hover-dash absolute (left: -16px) saute hors-flux quand on
+       centre les liens et finit en travers du caractère précédent. Sur
+       mobile on remplace le tiret par un simple changement de couleur
+       net, sans translation horizontale. */
+    .Footer-col a::before {
+        display: none;
+    }
+    .Footer-col a:hover {
+        padding-left: 0;
+        color: var(--ink);
+    }
+    .Footer-col--brand { display: none; }
+    .Footer-col--nav + .Footer-col--legal {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+    }
+
+    /* Baseline copyright : un seul <span>, l'ancien
+       `justify-content: space-between` le collait à gauche. Centrage
+       net + texte ramassé pour qu'il rentre sans wrap moche. */
+    .Footer-baseline {
+        font-size: 11px;
+        justify-content: center;
+        text-align: center;
+    }
+}
+
+/* Très petit écran (iPhone SE, 320px) : on empile le bouton CTA sous
+   le headline avec un peu plus d'air, et le grid Nav/Connect reste
+   single-column. */
+@media (max-width: 380px) {
+    .Footer-cta-row {
+        flex-direction: column;
+        gap: 14px;
+    }
+    .Footer-cta-primary {
+        width: 100%;
+        justify-content: center;
+    }
+}

@@ -106,7 +106,11 @@
 }
 
 .ProjectsBack-view--back {
-    padding: 80px clamp(24px, 4vw, 56px);
+    /* Tightened top/bottom padding so the editorial-list cockpit
+       (taller than the original card grid because of 6 service rows
+       + the live tail column) fits the back-view stage without
+       overflowing. Horizontal padding unchanged. */
+    padding: 40px clamp(24px, 4vw, 56px);
     box-sizing: border-box;
     display: flex;
     align-items: center;
@@ -229,17 +233,42 @@
 /* iPhone-SE-first: profile cards eat the whole viewport so they never
    get clipped by the page padding and never overlap the mesh edges. The
    prev/next translate offsets (±70%/±122%/…) push the inactive cards
-   safely off-screen at 100vw, so the carousel still works for swipe. */
+   safely off-screen at 100vw, so the carousel still works for swipe.
+   On RESERVE 72px en haut (le Header fixe sur mobile fait 72px de haut,
+   cf. Header.css) ET 132px en bas pour faire vivre les dots SatellitePager
+   + le caption (titre/domaine/compteur du projet actif) sur le fond
+   sombre et non par-dessus la carte iframe.
+   - hauteur dispo : 100svh − 72 (header) − 132 (pager+caption) = 100svh − 204px
+   - centre visuel : (72 + 100svh − 132) / 2 = 50svh − 30px */
 @media (max-width: 768px) {
     .ProjectsBack-view--back {
         padding: 0;
     }
     .ProjectsBack-slotPos {
         width: 100vw;
-        height: 100svh;
+        height: calc(100svh - 204px);
+        top: calc(50% - 30px);
     }
     .ProjectsBack-slot {
         border-radius: 0;
+    }
+    /* Cog (vue front) / Globe (vue back) descend en bas-droite, ALIGNÉ
+       avec la rangée de dots du SatellitePager. Calibre réduit
+       (124px desktop → 48px mobile) pour cohabiter avec les dots
+       centrés sans les écraser.
+       - Pager bottom 38 + caption 18 + gap 14 = 70 → top de la rangée
+         dots à section_bottom - 70 - 44 (height row) ; centre dots à
+         section_bottom - 92.
+       - Cog 48px centré sur cette ligne : bottom: 68px (92 - 24). */
+    .ProjectsBack-toggle {
+        top: auto;
+        bottom: 68px;
+        right: 18px;
+    }
+    .ProjectsBack-cog3d,
+    .ProjectsBack-globe3d {
+        width: 48px;
+        height: 48px;
     }
 }
 
@@ -480,8 +509,16 @@
        never sit under the system gesture bar. max() keeps the existing
        38px gap on platforms that report 0 for the safe area. */
     bottom: max(38px, calc(20px + env(safe-area-inset-bottom)));
-    left: 50%;
-    transform: translateX(-50%);
+    /* Centered via auto-margins on an absolutely-positioned box rather
+       than `left: 50%; transform: translateX(-50%)`. GSAP's focus-pull
+       targets this element with `scale` and writes an inline
+       `transform: matrix(...)` that overrides any CSS transform —
+       which previously drifted the centering by a few px after
+       repeated interactions. Auto-margins keep the centering
+       independent of `transform`. */
+    left: 0;
+    right: 0;
+    margin-inline: auto;
     z-index: 5;
     width: min(720px, 78vw);
     display: grid;
@@ -653,6 +690,88 @@
     color: rgba(var(--color-black-rgb), 0.4);
 }
 
+/* Caption rendered SOUS les dots du SatellitePager — titre du projet
+   actif + domaine + compteur. Forçage white aux trois viewports (mobile,
+   tablette, desktop) car le fond derrière l'iframe peut varier
+   énormément selon le site embarqué : on ne peut pas se permettre une
+   couleur dérivée du thème global. text-shadow noir lourd garantit la
+   lisibilité même sur les bandes claires des sites front. */
+.ProjectsBack-pager-caption {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    pointer-events: none;
+    text-align: center;
+    font-family: 'JetBrains Mono', 'Fira Code', 'IBM Plex Mono', ui-monospace,
+        'Menlo', 'Consolas', monospace;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+}
+
+.ProjectsBack-pager-caption-title {
+    color: var(--color-white);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+}
+
+.ProjectsBack-pager-caption-domain {
+    color: var(--color-white);
+    opacity: 0.78;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+}
+
+.ProjectsBack-pager-caption-count {
+    color: var(--color-white);
+    opacity: 0.7;
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.18em;
+}
+
+.ProjectsBack-pager-caption-slash {
+    opacity: 0.55;
+    margin: 0 2px;
+}
+
+/* Front-view (iframe blanche derrière) — la text-shadow seule ne suffit
+   pas toujours, on garde white pour le titre principal mais on renforce
+   le contraste avec une ombre plus dense. Pas d'inversion en noir : le
+   user veut explicitement du blanc sur tous les viewports/états. */
+.Projects-section--back-front .ProjectsBack-pager-caption {
+    text-shadow:
+        0 1px 4px rgba(0, 0, 0, 0.95),
+        0 0 14px rgba(0, 0, 0, 0.6);
+}
+
+.Projects-section--back-front .ProjectsBack-pager-caption-title,
+.Projects-section--back-front .ProjectsBack-pager-caption-domain,
+.Projects-section--back-front .ProjectsBack-pager-caption-count {
+    color: var(--color-white);
+}
+
+/* Le caption disparaît en vue back (cockpit) — le cockpit affiche déjà
+   son titre + domaine en haut, dupliquer en bas serait redondant. */
+.Projects-section--back-back .ProjectsBack-pager-caption {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .ProjectsBack-pager-caption-title {
+        font-size: 11px;
+        letter-spacing: 0.18em;
+    }
+    .ProjectsBack-pager-caption-domain,
+    .ProjectsBack-pager-caption-count {
+        font-size: 10px;
+    }
+}
+
 /* ============================================== */
 /* SECTION 2 — Gaming Productions                 */
 /* ============================================== */
@@ -706,9 +825,14 @@
     100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
 }
 
+/* Diagonal split: each column is absolute and covers the full section,
+   then clip-path carves a triangle out of it. The shared edge between the
+   two clip polygons forms the diagonal divider running top-right ↔
+   bottom-left. 5-vertex polygons everywhere so clip-path transitions
+   interpolate smoothly between idle / hover / shrink / immersive states. */
 .ProjectsGaming-column {
-    position: relative;
-    flex: 1 1 50%;
+    position: absolute;
+    inset: 0;
     display: flex;
     align-items: flex-end;
     justify-content: flex-start;
@@ -718,7 +842,7 @@
     cursor: pointer;
     filter: grayscale(0.9) brightness(0.55);
     transition:
-        flex-basis 700ms cubic-bezier(0.65, 0, 0.35, 1),
+        clip-path 700ms cubic-bezier(0.65, 0, 0.35, 1),
         padding 700ms cubic-bezier(0.65, 0, 0.35, 1),
         filter 500ms cubic-bezier(0.65, 0, 0.35, 1);
 }
@@ -727,12 +851,21 @@
     background:
         radial-gradient(ellipse 70% 60% at 30% 100%, rgba(0, 51, 204, 0.45), transparent 70%),
         linear-gradient(to top, rgba(0, 51, 204, 0.25), transparent 60%);
+    /* Top-left triangle: (0,0) → (100%,0) → (0,100%). Vertices 3 and 5 are
+       duplicated so the polygon has 5 points and can morph into the
+       hover/immersive pentagons below. */
+    clip-path: polygon(0 0, 100% 0, 100% 0, 0 100%, 0 100%);
 }
 
 .ProjectsGaming-column--fivem {
     background:
         radial-gradient(ellipse 70% 60% at 70% 100%, rgba(0, 120, 30, 0.4), transparent 70%),
         linear-gradient(to top, rgba(0, 77, 0, 0.3), transparent 60%);
+    /* Bottom-right triangle: (100%,0) → (100%,100%) → (0,100%). */
+    clip-path: polygon(100% 0, 100% 0, 100% 100%, 0 100%, 0 100%);
+    /* Anchor content to the right side of the column since FiveM now
+       extends across the whole section (not just the right half). */
+    justify-content: flex-end;
 }
 
 .ProjectsGaming-bg-video {
@@ -801,8 +934,16 @@
 }
 
 /* Hover effect: expand the hovered column to 90% and collapse the other to 10% */
-.Projects-section--gaming:hover .ProjectsGaming-column {
-    flex-basis: 10%;
+/* Sibling column (the one NOT being hovered) collapses to a tiny corner
+   triangle while the hovered column expands. Polygon vertices stay at 5
+   to interpolate smoothly from the idle triangle. */
+.Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) {
+    clip-path: polygon(0 0, 20% 0, 20% 0, 0 20%, 0 20%);
+    padding: 32px 12px;
+}
+
+.Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) {
+    clip-path: polygon(100% 80%, 100% 80%, 100% 100%, 80% 100%, 80% 100%);
     padding: 32px 12px;
 }
 
@@ -838,12 +979,70 @@
     transition: transform 600ms cubic-bezier(0.65, 0, 0.35, 1) 200ms;
 }
 
-.Projects-section--gaming .ProjectsGaming-column:hover {
-    flex-basis: 90%;
+/* Hovered column expands to a near-full pentagon, leaving a small corner
+   for the sibling. The diagonal stays consistent (top-right ↔ bottom-left
+   axis), just shifted further into the sibling's territory. */
+.Projects-section--gaming .ProjectsGaming-column--roblox:hover {
+    clip-path: polygon(0 0, 100% 0, 100% 80%, 80% 100%, 0 100%);
     filter: none;
     padding: 64px 80px;
-    align-items: flex-end;
-    justify-content: flex-start;
+}
+
+.Projects-section--gaming .ProjectsGaming-column--fivem:hover {
+    clip-path: polygon(20% 0, 100% 0, 100% 100%, 0 100%, 0 20%);
+    filter: none;
+    padding: 64px 80px;
+}
+
+/* ── Immersive mode (click-to-focus, YouTube-style) ──────────────────
+   Click the background video → column claims the whole row, sibling
+   collapses out, greyscale lifts, sound is on. The content overlay
+   (title / description / cards) fades out and only reappears on hover,
+   mimicking YouTube's auto-hiding controls. Specificity bumped via
+   :has() so these rules override the section :hover state rules above. */
+/* Immersive: the clicked column claims the full rectangle, the sibling
+   shrinks to a degenerate point so it disappears. Polygon vertex paths
+   are matched to roblox / fivem origins so the diagonal "opens up"
+   smoothly when entering immersive. */
+.Projects-section--gaming:has(.ProjectsGaming-column--roblox.ProjectsGaming-column--immersive)
+    .ProjectsGaming-column--roblox {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 100%);
+    filter: none;
+    padding: 64px 80px;
+}
+
+.Projects-section--gaming:has(.ProjectsGaming-column--fivem.ProjectsGaming-column--immersive)
+    .ProjectsGaming-column--fivem {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 100%);
+    filter: none;
+    padding: 64px 80px;
+}
+
+.Projects-section--gaming:has(.ProjectsGaming-column--roblox.ProjectsGaming-column--immersive)
+    .ProjectsGaming-column--fivem {
+    clip-path: polygon(100% 0, 100% 0, 100% 0, 100% 0, 100% 0);
+    padding: 0;
+    pointer-events: none;
+    filter: none;
+}
+
+.Projects-section--gaming:has(.ProjectsGaming-column--fivem.ProjectsGaming-column--immersive)
+    .ProjectsGaming-column--roblox {
+    clip-path: polygon(0 0, 0 0, 0 0, 0 0, 0 0);
+    padding: 0;
+    pointer-events: none;
+    filter: none;
+}
+
+.ProjectsGaming-column--immersive .ProjectsGaming-content {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ProjectsGaming-column--immersive:hover .ProjectsGaming-content {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .ProjectsGaming-card {
@@ -934,6 +1133,155 @@
 .ProjectsGaming-card--green:hover .ProjectsGaming-card-play {
     transform: translate(-50%, -50%) scale(1.1);
     background: rgba(0, 0, 0, 0.7);
+}
+
+/* ── "see more" affordance + panel modal ───────────────────────────
+   Solid pill at the end of the cards row — inverted palette (black
+   ground, white ink) so it reads as a deliberate action separate from
+   the translucent VideoCards. Click → opens the panel grid with all
+   games of the active universe. */
+.ProjectsGaming-more {
+    position: relative;
+    flex: 0 0 auto;
+    width: 96px;
+    align-self: stretch;
+    aspect-ratio: auto;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: rgba(0, 0, 0, 0.92);
+    color: var(--color-white);
+    cursor: pointer;
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    transition:
+        border-color 200ms ease,
+        background 200ms ease,
+        color 200ms ease,
+        transform 200ms ease;
+}
+
+.ProjectsGaming-more:hover {
+    transform: translateY(-2px);
+    background: #000;
+    border-color: var(--color-white);
+}
+
+.ProjectsGaming-more--cyan:hover {
+    box-shadow: 0 0 20px rgba(94, 231, 231, 0.25);
+}
+
+.ProjectsGaming-more--green:hover {
+    box-shadow: 0 0 20px rgba(74, 222, 128, 0.25);
+}
+
+.ProjectsGaming-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(4, 8, 16, 0.72);
+    backdrop-filter: blur(8px) saturate(140%);
+    -webkit-backdrop-filter: blur(8px) saturate(140%);
+    padding: 24px;
+    animation: projects-panel-fade-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes projects-panel-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.ProjectsGaming-panel-inner {
+    position: relative;
+    width: min(420px, 92vw);
+    max-height: min(640px, 80vh);
+    display: flex;
+    flex-direction: column;
+    background: rgba(8, 14, 28, 0.94);
+    border: 1px solid rgba(var(--color-white-rgb), 0.14);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+.ProjectsGaming-panel-inner--cyan {
+    border-color: rgba(94, 231, 231, 0.32);
+    box-shadow:
+        0 24px 60px rgba(0, 0, 0, 0.55),
+        inset 0 0 0 1px rgba(94, 231, 231, 0.14);
+}
+
+.ProjectsGaming-panel-inner--green {
+    border-color: rgba(74, 222, 128, 0.32);
+    box-shadow:
+        0 24px 60px rgba(0, 0, 0, 0.55),
+        inset 0 0 0 1px rgba(74, 222, 128, 0.14);
+}
+
+.ProjectsGaming-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 22px;
+    border-bottom: 1px solid rgba(var(--color-white-rgb), 0.08);
+}
+
+.ProjectsGaming-panel-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--color-white);
+    letter-spacing: -0.005em;
+}
+
+.ProjectsGaming-panel-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    border: 0;
+    background: rgba(var(--color-white-rgb), 0.06);
+    color: rgba(var(--color-white-rgb), 0.8);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 200ms ease, color 200ms ease;
+}
+
+.ProjectsGaming-panel-close:hover {
+    background: rgba(var(--color-white-rgb), 0.14);
+    color: var(--color-white);
+}
+
+.ProjectsGaming-panel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+    padding: 14px;
+    overflow-y: auto;
+    /* Système molette natif — la scrollbar reste discrète. */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.ProjectsGaming-panel-grid::-webkit-scrollbar {
+    width: 6px;
+}
+
+.ProjectsGaming-panel-grid::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.ProjectsGaming-panel-grid .ProjectsGaming-card {
+    width: 100%;
 }
 
 /* Smooth fade when the column's background video is swapped to another card. */
@@ -1072,19 +1420,20 @@
     50%      { opacity: 1; transform: scale(1.25); }
 }
 
-/* Center play/pause flash — confirms the click action on the bg video.
-   The element is mounted only during the animation window (~650ms). */
+/* Centered HUD flash — replays on every state-change (enter immersive,
+   play/pause, mute/volume). Mounted only during the animation window
+   (~700ms), then unmounted by the parent. No backdrop-filter: the disc
+   sits over a playing video, and per-frame blur recomposition stutters
+   the playback on weaker GPUs. */
 .ProjectsGaming-flash {
     position: absolute;
     top: 50%;
     left: 50%;
-    z-index: 3;
+    z-index: 4;
     width: 96px;
     height: 96px;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.45);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    background: rgba(0, 0, 0, 0.65);
     color: var(--color-white);
     display: flex;
     align-items: center;
@@ -1092,47 +1441,181 @@
     pointer-events: none;
     transform: translate(-50%, -50%) scale(0.6);
     opacity: 0;
-    animation: ProjectsGaming-flash 650ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation: ProjectsGaming-flash 700ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
+.ProjectsGaming-flash--cyan { color: #5EE7E7; }
+.ProjectsGaming-flash--green { color: #4ADE80; }
 @keyframes ProjectsGaming-flash {
     0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
     25%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
 }
 
-/* Bottom-right mute toast — fade-in / fade-out over ~1s, indicates the
-   current mute state every time it changes. */
-.ProjectsGaming-muteToast {
+/* Sound mute/unmute control — top-right of the immersive column,
+   revealed only on column hover (matches the YouTube auto-hide pattern).
+   Solid background instead of backdrop-filter: a blur layer over the
+   playing video forces continuous compositor work and stutters the
+   video on machines that are already running the page's WebGL shader. */
+.ProjectsGaming-soundControl {
     position: absolute;
-    bottom: 24px;
+    top: 24px;
     right: 24px;
     z-index: 3;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    border: 1px solid rgba(var(--color-white-rgb), 0.18);
+    background: rgba(0, 0, 0, 0.7);
     color: var(--color-white);
     display: flex;
     align-items: center;
     justify-content: center;
-    pointer-events: none;
-    opacity: 0;
-    animation: ProjectsGaming-muteToast 1000ms ease-in-out forwards;
+    cursor: pointer;
+    padding: 0;
+    transition:
+        opacity 320ms cubic-bezier(0.22, 1, 0.36, 1),
+        background 200ms ease,
+        border-color 200ms ease,
+        color 200ms ease;
 }
-.ProjectsGaming-muteToast--cyan { color: #5EE7E7; }
-.ProjectsGaming-muteToast--green { color: #4ADE80; }
-@keyframes ProjectsGaming-muteToast {
-    0%   { opacity: 0; transform: translateY(8px); }
-    20%  { opacity: 1; transform: translateY(0); }
-    75%  { opacity: 1; transform: translateY(0); }
-    100% { opacity: 0; transform: translateY(0); }
+/* In immersive: UI fades out alongside .ProjectsGaming-content. Mouse hover
+   on the column brings it back, mimicking YouTube's auto-hiding controls. */
+.ProjectsGaming-column--immersive .ProjectsGaming-soundControl {
+    opacity: 0;
+    pointer-events: none;
+}
+.ProjectsGaming-column--immersive:hover .ProjectsGaming-soundControl {
+    opacity: 1;
+    pointer-events: auto;
+}
+.ProjectsGaming-soundControl:hover {
+    background: rgba(0, 0, 0, 0.75);
+}
+.ProjectsGaming-soundControl--cyan:hover {
+    color: #5EE7E7;
+    border-color: rgba(94, 231, 231, 0.55);
+}
+.ProjectsGaming-soundControl--green:hover {
+    color: #4ADE80;
+    border-color: rgba(74, 222, 128, 0.55);
+}
+.ProjectsGaming-soundControl:focus-visible {
+    outline: 2px solid rgba(var(--color-white-rgb), 0.5);
+    outline-offset: 2px;
+}
+
+/* YouTube-style mouse controls at the bottom-left of the immersive
+   overlay — play/pause + volume down + volume up. Keyboard shortcuts
+   (Space / M / Échap) still work; they're just not labelled here. */
+.ProjectsGaming-controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+.ProjectsGaming-controls-btn {
+    appearance: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid rgba(var(--color-white-rgb), 0.18);
+    background: rgba(0, 0, 0, 0.6);
+    color: rgba(var(--color-white-rgb), 0.85);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    transition:
+        background 180ms ease,
+        border-color 180ms ease,
+        color 180ms ease,
+        transform 120ms ease;
+}
+.ProjectsGaming-controls-btn:hover {
+    background: rgba(0, 0, 0, 0.8);
+    color: var(--color-white);
+}
+.ProjectsGaming-controls--cyan .ProjectsGaming-controls-btn:hover {
+    border-color: rgba(94, 231, 231, 0.55);
+    color: #5EE7E7;
+}
+.ProjectsGaming-controls--green .ProjectsGaming-controls-btn:hover {
+    border-color: rgba(74, 222, 128, 0.55);
+    color: #4ADE80;
+}
+.ProjectsGaming-controls-btn:active {
+    transform: scale(0.94);
+}
+.ProjectsGaming-controls-btn:focus-visible {
+    outline: 2px solid rgba(var(--color-white-rgb), 0.5);
+    outline-offset: 2px;
+}
+
+/* YouTube-style volume group: speaker mute toggle + horizontal track
+   with a draggable thumb. Pointer events on the track let the user
+   click-to-jump or drag-to-set, exactly like the YouTube player. */
+.ProjectsGaming-volume {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: 4px;
+}
+.ProjectsGaming-volume-btn {
+    /* shares .ProjectsGaming-controls-btn — nothing extra needed */
+}
+.ProjectsGaming-volume-track {
+    position: relative;
+    width: 96px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(var(--color-white-rgb), 0.22);
+    cursor: pointer;
+    touch-action: none;
+}
+.ProjectsGaming-volume-track:focus-visible {
+    outline: 2px solid rgba(var(--color-white-rgb), 0.5);
+    outline-offset: 4px;
+}
+.ProjectsGaming-volume-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--color-white);
+    pointer-events: none;
+}
+.ProjectsGaming-volume-thumb {
+    position: absolute;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--color-white);
+    transform: translate(-50%, -50%);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+}
+.ProjectsGaming-controls--cyan .ProjectsGaming-volume-fill,
+.ProjectsGaming-controls--cyan .ProjectsGaming-volume-thumb {
+    background: #5EE7E7;
+}
+.ProjectsGaming-controls--green .ProjectsGaming-volume-fill,
+.ProjectsGaming-controls--green .ProjectsGaming-volume-thumb {
+    background: #4ADE80;
+}
+
+/* FiveM column's title is right-anchored in the dual-column layout, but
+   in immersive mode the column spans the full row and the rest of the
+   overlay (description / cards / shortcuts) sits at the left — keep the
+   title in line with it. */
+.ProjectsGaming-column--fivem.ProjectsGaming-column--immersive .ProjectsGaming-title {
+    align-self: flex-start;
+    transform-origin: left center;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .ProjectsGaming-flash,
-    .ProjectsGaming-muteToast {
+    .ProjectsGaming-flash {
         animation-duration: 1ms;
     }
 }
@@ -1388,31 +1871,31 @@ html.Projects-snap .Footer {
         flex-direction: column;
     }
 
-    /* Padding adapté aux écrans plus étroits. flex/filter/transitions
-       hérités du desktop : on garde 50/50 + grayscale + expand smooth. */
+    /* Padding adapté aux écrans plus étroits. Le diagonal clip-path
+       (top-right ↔ bottom-left) est défini au niveau desktop et s'applique
+       tel quel ici : pas de stack vertical, juste un diagonal serré. On
+       conserve l'anchor flex-end côté fivem (cf. base) — pas d'override
+       global qui ramènerait fivem à flex-start. */
     .ProjectsGaming-column {
         padding: 28px 24px;
-        align-items: flex-start;
-        justify-content: flex-end;
+        align-items: flex-end;
     }
 
-    .ProjectsGaming-column--roblox .ProjectsGaming-title,
-    .ProjectsGaming-column--fivem .ProjectsGaming-title {
-        align-self: flex-start;
-        transform-origin: left center;
-    }
+    /* Titre roblox reste anchored left, fivem anchored right — cohérent
+       avec les triangles top-left / bottom-right de la diagonale. */
 
-    /* Surcharge le padding du desktop hover (64px 80px et 32px 12px)
-       avec des valeurs adaptées au layout vertical mobile.
-       flex-basis 90/10 et filter sont conservés tels quels. */
-    .Projects-section--gaming:hover .ProjectsGaming-column {
+    /* Padding hover surchargé par colonne (les sélecteurs desktop ont
+       déjà cette spécificité avec :not(:hover) / :hover, donc on
+       reproduit la même structure pour gagner par ordre source). */
+    .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover),
+    .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) {
         padding: 12px 24px;
     }
 
-    .Projects-section--gaming .ProjectsGaming-column:hover {
+    .Projects-section--gaming .ProjectsGaming-column--roblox:hover,
+    .Projects-section--gaming .ProjectsGaming-column--fivem:hover {
         padding: 28px 24px;
-        align-items: flex-start;
-        justify-content: flex-end;
+        align-items: flex-end;
     }
 
     /* Pas de rotation du titre de la colonne réduite. */
@@ -1434,8 +1917,18 @@ html.Projects-snap .Footer {
     }
 
     .ProjectsGaming-cards {
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         gap: 12px;
+        align-items: stretch;
+    }
+
+    /* Sur tablette, on libère .ProjectsGaming-content de son max-width:
+       480px (calibré pour le slot desktop). Sans ça les 3 cards + le
+       bouton "+ Tout voir" en row dépasseraient le container et seraient
+       clippés. La colonne stack verticale a la place horizontale pour. */
+    .ProjectsGaming-content {
+        max-width: none;
+        width: 100%;
     }
 }
 
@@ -1465,20 +1958,20 @@ html.Projects-snap .Footer {
         flex-direction: column;
     }
 
-    /* Le Header est fixed à 72px de haut sur mobile : le badge GAMING
-       PRODUCTIONS à top:32px tombait dessous, et le toggle à top:78px
-       passait pile sous le bord du header, créant la collision visuelle.
-       On reflow les 3 couches avec 16px d'air entre chacune. */
+    /* Le badge GAMING PRODUCTIONS = "catégorie" demandée en haut.
+       Placé sous le Header (72px) et au-dessus du toggle Metaverse/FiveM. */
     .ProjectsGaming-badge {
-        top: 88px;       /* 72px header + 16px gap */
-        font-size: 11px;
-        padding: 8px 18px;
+        display: inline-block;
+        top: 88px;
+        font-size: 10px;
+        padding: 6px 14px;
+        letter-spacing: 0.28em;
     }
 
     .ProjectsGaming-universeToggle {
         display: inline-flex;
         position: absolute;
-        top: 136px;      /* 88 + ~32 badge + 16px gap */
+        top: 128px;      /* badge top 88 + ~28 hauteur badge + 12 gap */
         left: 50%;
         transform: translateX(-50%);
         z-index: 3;
@@ -1545,52 +2038,83 @@ html.Projects-snap .Footer {
         display: none;
     }
 
-    /* La colonne active reprend la pleine hauteur sans grayscale héritage.
-       padding-top accru : 136 (toggle) + ~44 (toggle height) + 20 air. */
+    /* Colonne active : full-bleed (100vw × 100svh) avec le contenu
+       (titre + description + cartes) BUNDLED en bas, comme demandé.
+       padding-top minimal — le badge + le toggle vivent en absolute
+       sur la section, ils n'ont pas besoin de "pousser" la colonne.
+       padding-bottom 0 — le bloc texte gère son propre espace par
+       rapport au bord. !important sur filter pour battre les règles
+       desktop (grayscale(0.9) brightness(0.55)) que le hover ne peut
+       pas déclencher sur touch.
+       clip-path: none !important — le diagonal du desktop n'a pas de sens
+       sur mobile où il n'y a qu'une seule colonne visible à la fois.
+       L'!important bat les règles desktop `:hover` / `:has(--immersive)`
+       qui définissent clip-path à des polygones. */
     .Projects-section--gaming[data-active-universe='roblox'] .ProjectsGaming-column--roblox,
     .Projects-section--gaming[data-active-universe='fivem'] .ProjectsGaming-column--fivem {
         flex: 1 1 100%;
         width: 100%;
-        filter: none;
-        padding-top: 200px;
+        min-height: 100svh;
+        filter: none !important;
+        clip-path: none !important;
+        padding: 0;
+        align-items: stretch;
+        justify-content: flex-end;
     }
 
-    /* Description du sous-titre : on la masque sur mobile pour laisser
-       respirer le bouton actions. Elle est déjà accessible en desktop. */
-    .ProjectsGaming-description {
-        display: none;
+    /* Le bloc texte (titre + description + cartes) s'étire en largeur
+       pour que la barre de cartes puisse scroller pleine-largeur.
+       padding-bottom 24px = respiration sous les cartes. */
+    .Projects-section--gaming[data-active-universe='roblox'] .ProjectsGaming-column--roblox .ProjectsGaming-content,
+    .Projects-section--gaming[data-active-universe='fivem'] .ProjectsGaming-column--fivem .ProjectsGaming-content {
+        align-self: stretch;
+        max-width: none;
+        width: 100%;
+        gap: 12px;
+        padding: 0 20px 24px;
+        box-sizing: border-box;
+        /* Halo dégradé sombre derrière le bloc texte : sans ça le titre
+           blanc se mange par la vidéo de fond claire (ex. mockup
+           gameplay). Le gradient remonte d'env. 280px = hauteur typique
+           titre + description + barre de cartes + padding. */
+        background: linear-gradient(
+            180deg,
+            transparent 0%,
+            rgba(0, 0, 0, 0.55) 30%,
+            rgba(0, 0, 0, 0.85) 100%
+        );
     }
 
-    /* Title : on tape fort. clamp(1.75–2.5rem) écrase l'arrière-plan 3D
-       et chevauche le toggle. On revient à un poids éditorial mais à un
-       calibre qui laisse respirer le shader derrière. */
+    /* Title : compact, lisible sur fond vidéo, alignement gauche
+       sous le bandeau de description. */
     .ProjectsGaming-title {
-        font-size: clamp(1rem, 4.6vw, 1.3rem);
+        font-size: clamp(1.05rem, 4.6vw, 1.4rem);
         line-height: 1.15;
         white-space: normal;
         width: auto;
-        max-width: 78vw;
+        max-width: 100%;
+        align-self: flex-start;
+        transform-origin: left center;
     }
 
-    /* Description sous le titre : on raccourcit la hauteur de ligne et
-       on plafonne la largeur pour éviter qu'elle ne descende jusque sur
-       la barre de cartes. */
+    /* Description re-affichée sur mobile (était masquée avant).
+       Plafonnée à 88vw pour ne pas s'étirer jusqu'au bord. */
     .ProjectsGaming-description {
+        display: block;
         font-size: 13px;
         line-height: 1.45;
-        max-width: 88vw;
+        max-width: 100%;
+        color: rgba(var(--color-white-rgb), 0.82);
     }
 
-    /* Cards : on les sort du flux normal et on les colle en bas en mode
-       barre swipable horizontale. Snap par tuile pour que chaque carte
-       s'aligne propre en fin de swipe. */
+    /* Cards : barre swipable horizontale dans le flux normal (plus
+       d'absolute → plus de "cards qui se baladent quand on clique sur
+       la vidéo"). margin négatif pour mordre le padding du content et
+       coller aux bords du viewport. Snap par tuile. */
     .ProjectsGaming-cards {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 16px;
-        margin-top: 0;
-        padding: 0 16px;
+        position: static;
+        margin: 4px -20px 0;
+        padding: 0 20px;
         gap: 12px;
         flex-wrap: nowrap;
         overflow-x: auto;
@@ -1606,12 +2130,5 @@ html.Projects-snap .Footer {
         flex: 0 0 auto;
         width: 168px;
         scroll-snap-align: start;
-    }
-
-    /* Padding-bottom sur la colonne active pour que la description ne
-       passe pas sous la barre de cartes en bas. */
-    .Projects-section--gaming[data-active-universe='roblox'] .ProjectsGaming-column--roblox,
-    .Projects-section--gaming[data-active-universe='fivem'] .ProjectsGaming-column--fivem {
-        padding-bottom: 140px;
     }
 }

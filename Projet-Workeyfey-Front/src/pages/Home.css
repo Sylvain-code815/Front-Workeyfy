@@ -1,6 +1,11 @@
+/* Snap softened : on garde l'alignement par section mais on retire le
+   `mandatory` + `stop: always` qui rendaient le scroll heurté ("feu
+   rouge" à chaque section). En `proximity`, le scroll glisse librement
+   et ne s'aimante qu'une fois la section très proche — c'est le
+   ressenti "smooth glissant" historique. */
 html.Home-snap,
 html.Home-snap body {
-    scroll-snap-type: y mandatory;
+    scroll-snap-type: y proximity;
 }
 
 .Home {
@@ -14,7 +19,6 @@ html.Home-snap body {
     height: 100svh;
     overflow: hidden;
     scroll-snap-align: start;
-    scroll-snap-stop: always;
 }
 
 .Home-hero-sticky {
