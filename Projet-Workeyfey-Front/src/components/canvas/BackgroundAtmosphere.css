@@ -1,0 +1,89 @@
+/* ============================================================
+   BackgroundAtmosphere — Cyber-Sober technical overlay layer.
+   Sits on top of the fluid mesh, behind every section.
+   ============================================================ */
+
+.BackgroundAtmosphere {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    color: rgba(255, 255, 255, 0.45);
+    font-family: 'JetBrains Mono', 'Fira Code', 'IBM Plex Mono', ui-monospace,
+        'Menlo', 'Consolas', monospace;
+}
+
+/* ── Coordinate grid ────────────────────────────────────────── */
+
+.BackgroundAtmosphere-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(
+            to right,
+            rgba(26, 120, 255, 0.04) 1px,
+            transparent 1px
+        ),
+        linear-gradient(
+            to bottom,
+            rgba(31, 232, 115, 0.035) 1px,
+            transparent 1px
+        );
+    background-size: 96px 96px;
+    /* Mask the grid so it's most visible at the top, fades into the page. */
+    -webkit-mask-image: radial-gradient(
+        ellipse 80% 60% at 50% 35%,
+        rgba(0, 0, 0, 1) 0%,
+        rgba(0, 0, 0, 0.3) 70%,
+        transparent 100%
+    );
+    mask-image: radial-gradient(
+        ellipse 80% 60% at 50% 35%,
+        rgba(0, 0, 0, 1) 0%,
+        rgba(0, 0, 0, 0.3) 70%,
+        transparent 100%
+    );
+    opacity: 0.6;
+}
+
+/* ── Persistent scanline — slow vertical drift, atmospheric ──── */
+
+.BackgroundAtmosphere-scanline {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(26, 120, 255, 0.35) 25%,
+        rgba(205, 251, 255, 0.85) 50%,
+        rgba(31, 232, 115, 0.35) 75%,
+        transparent 100%
+    );
+    box-shadow:
+        0 0 6px rgba(205, 251, 255, 0.5),
+        0 0 14px rgba(26, 120, 255, 0.25),
+        0 0 14px rgba(31, 232, 115, 0.25);
+    opacity: 0.4;
+    transform: translate3d(0, 0, 0);
+    animation: bg-scanline-drift 32s linear infinite;
+    will-change: transform;
+}
+
+@keyframes bg-scanline-drift {
+    0%   { transform: translateY(-2vh); opacity: 0; }
+    10%  { opacity: 0.4; }
+    90%  { opacity: 0.4; }
+    100% { transform: translateY(102vh); opacity: 0; }
+}
+
+/* Respect users who've asked for reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+    .BackgroundAtmosphere-scanline {
+        animation: none;
+        opacity: 0;
+    }
+}
+

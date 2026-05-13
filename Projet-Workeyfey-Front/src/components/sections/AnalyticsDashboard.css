@@ -1,0 +1,929 @@
+/* ============================================================
+   ANALYTICS DASHBOARD PRO — full-bleed mesh-gradient + carousel
+   ============================================================ */
+
+.AnalyticsDashboard {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    isolation: isolate;
+    color: #F4F8FF;
+    --accent-cyan: #00E5FF;
+    /* Was magenta (#FF1B8D). Swapped to a saturated FiveM-style green so
+       Section 3 ties back to the blue/green palette of Sections 1–2 instead
+       of clashing with it. */
+    --accent-green: #4ADE80;
+    --accent-violet: #7C5CFF;
+
+    /* ── Tunables ─────────────────────────────────────────────
+       Docked Windows mockup (phone mode). Tweak these to reposition
+       the small window without touching the transform stack.
+       X / Y are % of the slot's own size, applied AFTER the scale —
+       increase Y to push the window further down (e.g. to keep its
+       drop shadow from being clipped by the section's bottom edge). */
+    --docked-window-scale: 0.8;
+    --docked-window-x: 90%;
+    --docked-window-y: 100%;
+
+    /* Docked iPhone (window mode). Same convention — tweak X / Y.
+       Y poussé à 170% pour que le téléphone descende dans le cadre et que
+       sa base soit légèrement cut par le bord bas de la section
+       (overflow:hidden), au lieu de flotter trop haut. */
+    --docked-phone-scale: 0.8;
+    --docked-phone-x: 180%;
+    --docked-phone-y: 170%;
+}
+
+/* ── Background layers ─────────────────────────────────────── */
+
+.AnalyticsDashboard-bgCanvas {
+    position: absolute !important;
+    inset: 0;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 0;
+}
+
+.AnalyticsDashboard-blur {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    backdrop-filter: blur(80px) saturate(135%);
+    -webkit-backdrop-filter: blur(80px) saturate(135%);
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse 80% 60% at 50% 50%, rgba(255, 255, 255, 0.04), transparent 70%);
+}
+
+.AnalyticsDashboard-vignette {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    /* Two stacked radial gradients: an inner ring tinted with deep FiveM
+       green to reinforce the section's "verdi" ambience, and an outer wash
+       that crushes the corners almost to black-green so the eye locks onto
+       the centred iPhone + dashboard. Replaces the previous violet-tinted
+       single gradient that read as flat against the green mesh background. */
+    background:
+        radial-gradient(ellipse 75% 55% at 50% 48%, transparent 55%, rgba(3, 26, 14, 0.55) 100%),
+        radial-gradient(ellipse 110% 90% at 50% 50%, transparent 40%, rgba(2, 12, 6, 0.92) 100%);
+}
+
+/* ── Stage ─────────────────────────────────────────────────── */
+
+.AnalyticsDashboard-stage {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    box-sizing: border-box;
+}
+
+/* Cover-flow stage — same approach as section 1's .ProjectsBack-stage3d.
+   Slot positions live on .AnalyticsDashboard-slotPos; rotation lives on
+   .AnalyticsDashboard-slot. pointer-events: none lets clicks fall through
+   the empty parts of the stage to the iPhone canvas behind. */
+.AnalyticsDashboard-stage3d {
+    position: absolute;
+    inset: 0;
+    perspective: 2200px;
+    perspective-origin: 50% 50%;
+    pointer-events: none;
+}
+
+/* Slot positions — concentric like section 1 (active centred, prev/next
+   arranged outward with depth). Width/height tuned for the 16/10 mockup. */
+.AnalyticsDashboard-slotPos {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: min(64vw, 1100px);
+    height: min(56vh, 690px);
+    transform-style: preserve-3d;
+    pointer-events: auto;
+    transition:
+        top 720ms cubic-bezier(0.22, 1, 0.36, 1),
+        left 720ms cubic-bezier(0.22, 1, 0.36, 1),
+        right 720ms cubic-bezier(0.22, 1, 0.36, 1),
+        bottom 720ms cubic-bezier(0.22, 1, 0.36, 1),
+        width 720ms cubic-bezier(0.22, 1, 0.36, 1),
+        height 720ms cubic-bezier(0.22, 1, 0.36, 1),
+        transform 600ms cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 600ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform, opacity;
+}
+
+.AnalyticsDashboard-slotPos[role='button'] {
+    cursor: pointer;
+}
+
+.AnalyticsDashboard-slotPos--active {
+    transform: translate3d(-50%, -50%, 0);
+    z-index: 10;
+}
+
+.AnalyticsDashboard-slotPos--prev1 {
+    transform: translate3d(calc(-50% - 70%), -50%, -200px);
+    z-index: 9;
+}
+.AnalyticsDashboard-slotPos--next1 {
+    transform: translate3d(calc(-50% + 70%), -50%, -200px);
+    z-index: 9;
+}
+
+.AnalyticsDashboard-slotPos--prev2 {
+    transform: translate3d(calc(-50% - 122%), -50%, -380px);
+    z-index: 8;
+}
+.AnalyticsDashboard-slotPos--next2 {
+    transform: translate3d(calc(-50% + 122%), -50%, -380px);
+    z-index: 8;
+}
+
+.AnalyticsDashboard-slotPos--prev3 {
+    transform: translate3d(calc(-50% - 162%), -50%, -560px);
+    z-index: 7;
+}
+.AnalyticsDashboard-slotPos--next3 {
+    transform: translate3d(calc(-50% + 162%), -50%, -560px);
+    z-index: 7;
+}
+
+.AnalyticsDashboard-slotPos--prev4 {
+    transform: translate3d(calc(-50% - 192%), -50%, -720px);
+    z-index: 6;
+}
+.AnalyticsDashboard-slotPos--next4 {
+    transform: translate3d(calc(-50% + 192%), -50%, -720px);
+    z-index: 6;
+}
+
+.AnalyticsDashboard-slotPos--hidden {
+    transform: translate3d(-50%, -50%, -1400px);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Phone mode — the active mockup stays anchored at top:50%/left:50% and only
+   its TRANSFORM changes (scale + translate) so the dock animation is
+   smoothly interpolatable end-to-end. Earlier attempts that flipped
+   top/bottom/left/right between modes snapped abruptly because CSS can't
+   transition between auto and length values, which pushed the window off
+   the visible viewport during the swap. Side carousel slots fade out so
+   only the docked window reads as the click-target back to window mode. */
+.AnalyticsDashboard--phone .AnalyticsDashboard-slotPos:not(.AnalyticsDashboard-slotPos--active) {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.AnalyticsDashboard--phone .AnalyticsDashboard-slotPos--active {
+    /* Position driven by --docked-window-{scale,x,y} declared on the root
+       .AnalyticsDashboard. Tune them there. */
+    transform:
+        translate3d(-50%, -50%, 0)
+        scale(var(--docked-window-scale))
+        translate3d(var(--docked-window-x), var(--docked-window-y), 0);
+    cursor: pointer;
+    z-index: 12;
+}
+
+/* Inset cyan ring around the docked window to make it obvious it's still
+   clickable (and is the way back to fullscreen window mode). Outer drop
+   shadows were dropped here on purpose: with the frame docked at the
+   section's bottom-right edge, any outer box-shadow gets clipped by
+   .AnalyticsDashboard's `overflow: hidden`, leaving an ugly cropped band
+   along the section's bottom. The inset variant stays inside the frame so
+   no clipping happens. */
+.AnalyticsDashboard--phone .AnalyticsDashboard-slotPos--active .AnalyticsDashboard-frame {
+    box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.4) inset;
+    transition: box-shadow 320ms ease;
+}
+
+.AnalyticsDashboard--phone .AnalyticsDashboard-slotPos--active:hover .AnalyticsDashboard-frame {
+    box-shadow:
+        0 0 0 1px rgba(0, 229, 255, 0.75) inset,
+        0 0 30px rgba(0, 229, 255, 0.35) inset;
+}
+
+/* Hover-only silhouette outline on the docked window — mirrors the
+   phone-in-window-mode hover effect for consistency. The filter is applied
+   to the slotPos (and not to the inner .AnalyticsDashboard-frame) because
+   .AnalyticsDashboard-slot has `overflow: hidden`, which would clip a
+   drop-shadow placed any deeper. drop-shadow follows the rounded-rect
+   alpha of the frame, so the dark fade hugs the window's edges instead of
+   making a flat box. */
+.AnalyticsDashboard--phone .AnalyticsDashboard-slotPos--active {
+    transition:
+        transform 600ms cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 600ms cubic-bezier(0.22, 1, 0.36, 1),
+        filter 240ms ease;
+}
+
+.AnalyticsDashboard--phone .AnalyticsDashboard-slotPos--active:hover {
+    filter:
+        drop-shadow(0 0 3px rgba(0, 0, 0, 0.65))
+        drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
+}
+
+/* Inner slot — carries the cover-flow rotation. Active is straight-on, side
+   slots tilt inward toward the centre. */
+.AnalyticsDashboard-slot {
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    overflow: hidden;
+    transform-origin: 50% 50%;
+    transition:
+        transform 720ms cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 720ms cubic-bezier(0.22, 1, 0.36, 1),
+        filter 720ms cubic-bezier(0.22, 1, 0.36, 1);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    will-change: transform, opacity, filter;
+}
+
+.AnalyticsDashboard-slot--active {
+    transform: rotateY(0deg);
+    opacity: 1;
+    filter: blur(0) saturate(1) brightness(1);
+}
+
+.AnalyticsDashboard-slot--prev1 {
+    transform: rotateY(38deg);
+    opacity: 0.65;
+    filter: blur(4px) saturate(0.55) brightness(0.7);
+}
+.AnalyticsDashboard-slot--next1 {
+    transform: rotateY(-38deg);
+    opacity: 0.65;
+    filter: blur(4px) saturate(0.55) brightness(0.7);
+}
+
+.AnalyticsDashboard-slot--prev2 {
+    transform: rotateY(50deg);
+    opacity: 0.36;
+    filter: blur(8px) saturate(0.3) brightness(0.55);
+}
+.AnalyticsDashboard-slot--next2 {
+    transform: rotateY(-50deg);
+    opacity: 0.36;
+    filter: blur(8px) saturate(0.3) brightness(0.55);
+}
+
+.AnalyticsDashboard-slot--prev3 {
+    transform: rotateY(60deg);
+    opacity: 0.18;
+    filter: blur(12px) saturate(0.18) brightness(0.45);
+}
+.AnalyticsDashboard-slot--next3 {
+    transform: rotateY(-60deg);
+    opacity: 0.18;
+    filter: blur(12px) saturate(0.18) brightness(0.45);
+}
+
+.AnalyticsDashboard-slot--prev4 {
+    transform: rotateY(66deg);
+    opacity: 0.08;
+    filter: blur(16px) saturate(0.1) brightness(0.35);
+}
+.AnalyticsDashboard-slot--next4 {
+    transform: rotateY(-66deg);
+    opacity: 0.08;
+    filter: blur(16px) saturate(0.1) brightness(0.35);
+}
+
+.AnalyticsDashboard-slot--hidden {
+    opacity: 0;
+    filter: blur(20px);
+}
+
+/* Cumulative rotation pulse during swipe — matches section 1's vinyl-kick. */
+@keyframes AnalyticsDashboard-vinyl-kick-next {
+    0%   { transform: rotateY(0deg); }
+    45%  { transform: rotateY(-10deg); }
+    100% { transform: rotateY(0deg); }
+}
+
+@keyframes AnalyticsDashboard-vinyl-kick-prev {
+    0%   { transform: rotateY(0deg); }
+    45%  { transform: rotateY(10deg); }
+    100% { transform: rotateY(0deg); }
+}
+
+.AnalyticsDashboard-stage3d--swiping.AnalyticsDashboard-stage3d--swipe-next {
+    animation: AnalyticsDashboard-vinyl-kick-next 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.AnalyticsDashboard-stage3d--swiping.AnalyticsDashboard-stage3d--swipe-prev {
+    animation: AnalyticsDashboard-vinyl-kick-prev 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── macOS-style window frame ─────────────────────────────── */
+
+.AnalyticsDashboard-frame {
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #1a1a1d 0%, #131316 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow:
+        0 30px 80px rgba(8, 6, 22, 0.55),
+        0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* macOS title bar — traffic lights left, centred title, spacer right. */
+.AnalyticsDashboard-titleBar {
+    position: relative;
+    z-index: 4;
+    flex-shrink: 0;
+    height: 36px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 0 16px;
+    background: linear-gradient(180deg, #2c2c30 0%, #232326 100%);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+}
+
+.AnalyticsDashboard-trafficLights {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-self: start;
+}
+
+.AnalyticsDashboard-trafficLight {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.25);
+}
+
+.AnalyticsDashboard-trafficLight--red {
+    background: #FF5F57;
+}
+
+.AnalyticsDashboard-trafficLight--yellow {
+    background: #FEBC2E;
+}
+
+.AnalyticsDashboard-trafficLight--green {
+    background: #28C840;
+}
+
+.AnalyticsDashboard-titleText {
+    justify-self: center;
+    font-family: -apple-system, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(244, 248, 255, 0.78);
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 60%;
+}
+
+.AnalyticsDashboard-titleSpacer {
+    justify-self: end;
+}
+
+/* ── Mockup body ──────────────────────────────────────────── */
+
+.AnalyticsDashboard-mockup {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    background: #0b0b0f;
+}
+
+.AnalyticsDashboard-mockup-shot {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+/* Caption gradient — accent-tinted readout layered over the screenshot so
+   each slide reads as a distinct "app" while still showing real content. */
+.AnalyticsDashboard-mockup-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(
+            115deg,
+            rgba(8, 6, 22, 0.75) 0%,
+            rgba(8, 6, 22, 0.35) 45%,
+            rgba(8, 6, 22, 0) 75%
+        );
+}
+
+.AnalyticsDashboard-mockup--cyan .AnalyticsDashboard-mockup-overlay {
+    background:
+        linear-gradient(
+            115deg,
+            rgba(0, 30, 50, 0.82) 0%,
+            rgba(0, 60, 90, 0.28) 50%,
+            rgba(0, 229, 255, 0) 80%
+        );
+}
+
+.AnalyticsDashboard-mockup--green .AnalyticsDashboard-mockup-overlay {
+    background:
+        linear-gradient(
+            115deg,
+            rgba(8, 36, 18, 0.82) 0%,
+            rgba(22, 90, 52, 0.28) 50%,
+            rgba(74, 222, 128, 0) 80%
+        );
+}
+
+.AnalyticsDashboard-mockup--violet .AnalyticsDashboard-mockup-overlay {
+    background:
+        linear-gradient(
+            115deg,
+            rgba(28, 18, 60, 0.82) 0%,
+            rgba(60, 40, 130, 0.28) 50%,
+            rgba(124, 92, 255, 0) 80%
+        );
+}
+
+.AnalyticsDashboard-mockup-caption {
+    position: absolute;
+    left: 8%;
+    top: 50%;
+    transform: translateY(-50%);
+    max-width: 42%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    color: #F4F8FF;
+}
+
+.AnalyticsDashboard-mockup-appName {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--accent-cyan);
+}
+
+.AnalyticsDashboard-mockup--green .AnalyticsDashboard-mockup-appName {
+    color: var(--accent-green);
+}
+
+.AnalyticsDashboard-mockup--violet .AnalyticsDashboard-mockup-appName {
+    color: var(--accent-violet);
+}
+
+.AnalyticsDashboard-mockup-headline {
+    margin: 0;
+    font-size: clamp(1.25rem, 3.6vw, 2.375rem);
+    line-height: 1.05;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: #F4F8FF;
+    text-shadow: 0 4px 24px rgba(8, 6, 22, 0.55);
+}
+
+.AnalyticsDashboard-mockup-blurb {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.55;
+    color: rgba(244, 248, 255, 0.82);
+    text-shadow: 0 2px 12px rgba(8, 6, 22, 0.55);
+}
+
+/* ── iPhone slot — two modes ────────────────────────────────
+   Same trick as the active mockup: anchor stays at top:50%/left:50%, only
+   the transform changes between modes. This guarantees the swap animation
+   is fully interpolatable (no auto/length snaps that yeet the element off
+   screen mid-transition).
+   window: shrunk + pushed to the bottom-right quadrant, half cut at the
+           viewport bottom (top half visible above the screen edge).
+   phone : full-size, centred, drag-to-rotate enabled. */
+
+.AnalyticsDashboard-phoneSlot {
+    position: absolute;
+    top: 45%;
+    left: 50%;
+    width: min(460px, 30vw);
+    height: min(700px, 65vh);
+    z-index: 11;
+    transition: transform 720ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.AnalyticsDashboard-phoneSlot--window {
+    /* Position driven by --docked-phone-{scale,x,y} declared on the root
+       .AnalyticsDashboard. Tune them there. */
+    transform:
+        translate3d(-50%, -50%, 0)
+        scale(var(--docked-phone-scale))
+        translate3d(var(--docked-phone-x), var(--docked-phone-y), 0);
+    cursor: pointer;
+}
+
+.AnalyticsDashboard-phoneSlot--phone {
+    transform: translate3d(-50%, -50%, 0);
+}
+
+.AnalyticsDashboard-phoneCanvas {
+    width: 100% !important;
+    height: 100% !important;
+    pointer-events: auto !important;
+}
+
+.AnalyticsDashboard-phoneSlot--window .AnalyticsDashboard-phoneCanvas {
+    pointer-events: none !important;
+    transition: filter 240ms ease;
+}
+
+/* Hover-only silhouette outline — `filter: drop-shadow` traces the canvas
+   alpha (the phone shape itself) instead of the rectangular slot, so the
+   shadow hugs the phone's edges with a soft fade. Two stacked drop-shadows
+   give a tight inner rim + a longer outer fade for a graduated feel. Only
+   applies in window mode where clicking the phone is the entry point to
+   the interactive view. */
+.AnalyticsDashboard-phoneSlot--window:hover .AnalyticsDashboard-phoneCanvas {
+    filter:
+        drop-shadow(0 0 3px rgba(0, 0, 0, 0.65))
+        drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
+}
+
+/* ── Phone-mode sweep — extra horizontal kick during a slide change ──
+   When the user navigates the carousel while the phone is featured,
+   both the centred iPhone and the docked Windows mockup pan in the
+   click direction (right arrow → kick right, left arrow → kick left)
+   then settle back. Mirrors the stage's vinyl-kick rotation so all
+   three elements respond together to the swipe.
+   Each keyframe re-states the element's full transform stack: a CSS
+   animation REPLACES `transform`, so we must repeat the dock transform
+   (scale + dock translate) on every keyframe to avoid the dock
+   resetting to centre mid-animation. */
+
+.AnalyticsDashboard {
+    /* Visible horizontal travel of the swept elements at the peak of the
+       animation. Tune freely. */
+    --sweep-shift: 90px;
+}
+
+@keyframes AnalyticsDashboard-phone-sweep-next {
+    0%, 100% { transform: translate3d(-50%, -50%, 0); }
+    45%      { transform: translate3d(calc(-50% + var(--sweep-shift)), -50%, 0); }
+}
+
+@keyframes AnalyticsDashboard-phone-sweep-prev {
+    0%, 100% { transform: translate3d(-50%, -50%, 0); }
+    45%      { transform: translate3d(calc(-50% - var(--sweep-shift)), -50%, 0); }
+}
+
+/* Docked window kick: the inner translate's px shift is divided by the
+   dock scale so the on-screen displacement matches the iPhone's. */
+@keyframes AnalyticsDashboard-window-sweep-next {
+    0%, 100% {
+        transform:
+            translate3d(-50%, -50%, 0)
+            scale(var(--docked-window-scale))
+            translate3d(var(--docked-window-x), var(--docked-window-y), 0);
+    }
+    45% {
+        transform:
+            translate3d(-50%, -50%, 0)
+            scale(var(--docked-window-scale))
+            translate3d(
+                calc(var(--docked-window-x) + var(--sweep-shift) / var(--docked-window-scale)),
+                var(--docked-window-y),
+                0
+            );
+    }
+}
+
+@keyframes AnalyticsDashboard-window-sweep-prev {
+    0%, 100% {
+        transform:
+            translate3d(-50%, -50%, 0)
+            scale(var(--docked-window-scale))
+            translate3d(var(--docked-window-x), var(--docked-window-y), 0);
+    }
+    45% {
+        transform:
+            translate3d(-50%, -50%, 0)
+            scale(var(--docked-window-scale))
+            translate3d(
+                calc(var(--docked-window-x) - var(--sweep-shift) / var(--docked-window-scale)),
+                var(--docked-window-y),
+                0
+            );
+    }
+}
+
+.AnalyticsDashboard--phone.AnalyticsDashboard--swiping.AnalyticsDashboard--swipe-next .AnalyticsDashboard-phoneSlot--phone {
+    animation: AnalyticsDashboard-phone-sweep-next 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.AnalyticsDashboard--phone.AnalyticsDashboard--swiping.AnalyticsDashboard--swipe-prev .AnalyticsDashboard-phoneSlot--phone {
+    animation: AnalyticsDashboard-phone-sweep-prev 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.AnalyticsDashboard--phone.AnalyticsDashboard--swiping.AnalyticsDashboard--swipe-next .AnalyticsDashboard-slotPos--active {
+    animation: AnalyticsDashboard-window-sweep-next 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.AnalyticsDashboard--phone.AnalyticsDashboard--swiping.AnalyticsDashboard--swipe-prev .AnalyticsDashboard-slotPos--active {
+    animation: AnalyticsDashboard-window-sweep-prev 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Footer: pill (left) + nav (centre) ────────────────────── */
+
+.AnalyticsDashboard-footer {
+    position: absolute;
+    bottom: 36px;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    padding: 0 64px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 24px;
+}
+
+.AnalyticsDashboard-pill {
+    /* Pill rendue HORS du footer (cf. JSX) pour qu'on puisse la
+       repositionner en haut-centre sur mobile sans toucher au grid
+       du footer. Sur desktop on conserve l'ancien emplacement
+       (bas-gauche, en miroir des nav buttons centrés du footer)
+       en l'ancrant absolute sur la section .AnalyticsDashboard. */
+    position: absolute;
+    bottom: 36px;
+    left: 64px;
+    z-index: 5;
+    padding: 12px 18px;
+    border-radius: 999px;
+    background: rgba(8, 6, 22, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: #F4F8FF;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    box-shadow: 0 8px 24px rgba(8, 6, 22, 0.35);
+}
+
+.AnalyticsDashboard-nav {
+    justify-self: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Pas de background ici : on porte le même indicateur 5-dots que la
+       Section 1 (cf. tunnel/ProjectsPager). Les dots sont autoportants,
+       la pill capsule autour ferait doublon visuel. */
+    width: min(280px, 60vw);
+}
+
+.AnalyticsDashboard-navBtn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 0;
+    background: transparent;
+    color: rgba(244, 248, 255, 0.85);
+    cursor: pointer;
+    transition: background 200ms ease, color 200ms ease, transform 200ms ease;
+}
+
+.AnalyticsDashboard-navBtn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #F4F8FF;
+    transform: translateY(-1px);
+}
+
+.AnalyticsDashboard-pager {
+    width: min(360px, 40vw);
+    display: flex;
+    align-items: center;
+}
+
+.AnalyticsDashboard-footerSpacer {
+    justify-self: end;
+}
+
+/* ── Responsive ────────────────────────────────────────────── */
+
+@media (max-width: 1280px) {
+    .AnalyticsDashboard-footer { padding: 0 40px; }
+}
+
+/* Tablette (769-1280px) : on inverse phone pour libérer le coin droit
+   où vit le ContactButton fixed (right:32, bottom:32). Phone bascule
+   à GAUCHE avec des magnitudes adoucies pour rester visible sans coller
+   la bordure ni recouvrir le DataPager au centre. La pill garde sa
+   position absolute bas-gauche (déclarée dans la règle desktop de
+   base, hors du footer) — déjà à l'opposé du ContactButton. */
+@media (min-width: 769px) and (max-width: 1280px) {
+    .AnalyticsDashboard {
+        --docked-phone-x: -120%;
+        --docked-phone-y: 145%;
+    }
+}
+
+@media (max-width: 900px) {
+    .AnalyticsDashboard-mockup-caption { max-width: 60%; }
+    .AnalyticsDashboard-footer { padding: 0 24px; }
+    .AnalyticsDashboard-pill { font-size: 9px; letter-spacing: 0.18em; padding: 10px 14px; }
+}
+
+@media (max-width: 640px) {
+    .AnalyticsDashboard-mockup-caption {
+        left: 6%;
+        max-width: 80%;
+    }
+    .AnalyticsDashboard-mockup-blurb { font-size: 12px; }
+}
+
+/* Mobile : blur backdrop très lourd combiné aux shaders Three.js. On
+   réduit drastiquement les rayons (80px → 20px sur le grand voile,
+   12px → 8px sur les petits HUD). */
+@media (max-width: 768px) {
+    .AnalyticsDashboard-blur {
+        backdrop-filter: blur(20px) saturate(135%);
+        -webkit-backdrop-filter: blur(20px) saturate(135%);
+    }
+    .AnalyticsDashboard-pill,
+    .AnalyticsDashboard-nav {
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+
+    /* Edge-to-edge windows MAIS on réserve 120px en haut (72 Header +
+       ~32 pill + 16 air) et ~60px en bas pour laisser le DataPager
+       seul au milieu, tout au fond. La fenêtre carousel s'inscrit
+       proprement entre les deux. */
+    .AnalyticsDashboard-slotPos {
+        width: 100vw;
+        height: calc(100svh - 180px);
+        top: calc(50% + 30px);
+    }
+    .AnalyticsDashboard-frame {
+        border-radius: 0;
+        border: 0;
+        box-shadow: none;
+        /* La barre macOS contient le nom de l'app (l'"indication"
+           actuelle en haut-milieu). User want it en bas → on inverse
+           l'ordre flex de la frame pour la pousser sous le mockup. */
+        flex-direction: column-reverse;
+    }
+
+    /* Title bar mac-style : 36px → 24px, traffic lights réduits, le
+       titre encore lisible mais beaucoup moins gourmand en hauteur. Now
+       placée en bas via column-reverse → on inverse aussi la bordure :
+       border-bottom → border-top pour que la séparation visuelle se
+       fasse au-dessus du bandeau au lieu d'en-dessous. */
+    .AnalyticsDashboard-titleBar {
+        height: 28px;
+        padding: 0 12px;
+        border-bottom: 0;
+        border-top: 1px solid rgba(0, 0, 0, 0.4);
+        background: linear-gradient(180deg, #232326 0%, #2c2c30 100%);
+    }
+    .AnalyticsDashboard-trafficLight {
+        width: 9px;
+        height: 9px;
+    }
+    .AnalyticsDashboard-trafficLights {
+        gap: 6px;
+    }
+    .AnalyticsDashboard-titleText {
+        font-size: 11px;
+        max-width: 68%;
+    }
+
+    /* "Le titre en haut" : on remonte la caption (appName + headline
+       + blurb) en haut du mockup et on l'ancre proprement avec un
+       padding latéral pour qu'elle ne colle pas le bord de l'écran
+       (user : "à ne pas rentrer en collision avec le bord de la
+       fenêtre"). */
+    .AnalyticsDashboard-mockup-caption {
+        top: 24px;
+        left: 20px;
+        right: 20px;
+        max-width: none;
+        transform: none;
+        gap: 8px;
+    }
+    .AnalyticsDashboard-mockup-headline {
+        font-size: clamp(1.3rem, 6vw, 1.9rem);
+        line-height: 1.1;
+        padding-right: 8px;
+    }
+    .AnalyticsDashboard-mockup-blurb {
+        font-size: 12px;
+        line-height: 1.45;
+    }
+
+    /* L'overlay tonal couvre 8% → 80% par défaut depuis un coin haut-
+       gauche. Sur mobile la caption occupe maintenant toute la largeur
+       en haut, donc on étend l'overlay verticalement pour garantir le
+       contraste sous le headline. */
+    .AnalyticsDashboard-mockup-overlay {
+        background:
+            linear-gradient(
+                180deg,
+                rgba(8, 6, 22, 0.78) 0%,
+                rgba(8, 6, 22, 0.35) 32%,
+                rgba(8, 6, 22, 0) 60%
+            );
+    }
+    .AnalyticsDashboard-mockup--cyan .AnalyticsDashboard-mockup-overlay {
+        background:
+            linear-gradient(
+                180deg,
+                rgba(0, 30, 50, 0.82) 0%,
+                rgba(0, 60, 90, 0.28) 38%,
+                rgba(0, 229, 255, 0) 65%
+            );
+    }
+    .AnalyticsDashboard-mockup--green .AnalyticsDashboard-mockup-overlay {
+        background:
+            linear-gradient(
+                180deg,
+                rgba(8, 36, 18, 0.82) 0%,
+                rgba(22, 90, 52, 0.28) 38%,
+                rgba(74, 222, 128, 0) 65%
+            );
+    }
+    .AnalyticsDashboard-mockup--violet .AnalyticsDashboard-mockup-overlay {
+        background:
+            linear-gradient(
+                180deg,
+                rgba(28, 18, 60, 0.82) 0%,
+                rgba(60, 40, 130, 0.28) 38%,
+                rgba(124, 92, 255, 0) 65%
+            );
+    }
+
+    /* Footer du dashboard sur mobile : on garde uniquement le SatellitePager
+       (dots) SEUL, centré tout en bas. La pill ANALYTICS DASHBOARD PRO
+       part en haut-centre (cf. block dédié ci-dessous). */
+    .AnalyticsDashboard-footer {
+        bottom: 18px;
+        padding: 0 16px;
+        grid-template-columns: 1fr;
+    }
+    .AnalyticsDashboard-footer .AnalyticsDashboard-footerSpacer {
+        display: none;
+    }
+    .AnalyticsDashboard-nav {
+        justify-self: center;
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        padding: 0;
+        gap: 0;
+    }
+    .AnalyticsDashboard-pager {
+        width: min(80vw, 320px);
+    }
+
+    /* Pill ANALYTICS DASHBOARD PRO migre en haut-centre, sous le Header
+       (72px) avec un peu d'air. Override des coordonnées desktop
+       (bottom:36/left:64). */
+    .AnalyticsDashboard-pill {
+        display: inline-flex;
+        top: 88px;
+        bottom: auto;
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        z-index: 6;
+        margin: 0;
+        padding: 8px 14px;
+        font-size: 10px;
+        letter-spacing: 0.22em;
+        white-space: nowrap;
+    }
+
+    /* Le téléphone 3D devient une vignette illisible dans le viewport
+       mobile et concurrence le mockup carousel pour l'attention. On le
+       masque — le MeshGradientBackground (fond de la section) garde la
+       couleur et le mouvement. */
+    .AnalyticsDashboard-phoneSlot {
+        display: none;
+    }
+}

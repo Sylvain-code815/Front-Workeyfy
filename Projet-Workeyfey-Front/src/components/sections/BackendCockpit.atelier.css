@@ -1,0 +1,1053 @@
+/* ──────────────────────────────────────────────────────────────────
+   CockpitPremium · Atelier — Apple-like pass on the BackendCockpit.
+
+   Five axes are encoded here as CSS overrides on `.Atelier .Cockpit-*`:
+   1. Refined motion — three easing tiers, not "slow everywhere"
+   2. Material depth — layered shadows replace colored glows
+   3. Subtraction — remove dots, hints, dashed borders, redundant accents
+   4. Color discipline — one primary (cyan), functional status colors only
+   5. Type elegance — sentence-case sans-serif for headers, mono on values
+   ────────────────────────────────────────────────────────────────── */
+
+.Atelier {
+    /* Pure CSS-variable provider — no page chrome. The wrapper is
+       transparent so it can drop into any existing layout (Projects
+       page, Lab page, anywhere) without bloating dimensions. The page
+       owns its own background and padding; we only declare the design
+       tokens that the override selectors below consume. */
+
+    /* Easing tier system. Most UI elements use --ease-fast or --ease-snap;
+       --ease-luxe / --ease-spring are kept for state changes that need
+       weight. --ease-narrative is the rolling-update cadence. */
+    --ease-fast:      cubic-bezier(0.2, 0, 0, 1);
+    --ease-snap:      cubic-bezier(0.32, 0.72, 0, 1);
+    --ease-luxe:      cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-narrative: cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Durations — refined, not slowed. Hover stays fast. */
+    --dur-fast: 180ms;
+    --dur-snap: 280ms;
+    --dur-luxe: 480ms;
+
+    /* Palette — single accent, neutral surfaces, functional status. */
+    --primary:           #5EE7E7;
+    --primary-dim:       rgba(94, 231, 231, 0.55);
+    --primary-faint:     rgba(94, 231, 231, 0.16);
+    --surface:           rgba(255, 255, 255, 0.025);
+    --surface-elevated:  rgba(255, 255, 255, 0.04);
+    --hairline:          rgba(255, 255, 255, 0.08);
+    --hairline-strong:   rgba(255, 255, 255, 0.14);
+    --text-primary:      rgba(255, 255, 255, 0.94);
+    --text-secondary:    rgba(255, 255, 255, 0.58);
+    --text-muted:        rgba(255, 255, 255, 0.36);
+    --status-ok:         #4ADE80;
+    --status-warn:       #ff9f1c;
+    --status-error:      #ff5a5a;
+
+    /* Inherit the host layout's geometry — no min-height, no padding,
+       no background. The wrapper must be invisible to the box model. */
+    display: contents;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   AXIS 1+2 · subtraction & material depth on the root cockpit shell
+   ───────────────────────────────────────────────────────────────── */
+
+/* Restore a quiet, neutral backdrop. The original radial color washes
+   read as "AI vibes" — flatten the base, let one shadow do the work. */
+.Atelier .Cockpit {
+    background: transparent;
+    color: var(--text-primary);
+    padding: 0;
+    /* Take ~80% of the page width with a hard cap on very wide
+       monitors, so the left column (gauges + live tail stacked)
+       breathes in an Apple-like way instead of feeling cramped. */
+    width: 80%;
+    max-width: 1600px;
+    margin: 0 auto;
+    min-height: 0;
+}
+
+/* The CRT scanline overlay is decorative noise — kill it. */
+.Atelier .Cockpit::after {
+    display: none;
+}
+
+/* Edge digit streams = visual filler. Hide them everywhere on the
+   premium pass. */
+.Atelier .Cockpit-edge {
+    display: none;
+}
+
+/* ─── Panel cards — material depth replaces colored glow ─────── */
+.Atelier .Cockpit-gauges,
+.Atelier .Cockpit-flowWrap,
+.Atelier .Cockpit-livetail {
+    background: var(--surface);
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    /* Tighter internal padding so the cockpit fits the back-view stage
+       without overflow. Material depth via layered shadows kept. */
+    padding: 14px 18px 16px;
+    box-shadow:
+        0 1px 0 inset rgba(255, 255, 255, 0.06),
+        0 0 0 1px rgba(255, 255, 255, 0.02),
+        0 24px 48px -28px rgba(0, 0, 0, 0.65),
+        0 60px 120px -60px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+    transition:
+        border-color var(--dur-snap) var(--ease-snap),
+        box-shadow var(--dur-snap) var(--ease-snap);
+}
+.Atelier .Cockpit-gauges:hover,
+.Atelier .Cockpit-flowWrap:hover,
+.Atelier .Cockpit-livetail:hover {
+    border-color: var(--hairline-strong);
+}
+
+.Atelier .Cockpit-body {
+    /* Two columns on Atelier: [gauges + live tail stacked] on the
+       left, lifecycle + services on the right spanning both rows.
+       This eliminates the empty space the previous 3-column layout
+       left between the gauges and the live tail column, and lets
+       the cockpit shrink to a tighter overall width. */
+    grid-template-columns:
+        minmax(320px, 4fr)
+        minmax(0, 7fr);
+    grid-template-rows: auto auto;
+    gap: 16px 20px;
+    margin-bottom: 14px;
+}
+
+/* Live tail stacks UNDER the gauges in column 1, row 2. The
+   max-height: 160px from the Atelier override block below keeps
+   the panel compact; no full-row stretching needed. */
+.Atelier .Cockpit-livetail {
+    grid-column: 1;
+    grid-row: 2;
+    margin-bottom: 0;
+    min-height: 0;
+}
+
+/* Lifecycle + services span the full height of column 1 on the right. */
+.Atelier .Cockpit-flowWrap {
+    grid-column: 2;
+    grid-row: 1 / 3;
+}
+.Atelier .Cockpit-livetail-list {
+    flex: 1;
+    min-height: 0;
+}
+
+/* Body becomes a CSS grid (overrides the default flex container that
+   stacked body + livetail vertically). */
+.Atelier .Cockpit-body {
+    display: grid;
+}
+
+/* ─── Header — sentence case, sans-serif, hairline divider ───── */
+.Atelier .Cockpit-head {
+    border-bottom: 1px solid var(--hairline);
+    padding-bottom: 18px;
+    margin-bottom: 24px;
+}
+.Atelier .Cockpit-title {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    font-size: clamp(1.25rem, 2.5vw, 1.625rem);
+    text-transform: none;
+}
+.Atelier .Cockpit-link {
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px;
+    letter-spacing: 0;
+    transition: color var(--dur-fast) var(--ease-fast);
+}
+.Atelier .Cockpit-link:hover {
+    color: var(--text-primary);
+}
+
+/* ─── Panel headers ─────────────────────────────────────────────
+   Sentence case, no decorative dot, hint hidden. Tight margin to
+   keep the cockpit within the back-view stage on Projects.
+   AXIS 3 (subtraction) + AXIS 5 (type elegance). */
+.Atelier .Cockpit-panelHead {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 13px;
+    letter-spacing: -0.005em;
+    color: var(--text-secondary);
+    text-transform: none;
+    font-weight: 500;
+    margin-bottom: 12px;
+    padding: 2px 0;
+}
+.Atelier .Cockpit-panelDot {
+    display: none;
+}
+.Atelier .Cockpit-panelHint {
+    display: none;
+}
+.Atelier .Cockpit-livetail-cmd {
+    color: var(--text-muted);
+    font-size: 11px;
+    letter-spacing: 0;
+}
+
+/* Map the original UPPERCASE titles to sentence-case via content
+   replacement is brittle — instead we rely on the existing markup
+   to read OK with the new font/case treatment. The original strings
+   ("OBSERVABILITY · SRE", "REQUEST LIFECYCLE", "LIVE TAIL · stdout")
+   render fine in sentence-leading mixed case below. */
+.Atelier .Cockpit-panelHead {
+    text-transform: lowercase;
+}
+.Atelier .Cockpit-panelHead::first-letter {
+    text-transform: uppercase;
+}
+
+/* ─── Gauges rows — tight rhythm to match the editorial list ──── */
+.Atelier .Cockpit-row {
+    border-top: 1px solid var(--hairline);
+    /* Compact rhythm: 8px top/bottom keeps 6 rows in ~280px total
+       (vs the original 14px which would push the panel over 380px). */
+    padding: 8px 0;
+    gap: 16px;
+    grid-template-columns: 90px 1fr auto;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 13px;
+    transition: background-color var(--dur-fast) var(--ease-fast);
+}
+.Atelier .Cockpit-row:first-of-type {
+    border-top: 0;
+}
+.Atelier .Cockpit-rowKey {
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+.Atelier .Cockpit-rowVal {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    color: var(--text-primary);
+    text-shadow: none;
+    font-weight: 500;
+    letter-spacing: 0;
+}
+.Atelier .Cockpit-rowVal-sub {
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 10px;
+}
+.Atelier .Cockpit-rowVal-main {
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-weight: 600;
+    text-shadow: none;
+    transition: color var(--dur-snap) var(--ease-snap);
+}
+.Atelier .Cockpit-rowVal-main--warn {
+    color: var(--status-warn);
+    text-shadow: none;
+}
+.Atelier .Cockpit-rowVal-unit {
+    color: var(--text-muted);
+    letter-spacing: 0;
+    text-transform: lowercase;
+}
+
+/* Sparkline strokes — keep dual line but neutral colours when nominal.
+   Only the P99 picks up the status colour above 300ms. */
+.Atelier .Cockpit-spark polyline:nth-of-type(1) {
+    stroke: rgba(255, 255, 255, 0.32);
+}
+
+/* Throughput bar — hairline track, single-tone fill. */
+.Atelier .Cockpit-throughput {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--hairline);
+    box-shadow: 0 1px 0 inset rgba(255, 255, 255, 0.04);
+}
+.Atelier .Cockpit-throughput-bar {
+    background: linear-gradient(90deg, var(--primary) 0%, var(--primary) 100%);
+    box-shadow: none;
+    transition: width var(--dur-luxe) var(--ease-luxe);
+}
+
+/* Heap meter — neutral fill, only the GC dip colours warn. */
+.Atelier .Cockpit-heap-track {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--hairline);
+    box-shadow: 0 1px 0 inset rgba(255, 255, 255, 0.04);
+}
+.Atelier .Cockpit-heap-fill {
+    background: var(--primary);
+    box-shadow: none;
+    transition: width var(--dur-luxe) var(--ease-luxe);
+}
+.Atelier .Cockpit-heap-teeth {
+    opacity: 0.35;
+}
+.Atelier .Cockpit-heap-val {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+.Atelier .Cockpit-heap-total {
+    color: var(--text-muted);
+}
+
+/* DB pool — slot dots discrete, single accent. */
+.Atelier .Cockpit-pool-slot {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--hairline);
+    box-shadow: none;
+    transition:
+        background var(--dur-fast) var(--ease-fast),
+        box-shadow var(--dur-fast) var(--ease-fast);
+}
+.Atelier .Cockpit-pool-slot--active {
+    background: var(--primary);
+    border-color: var(--primary);
+    box-shadow: none;
+}
+.Atelier .Cockpit-pool-slot--wait {
+    background: var(--status-warn);
+    border-color: var(--status-warn);
+    box-shadow: 0 0 8px rgba(255, 159, 28, 0.5);
+}
+.Atelier .Cockpit-pool-val {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    color: var(--text-primary);
+}
+.Atelier .Cockpit-pool-total {
+    color: var(--text-muted);
+}
+
+/* Replicas LED grid — calmer ambient, only crash carries glow. */
+.Atelier .Cockpit-led {
+    background: var(--status-ok);
+    box-shadow:
+        0 0 0 1px rgba(74, 222, 128, 0.35) inset,
+        0 0 6px rgba(74, 222, 128, 0.45);
+    transition:
+        background var(--dur-fast) var(--ease-fast),
+        transform var(--dur-fast) var(--ease-spring),
+        box-shadow var(--dur-fast) var(--ease-fast);
+}
+.Atelier .Cockpit-led:hover {
+    transform: scale(1.18);
+    box-shadow:
+        0 0 0 1px rgba(74, 222, 128, 0.55) inset,
+        0 0 10px rgba(74, 222, 128, 0.75);
+}
+
+/* ─── Footer chips — material card, no infinite anim ─────────── */
+.Atelier .Cockpit-gauges-footer {
+    border-top: 1px solid var(--hairline);
+    padding-top: 18px;
+    margin-top: 22px;
+    gap: 10px;
+}
+.Atelier .Cockpit-chip {
+    background: var(--surface-elevated);
+    border: 1px solid var(--hairline);
+    box-shadow:
+        0 1px 0 inset rgba(255, 255, 255, 0.04),
+        0 8px 16px -12px rgba(0, 0, 0, 0.55);
+    color: var(--text-primary);
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0;
+    transition:
+        border-color var(--dur-fast) var(--ease-fast),
+        background var(--dur-fast) var(--ease-fast),
+        box-shadow var(--dur-fast) var(--ease-fast);
+}
+.Atelier .Cockpit-chip--stack:hover {
+    background: var(--surface-elevated);
+    border-color: var(--hairline-strong);
+    box-shadow:
+        0 1px 0 inset rgba(255, 255, 255, 0.08),
+        0 14px 26px -16px rgba(0, 0, 0, 0.7);
+}
+.Atelier .Cockpit-chip-key {
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 9px;
+    letter-spacing: 0.06em;
+}
+.Atelier .Cockpit-chip-val {
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-weight: 500;
+    text-shadow: none;
+}
+.Atelier .Cockpit-regionPing {
+    background: var(--status-ok);
+    box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.4) inset;
+}
+.Atelier .Cockpit-regionPing::after {
+    border-color: rgba(74, 222, 128, 0.6);
+}
+
+/* HEALTH chip — neutral when nominal, only the incident state glows.
+   AXIS 4 (color discipline) — red only when truly critical. */
+.Atelier .Cockpit-chip--health {
+    --chip-accent: var(--status-ok);
+    --chip-shadow: rgba(74, 222, 128, 0.45);
+    border-color: var(--hairline);
+    background: var(--surface-elevated);
+    box-shadow:
+        0 1px 0 inset rgba(255, 255, 255, 0.04),
+        0 8px 16px -12px rgba(0, 0, 0, 0.55);
+    transition:
+        border-color var(--dur-snap) var(--ease-snap),
+        background var(--dur-snap) var(--ease-snap),
+        box-shadow var(--dur-snap) var(--ease-snap),
+        color var(--dur-snap) var(--ease-snap);
+}
+.Atelier .Cockpit-chip--health .Cockpit-chip-val {
+    color: var(--text-primary);
+    text-shadow: none;
+}
+.Atelier .Cockpit-chip-tag {
+    color: var(--text-muted);
+    border-color: var(--hairline-strong);
+    background: transparent;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+}
+.Atelier .Cockpit-chip--health-degraded {
+    border-color: rgba(255, 159, 28, 0.42);
+    background: rgba(255, 159, 28, 0.06);
+}
+.Atelier .Cockpit-chip--health-degraded .Cockpit-chip-tag {
+    color: var(--status-warn);
+    border-color: rgba(255, 159, 28, 0.55);
+}
+.Atelier .Cockpit-chip--health-crash {
+    border-color: rgba(255, 90, 90, 0.6);
+    background: rgba(255, 90, 90, 0.08);
+    box-shadow:
+        0 1px 0 inset rgba(255, 255, 255, 0.04),
+        0 0 0 1px rgba(255, 90, 90, 0.35) inset,
+        0 14px 32px -16px rgba(255, 90, 90, 0.45);
+    animation: atelier-incident-pulse 1400ms var(--ease-snap) infinite;
+}
+.Atelier .Cockpit-chip--health-crash .Cockpit-chip-val {
+    color: var(--status-error);
+}
+.Atelier .Cockpit-chip--health-crash .Cockpit-chip-tag {
+    color: var(--status-error);
+    border-color: rgba(255, 90, 90, 0.7);
+    background: rgba(255, 90, 90, 0.08);
+}
+@keyframes atelier-incident-pulse {
+    0%, 100% {
+        box-shadow:
+            0 1px 0 inset rgba(255, 255, 255, 0.04),
+            0 0 0 1px rgba(255, 90, 90, 0.32) inset,
+            0 14px 32px -16px rgba(255, 90, 90, 0.35);
+    }
+    50% {
+        box-shadow:
+            0 1px 0 inset rgba(255, 255, 255, 0.06),
+            0 0 0 1px rgba(255, 90, 90, 0.7) inset,
+            0 22px 48px -16px rgba(255, 90, 90, 0.6);
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   FLOW zone — calmer schema, dotted line removed, nodes elevated
+   ───────────────────────────────────────────────────────────────── */
+.Atelier .Cockpit-flow-track {
+    stroke: rgba(255, 255, 255, 0.08);
+    stroke-width: 1;
+    stroke-dasharray: none;
+}
+.Atelier .Cockpit-flow-line {
+    stroke: var(--primary-dim);
+    stroke-width: 1;
+    stroke-dasharray: 2 4;
+    filter: none;
+    animation-duration: 2.2s;
+}
+.Atelier .Cockpit-flow-particle {
+    fill: var(--primary);
+    filter:
+        drop-shadow(0 0 4px rgba(94, 231, 231, 0.55));
+}
+.Atelier .Cockpit-flow-particle--fail {
+    fill: var(--status-error);
+    filter:
+        drop-shadow(0 0 5px rgba(255, 90, 90, 0.75));
+}
+
+/* Flow nodes — material cards rather than holographic plates. */
+.Atelier .Cockpit-flow-node {
+    background: rgba(12, 18, 32, 0.94);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 10px 16px;
+    box-shadow:
+        0 1px 0 inset rgba(255, 255, 255, 0.06),
+        0 12px 24px -14px rgba(0, 0, 0, 0.65),
+        0 28px 56px -32px rgba(0, 0, 0, 0.4);
+    font-family: 'Inter', system-ui, sans-serif;
+    transition:
+        border-color var(--dur-fast) var(--ease-fast),
+        box-shadow var(--dur-snap) var(--ease-snap),
+        transform var(--dur-snap) var(--ease-snap);
+}
+.Atelier .Cockpit-flow-node:hover {
+    border-color: var(--primary-dim);
+    box-shadow:
+        0 1px 0 inset rgba(255, 255, 255, 0.1),
+        0 18px 36px -14px rgba(0, 0, 0, 0.7),
+        0 36px 72px -32px rgba(94, 231, 231, 0.25);
+}
+.Atelier .Cockpit-flow-node-dot {
+    background: var(--primary);
+    box-shadow: 0 0 0 1px rgba(94, 231, 231, 0.4);
+}
+.Atelier .Cockpit-flow-node-label {
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+.Atelier .Cockpit-flow-node-stack {
+    color: var(--text-primary);
+    font-family: 'Inter', system-ui, sans-serif;
+    font-weight: 500;
+    font-size: 12px;
+    letter-spacing: -0.01em;
+}
+.Atelier .Cockpit-flow-node--service {
+    border-color: rgba(74, 222, 128, 0.35);
+}
+.Atelier .Cockpit-flow-node--service .Cockpit-flow-node-dot {
+    background: var(--status-ok);
+    box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.4);
+}
+.Atelier .Cockpit-flow-node--service.Cockpit-flow-node--active {
+    border-color: rgba(74, 222, 128, 0.85);
+    box-shadow:
+        0 1px 0 inset rgba(255, 255, 255, 0.1),
+        0 18px 36px -14px rgba(0, 0, 0, 0.7),
+        0 36px 72px -32px rgba(74, 222, 128, 0.32);
+}
+.Atelier .Cockpit-flow-node--db .Cockpit-flow-node-dot {
+    background: var(--primary);
+    box-shadow: 0 0 0 1px rgba(94, 231, 231, 0.4);
+}
+.Atelier .Cockpit-flow-node--cache .Cockpit-flow-node-dot {
+    background: var(--primary);
+    box-shadow: 0 0 0 1px rgba(94, 231, 231, 0.4);
+}
+
+.Atelier .Cockpit-flow-detail {
+    background: rgba(8, 12, 24, 0.96);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 12px;
+    box-shadow:
+        0 1px 0 inset rgba(255, 255, 255, 0.06),
+        0 24px 48px -16px rgba(0, 0, 0, 0.7),
+        0 60px 120px -60px rgba(0, 0, 0, 0.5);
+}
+.Atelier .Cockpit-flow-detail-key {
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+}
+.Atelier .Cockpit-flow-detail-stack {
+    color: var(--text-primary);
+    font-family: 'Inter', system-ui, sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+.Atelier .Cockpit-flow-detail-msg {
+    color: var(--text-secondary);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0;
+}
+
+/* Services strip — calmer typography, hint removed. */
+.Atelier .Cockpit-servicesStripHead {
+    border-top: 1px solid var(--hairline);
+    color: var(--text-muted);
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.Atelier .Cockpit-servicesStripHint {
+    display: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Editorial services list — replaces the AI-style card grid with a
+   data-as-data list. Hairline dividers, name + inline meta + status
+   dot. The card-on-card pattern is gone; the parent panel IS the card.
+   Hover reveals a sparkline-like reading and a meta column. Click
+   keeps opening the existing HudCard portal (no JS change needed).
+   ───────────────────────────────────────────────────────────────── */
+.Atelier .Cockpit-servicesGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+    margin: 0;
+}
+
+.Atelier .Cockpit-tile {
+    /* Strip every card affordance. The tile becomes a horizontal row
+       living inside the parent panel — no border, no background, no
+       per-tile shadow. Hairlines are drawn as border-top so they don't
+       double up at the top of the list. */
+    background: transparent;
+    border: 0;
+    border-top: 1px solid var(--hairline);
+    border-radius: 0;
+    /* Tight vertical rhythm. Six rows must fit in ~240px so the cockpit
+       stays within the back-view stage on the Projects page. Padding
+       7/7 + content height (~22px) yields ~36px row height. */
+    padding: 7px 4px;
+    margin: 0;
+    box-shadow: none;
+    display: grid;
+    grid-template-columns:
+        minmax(140px, 1.4fr)   /* name */
+        minmax(0, 2fr)         /* inline meta */
+        auto                   /* spark/p99 chip */
+        12px;                  /* status dot */
+    align-items: center;
+    gap: 18px;
+    width: 100%;
+    min-height: 0;
+    text-align: left;
+    /* Override the cockpit's transform/perspective stack — the row is
+       flat by design, no 3D pivot, no lift on hover. */
+    transform: none !important;
+    /* Smooth symmetric transition. The previous asymmetric curve
+       (360ms out / 180ms in) created a visual "trail" when sweeping
+       fast between rows — both rows stayed half-lit, which read as
+       sluggish. A single 220ms ease-out feels physical and instant:
+       the highlight tracks the cursor's intent without lag, both in
+       and out. */
+    transition: background 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.Atelier .Cockpit-tile:first-of-type {
+    border-top: 0;
+}
+.Atelier .Cockpit-tile:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--hairline);
+    box-shadow: none;
+    transform: none !important;
+}
+.Atelier .Cockpit-tile--focus,
+.Atelier .Cockpit-tile--inspecting {
+    background: rgba(94, 231, 231, 0.04);
+    border-color: var(--hairline-strong);
+    box-shadow: none;
+    transform: none !important;
+}
+/* Kill the corner brackets that visualised the "scanner" focus on
+   the original card — they re-introduce the card metaphor we just
+   removed. The row's background tint already signals focus here. */
+.Atelier .Cockpit-tile--focus::before,
+.Atelier .Cockpit-tile--focus::after {
+    display: none;
+}
+
+/* Hide the original "READY · maintenance" tag and the small LED dot
+   that sat above the name. We rebuild the visual from scratch using
+   data-attrs so the editorial layout reads cleanly. */
+.Atelier .Cockpit-tileTop {
+    display: none;
+}
+
+/* Service name — first column. Inter, sentence case, weight 500. */
+.Atelier .Cockpit-tileName {
+    grid-column: 1;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+    transition: color 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.Atelier .Cockpit-tile--maint .Cockpit-tileName {
+    color: var(--status-warn);
+}
+
+/* Inline meta — second column, mono, runtime · version · pods. The
+   content is composed from data-attrs set on the button in
+   BackendCockpit.tsx (data-svc-runtime, data-svc-version,
+   data-svc-replicas). Use ::before so we don't fight with React
+   children rendering. */
+.Atelier .Cockpit-tile::before {
+    content:
+        attr(data-svc-runtime) "  ·  "
+        attr(data-svc-version) "  ·  "
+        attr(data-svc-replicas) " pods";
+    grid-column: 2;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.Atelier .Cockpit-tile:hover::before {
+    color: var(--text-secondary);
+}
+
+/* p99 latency chip — third column. Shown in mono. Hover swaps it for
+   a tiny sparkline-like bar (rendered as a CSS gradient). */
+.Atelier .Cockpit-tile::after {
+    content: attr(data-svc-p99) "ms p99";
+    grid-column: 3;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0;
+    color: var(--text-secondary);
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--hairline);
+    background: var(--surface-elevated);
+    white-space: nowrap;
+    transition:
+        background 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+        color 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+        border-color 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.Atelier .Cockpit-tile:hover::after {
+    color: var(--text-primary);
+    border-color: var(--primary-dim);
+    background: rgba(94, 231, 231, 0.08);
+}
+.Atelier .Cockpit-tile--maint::after {
+    border-color: rgba(255, 159, 28, 0.4);
+    background: rgba(255, 159, 28, 0.06);
+    color: var(--status-warn);
+}
+
+/* Status dot — fourth column. Single small circle, sized 8px. Green
+   when ok, amber half-filled when maintenance. */
+.Atelier .Cockpit-tile .Cockpit-tileLed {
+    display: none;
+}
+.Atelier .Cockpit-tileName + .Cockpit-tileLed {
+    display: none;
+}
+/* Inject the status dot via the parent ::marker fallback — we use
+   an extra layer rather than ::before/after (those are taken). The
+   trick: turn the original Cockpit-tileLed back on as the fourth col. */
+.Atelier .Cockpit-tile {
+    position: relative;
+}
+.Atelier .Cockpit-tile > .Cockpit-tileTop {
+    display: contents; /* keep its child in flow, hide the box */
+}
+.Atelier .Cockpit-tile > .Cockpit-tileTop > .Cockpit-tileLed {
+    display: block;
+    grid-column: 4;
+    align-self: center;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--status-ok);
+    box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.4) inset;
+    margin: 0;
+    transition:
+        background 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+        box-shadow 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.Atelier .Cockpit-tile:hover > .Cockpit-tileTop > .Cockpit-tileLed {
+    box-shadow:
+        0 0 0 1px rgba(74, 222, 128, 0.6) inset,
+        0 0 8px rgba(74, 222, 128, 0.55);
+}
+.Atelier .Cockpit-tile > .Cockpit-tileTop > .Cockpit-tileState {
+    display: none;
+}
+.Atelier .Cockpit-tile--maint > .Cockpit-tileTop > .Cockpit-tileLed {
+    background: var(--status-warn);
+    box-shadow: 0 0 0 1px rgba(255, 159, 28, 0.5) inset;
+}
+
+/* Maintenance state — append a small "maint" word after the p99 chip,
+   subtle so the row keeps reading clean. The state is exposed via
+   data-svc-state on the button. We use a sibling pseudo-element via
+   a clever trick: replace ::after content conditionally. */
+.Atelier .Cockpit-tile--maint::after {
+    content: "maintenance";
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
+}
+
+/* Mobile — collapse meta into a second line under the name. */
+@media (max-width: 720px) {
+    .Atelier .Cockpit-tile {
+        grid-template-columns: 1fr auto 12px;
+        grid-template-rows: auto auto;
+        row-gap: 4px;
+        column-gap: 12px;
+    }
+    .Atelier .Cockpit-tileName {
+        grid-column: 1 / span 2;
+    }
+    .Atelier .Cockpit-tile::before {
+        grid-column: 1 / span 2;
+        grid-row: 2;
+    }
+    .Atelier .Cockpit-tile::after {
+        grid-column: 2;
+        grid-row: 1;
+        align-self: center;
+    }
+    .Atelier .Cockpit-tile > .Cockpit-tileTop > .Cockpit-tileLed {
+        grid-column: 3;
+        grid-row: 1;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   LIVE TAIL — quieter, log entries hold their level colour but with
+   subdued tags. The mask-image fade stays. Compact height so the
+   panel fits below the body on the Projects page.
+   ───────────────────────────────────────────────────────────────── */
+.Atelier .Cockpit-livetail {
+    max-height: 180px;
+    padding: 12px 18px 14px;
+}
+.Atelier .Cockpit-livetail-list {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11.5px;
+    line-height: 1.45;
+}
+.Atelier .Cockpit-livetail-head {
+    margin-bottom: 6px;
+}
+.Atelier .Cockpit-livetail-ts {
+    color: var(--text-muted);
+    font-size: 10px;
+}
+.Atelier .Cockpit-livetail-level {
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    font-size: 9px;
+}
+.Atelier .Cockpit-livetail-line--info .Cockpit-livetail-level {
+    color: var(--primary);
+    text-shadow: none;
+}
+.Atelier .Cockpit-livetail-line--warn .Cockpit-livetail-level {
+    color: var(--status-warn);
+    text-shadow: none;
+}
+.Atelier .Cockpit-livetail-line--error .Cockpit-livetail-level {
+    color: var(--status-error);
+    text-shadow: none;
+}
+.Atelier .Cockpit-livetail-line--warn .Cockpit-livetail-source,
+.Atelier .Cockpit-livetail-line--error .Cockpit-livetail-source {
+    color: var(--text-primary);
+}
+.Atelier .Cockpit-livetail-source {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+.Atelier .Cockpit-livetail-msg {
+    color: var(--text-secondary);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   CONTROL DECK · buttons — material depth, refined timings
+   ───────────────────────────────────────────────────────────────── */
+.Atelier .Cockpit-control {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    box-shadow:
+        0 1px 0 inset rgba(255, 255, 255, 0.04),
+        0 24px 48px -28px rgba(0, 0, 0, 0.6);
+    padding: 18px 22px;
+    gap: 24px;
+}
+.Atelier .Cockpit-loadKey {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-transform: uppercase;
+}
+.Atelier .Cockpit-loadVal {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    color: var(--text-primary);
+}
+
+.Atelier .Cockpit-btn {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    border-radius: 10px;
+    padding: 11px 18px;
+    border: 1px solid var(--hairline);
+    background: var(--surface-elevated);
+    color: var(--text-primary);
+    box-shadow:
+        0 1px 0 inset rgba(255, 255, 255, 0.08),
+        0 0 0 1px rgba(255, 255, 255, 0.04),
+        0 10px 20px -10px rgba(0, 0, 0, 0.55),
+        0 24px 48px -28px rgba(0, 0, 0, 0.35);
+    transition:
+        border-color var(--dur-fast) var(--ease-fast),
+        background var(--dur-fast) var(--ease-fast),
+        box-shadow var(--dur-snap) var(--ease-snap),
+        transform var(--dur-snap) var(--ease-spring);
+}
+.Atelier .Cockpit-btn:hover {
+    background: var(--surface-elevated);
+    border-color: var(--hairline-strong);
+    box-shadow:
+        0 1px 0 inset rgba(255, 255, 255, 0.12),
+        0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 16px 28px -10px rgba(0, 0, 0, 0.6),
+        0 36px 72px -32px rgba(0, 0, 0, 0.4);
+    transform: translate(var(--mag-x, 0px), var(--mag-y, 0px)) translateY(-2px);
+}
+.Atelier .Cockpit-btn:active {
+    transform: translate(var(--mag-x, 0px), var(--mag-y, 0px)) translateY(0) scale(0.98);
+    transition-duration: 80ms;
+}
+
+/* Primary (DEPLOY) — solid cyan fill, no glow halo. Apple-like:
+   weight via colour saturation, not via radiated light. */
+.Atelier .Cockpit-btn--primary {
+    background: linear-gradient(180deg, #6CECEC 0%, #46C9C9 100%);
+    border-color: rgba(94, 231, 231, 0.55);
+    color: #052026;
+    box-shadow:
+        0 1px 0 inset rgba(255, 255, 255, 0.35),
+        0 0 0 1px rgba(94, 231, 231, 0.35),
+        0 10px 22px -8px rgba(94, 231, 231, 0.35),
+        0 24px 48px -20px rgba(0, 0, 0, 0.45);
+}
+.Atelier .Cockpit-btn--primary:hover {
+    background: linear-gradient(180deg, #82F2F2 0%, #54D6D6 100%);
+    box-shadow:
+        0 1px 0 inset rgba(255, 255, 255, 0.45),
+        0 0 0 1px rgba(94, 231, 231, 0.55),
+        0 16px 32px -10px rgba(94, 231, 231, 0.5),
+        0 36px 72px -28px rgba(0, 0, 0, 0.4);
+}
+
+/* FORCE ERROR — quieter ambient; only escalates colour on hover. */
+.Atelier .Cockpit-btn--danger {
+    border-color: rgba(255, 90, 90, 0.35);
+    color: var(--text-primary);
+    background: var(--surface-elevated);
+}
+.Atelier .Cockpit-btn--danger .Cockpit-btn-dot {
+    background: var(--status-error);
+    box-shadow: 0 0 0 1px rgba(255, 90, 90, 0.4);
+    animation: none;
+}
+.Atelier .Cockpit-btn--danger:hover {
+    border-color: rgba(255, 90, 90, 0.7);
+    color: var(--status-error);
+    background: rgba(255, 90, 90, 0.08);
+    box-shadow:
+        0 1px 0 inset rgba(255, 255, 255, 0.1),
+        0 0 0 1px rgba(255, 90, 90, 0.35),
+        0 16px 28px -10px rgba(255, 90, 90, 0.25),
+        0 36px 72px -32px rgba(0, 0, 0, 0.4);
+}
+
+.Atelier .Cockpit-loadRange {
+    accent-color: var(--primary);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   AXIS 3 (subtraction) — kill remaining infinite animations that
+   read as "AI dashboard" (panel dot pulse, region ping, drain blink).
+   We keep crash blink because it carries genuine signal.
+   ───────────────────────────────────────────────────────────────── */
+.Atelier .Cockpit-led--drain {
+    background: var(--status-warn);
+    box-shadow: 0 0 0 1px rgba(255, 159, 28, 0.4) inset;
+    animation: none;
+    transform: scale(0.9);
+}
+.Atelier .Cockpit-led--term {
+    background: rgba(255, 255, 255, 0.18);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+    transform: scale(0.7);
+    animation: none;
+}
+.Atelier .Cockpit-led--start {
+    background: var(--primary);
+    box-shadow: 0 0 0 1px rgba(94, 231, 231, 0.5) inset;
+    animation: none;
+    transform: scale(0.95);
+}
+/* Crash keeps its blink — it's a signal, not noise. */
+.Atelier .Cockpit-led--crash {
+    background: var(--status-error);
+    box-shadow:
+        0 0 0 1px rgba(255, 90, 90, 0.5) inset,
+        0 0 12px rgba(255, 90, 90, 0.65);
+}
+
+.Atelier .Cockpit-regionPing::after {
+    animation-duration: 3.6s;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   HUD entrance — swap the snappy ease-out for the luxe spring so
+   the popover settles in with weight, matching iOS Dynamic Island
+   cadence. Only the initial appearance plays this; subsequent
+   tile-to-tile switches use the cross-fade body transition instead
+   and the outer card never remounts.
+   ───────────────────────────────────────────────────────────────── */
+.Atelier .Cockpit-tileHud {
+    animation: cockpit-hud-in 220ms var(--ease-luxe);
+}
+
+/* Reduced-motion accommodation — any user with prefers-reduced-motion
+   gets a calm cockpit. */
+@media (prefers-reduced-motion: reduce) {
+    .Atelier .Cockpit-flow-line {
+        animation: none;
+    }
+    .Atelier .Cockpit-chip--health-crash {
+        animation: none;
+    }
+    .Atelier .Cockpit-led--crash {
+        animation: none;
+        opacity: 1;
+    }
+}

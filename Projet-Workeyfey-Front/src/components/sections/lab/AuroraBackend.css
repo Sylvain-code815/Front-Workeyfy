@@ -1,0 +1,284 @@
+.AuroraBackend {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    height: 100svh;
+    overflow: hidden;
+    background: #FFFFFF;
+    color: #0A0F1E;
+    isolation: isolate;
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.AuroraBackend-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
+.AuroraBackend-bg canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.AuroraBackend-veil {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.55) 0%,
+        rgba(255, 255, 255, 0.18) 30%,
+        rgba(255, 255, 255, 0.05) 50%,
+        rgba(255, 255, 255, 0.18) 70%,
+        rgba(255, 255, 255, 0.55) 100%
+    );
+}
+
+.AuroraBackend-grain {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    opacity: 0.3;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/></svg>");
+}
+
+/* ---------- Header ---------- */
+.AuroraBackend-header {
+    position: absolute;
+    top: clamp(56px, 9vh, 120px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    width: min(1100px, 88vw);
+    text-align: center;
+    will-change: transform, opacity;
+}
+
+.AuroraBackend-eyebrow {
+    margin: 0 0 22px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    color: rgba(10, 15, 30, 0.5);
+    text-transform: uppercase;
+}
+
+.AuroraBackend-title {
+    margin: 0;
+    font-size: clamp(48px, 9vw, 144px);
+    font-weight: 200;
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    color: #0A0F1E;
+}
+
+.AuroraBackend-sub {
+    margin: 22px auto 0;
+    max-width: 620px;
+    font-size: clamp(15px, 1.2vw, 18px);
+    line-height: 1.55;
+    color: rgba(10, 15, 30, 0.6);
+    font-weight: 400;
+}
+
+/* ---------- Cards stack ---------- */
+.AuroraBackend-stack {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    padding: clamp(220px, 32vh, 320px) clamp(40px, 8vw, 140px) clamp(140px, 22vh, 220px);
+    place-content: center;
+    align-content: center;
+}
+
+.AuroraBackend-card {
+    position: relative;
+    padding: 30px 28px 26px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(40px) saturate(160%);
+    -webkit-backdrop-filter: blur(40px) saturate(160%);
+    box-shadow:
+        0 30px 60px rgba(60, 80, 140, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    overflow: hidden;
+    --aurora-card-x: 0%;
+    --aurora-card-y: 0%;
+    will-change: transform, opacity;
+}
+
+.AuroraBackend-card-shine {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+        circle 220px at calc(50% + var(--aurora-card-x)) calc(50% + var(--aurora-card-y)),
+        rgba(255, 173, 214, 0.35) 0%,
+        rgba(122, 169, 255, 0.18) 30%,
+        transparent 65%
+    );
+    opacity: 0.85;
+    transition: background 200ms ease-out;
+}
+
+.AuroraBackend-card-index {
+    position: absolute;
+    top: 18px;
+    right: 22px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: rgba(10, 15, 30, 0.4);
+}
+
+.AuroraBackend-card-title {
+    margin: 0 0 12px;
+    font-size: clamp(24px, 2vw, 30px);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+}
+
+.AuroraBackend-card-blurb {
+    margin: 0 0 22px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: rgba(10, 15, 30, 0.65);
+}
+
+.AuroraBackend-card-body {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.AuroraBackend-card-stack {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1 1 auto;
+}
+
+.AuroraBackend-card-stack li {
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: rgba(10, 15, 30, 0.05);
+    border: 1px solid rgba(10, 15, 30, 0.07);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    color: rgba(10, 15, 30, 0.78);
+}
+
+.AuroraBackend-card-viz {
+    flex: 0 0 110px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.AuroraBackend-spark {
+    width: 110px;
+    height: 40px;
+}
+
+.AuroraBackend-card-metric {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1;
+}
+
+.AuroraBackend-card-metric-value {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    background: linear-gradient(135deg, #2A2C40, #7AA9FF, #FF8FC8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+}
+
+.AuroraBackend-card-metric-label {
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(10, 15, 30, 0.45);
+}
+
+/* ---------- Footer ---------- */
+.AuroraBackend-footer {
+    position: absolute;
+    bottom: clamp(40px, 6vh, 80px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    display: flex;
+    align-items: baseline;
+    gap: 22px;
+    pointer-events: none;
+    will-change: transform;
+}
+
+.AuroraBackend-footer-label {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: rgba(10, 15, 30, 0.5);
+}
+
+.AuroraBackend-footer-value {
+    font-size: clamp(46px, 5vw, 88px);
+    font-weight: 200;
+    letter-spacing: -0.04em;
+    color: #0A0F1E;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.AuroraBackend-footer-value small {
+    font-size: 0.32em;
+    font-weight: 400;
+    color: rgba(10, 15, 30, 0.5);
+    margin-left: 4px;
+}
+
+@media (max-width: 980px) {
+    .AuroraBackend-stack {
+        grid-template-columns: 1fr;
+        gap: 14px;
+        padding-left: clamp(20px, 5vw, 60px);
+        padding-right: clamp(20px, 5vw, 60px);
+        padding-top: clamp(180px, 28vh, 240px);
+        padding-bottom: clamp(120px, 18vh, 180px);
+    }
+    .AuroraBackend-card-body {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .AuroraBackend-card-viz {
+        flex-direction: row;
+        align-items: center;
+        align-self: flex-end;
+    }
+    .AuroraBackend-card-metric {
+        align-items: flex-end;
+    }
+}

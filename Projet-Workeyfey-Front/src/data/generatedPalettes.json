@@ -1,0 +1,18 @@
+{
+  "mahoudeau": {
+    "colors": [
+      "#FFFFFF",
+      "#000000"
+    ],
+    "source": "https://www.mahoudeau.dev/",
+    "extractedAt": "2026-05-11T11:54:22.257Z"
+  },
+  "sylvain": {
+    "colors": [
+      "#090909",
+      "#FF6D36"
+    ],
+    "source": "https://sylvain-code815.github.io/index.html",
+    "extractedAt": "2026-05-11T11:54:28.207Z"
+  }
+}

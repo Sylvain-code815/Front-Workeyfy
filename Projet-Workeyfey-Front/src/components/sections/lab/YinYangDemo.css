@@ -1,0 +1,330 @@
+.YinYang {
+    --bone: #EAE5DC;
+    --hair: rgba(234, 229, 220, 0.20);
+    --snap: cubic-bezier(0.85, 0, 0.15, 1);
+    --accent-light: #9DECF9;  /* cyan Roblox/Metaverse */
+    --accent-dark:  #E879F9;  /* magenta FiveM */
+
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    height: 100svh;
+    overflow: hidden;
+    background:
+        radial-gradient(ellipse 80% 60% at 50% 50%, rgba(120, 108, 145, 0.30) 0%, transparent 70%),
+        linear-gradient(180deg, #1A1622 0%, #0E0B14 100%);
+    color: var(--bone);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-weight: 300;
+}
+
+.YinYang-defs {
+    position: absolute;
+    width: 0;
+    height: 0;
+}
+
+/* ─── HEADER ─── */
+.YinYang-header {
+    position: absolute;
+    top: 48px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    text-align: center;
+    max-width: 620px;
+    padding: 0 32px;
+    pointer-events: none;
+}
+
+.YinYang-eyebrow {
+    display: block;
+    font-size: 9.5px;
+    letter-spacing: 0.5em;
+    text-transform: uppercase;
+    color: rgba(234, 229, 220, 0.45);
+    margin-bottom: 16px;
+}
+
+.YinYang-title {
+    font-size: 36px;
+    font-weight: 200;
+    letter-spacing: 0.12em;
+    color: rgba(234, 229, 220, 0.96);
+    margin: 0 0 14px;
+    font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
+}
+
+.YinYang-blurb {
+    font-size: 12px;
+    line-height: 1.75;
+    color: rgba(234, 229, 220, 0.52);
+    margin: 0;
+    font-weight: 300;
+    letter-spacing: 0.04em;
+}
+
+/* ─── 3-COLUMN LAYOUT : texte-G · disc-XL · texte-D ─── */
+.YinYang-grid {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: 1fr 1.7fr 1fr;
+    align-items: center;
+    padding: 220px 56px 56px;
+    z-index: 4;
+}
+
+.YinYang-stage {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+/* ─── DISC ─── */
+.YinYang-disc {
+    position: relative;
+    width: min(72vmin, 720px);
+    height: min(72vmin, 720px);
+    border-radius: 50%;
+    overflow: hidden;
+    background: #0A0810;
+    z-index: 2;
+    /* Halo statique + bague intérieure. Le disque ne bouge pas, donc
+       box-shadow ici est conforme à compositor-only. La teinte du halo
+       suit l'univers actif → feedback visuel direct. */
+    box-shadow:
+        0 0 64px rgba(150, 138, 175, 0.22),
+        inset 0 0 0 1px rgba(234, 229, 220, 0.22);
+    transition: box-shadow 1100ms var(--snap);
+}
+
+.YinYang[data-active='light'] .YinYang-disc {
+    box-shadow:
+        0 0 80px rgba(157, 236, 249, 0.32),
+        inset 0 0 0 1px rgba(157, 236, 249, 0.45);
+}
+
+.YinYang[data-active='dark'] .YinYang-disc {
+    box-shadow:
+        0 0 80px rgba(232, 121, 249, 0.32),
+        inset 0 0 0 1px rgba(232, 121, 249, 0.45);
+}
+
+.YinYang-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: opacity 1100ms var(--snap);
+}
+
+.YinYang-video--dark {
+    clip-path: url(#yy-dark-region);
+    z-index: 1;
+}
+
+.YinYang-video--light {
+    clip-path: url(#yy-light-region);
+    z-index: 2;
+}
+
+.YinYang[data-active='light'] .YinYang-video--dark { opacity: 0; }
+.YinYang[data-active='dark']  .YinYang-video--light { opacity: 0; }
+
+/* Zones de hit dans le disque (en plus des colonnes). */
+.YinYang-discZone {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 50%;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    z-index: 3;
+    appearance: none;
+}
+
+.YinYang-discZone--light { left: 0; }
+.YinYang-discZone--dark  { right: 0; }
+
+/* ─── COLUMNS (rails texte cliquables) ─── */
+.YinYang-column {
+    position: relative;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    outline: 0;
+    transition: opacity 900ms var(--snap);
+}
+
+.YinYang-column--light { justify-content: flex-end; }
+.YinYang-column--dark  { justify-content: flex-start; }
+
+.YinYang-columnInner {
+    display: flex;
+    flex-direction: column;
+    max-width: 320px;
+    transition: transform 700ms var(--snap);
+}
+
+.YinYang-column--light .YinYang-columnInner { text-align: right; }
+.YinYang-column--dark  .YinYang-columnInner { text-align: left; }
+
+/* Accent line — repère vertical qui marque la "lisière" de l'univers
+   près du disque. Toujours visible, s'amplifie quand l'univers est
+   actif (scaleY transform → compositor-friendly). */
+.YinYang-column::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 1px;
+    height: 50%;
+    transform: translateY(-50%) scaleY(0.6);
+    transform-origin: center;
+    transition: opacity 700ms var(--snap), transform 700ms var(--snap);
+    opacity: 0.4;
+}
+
+.YinYang-column--light::after {
+    right: -28px;
+    background: linear-gradient(180deg, transparent, var(--accent-light), transparent);
+}
+
+.YinYang-column--dark::after {
+    left: -28px;
+    background: linear-gradient(180deg, transparent, var(--accent-dark), transparent);
+}
+
+.YinYang[data-active='light'] .YinYang-column--light::after,
+.YinYang[data-active='dark']  .YinYang-column--dark::after {
+    opacity: 1;
+    transform: translateY(-50%) scaleY(1);
+}
+
+.YinYang-columnEyebrow {
+    display: block;
+    font-size: 9px;
+    letter-spacing: 0.5em;
+    text-transform: uppercase;
+    color: rgba(234, 229, 220, 0.38);
+    margin-bottom: 14px;
+}
+
+.YinYang-columnTitle {
+    display: block;
+    font-size: 22px;
+    font-weight: 200;
+    letter-spacing: 0.06em;
+    color: rgba(234, 229, 220, 0.95);
+    margin-bottom: 16px;
+    font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
+    transition: color 700ms var(--snap);
+}
+
+.YinYang[data-active='light'] .YinYang-column--light .YinYang-columnTitle {
+    color: var(--accent-light);
+}
+
+.YinYang[data-active='dark'] .YinYang-column--dark .YinYang-columnTitle {
+    color: var(--accent-dark);
+}
+
+.YinYang-columnDesc {
+    font-size: 12px;
+    line-height: 1.75;
+    color: rgba(234, 229, 220, 0.58);
+    margin: 0 0 22px;
+    font-weight: 300;
+    letter-spacing: 0.03em;
+}
+
+.YinYang-gamesList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 10.5px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(234, 229, 220, 0.45);
+}
+
+.YinYang-game {
+    padding: 6px 0;
+    position: relative;
+    transition: color 500ms var(--snap);
+}
+
+.YinYang-column--light .YinYang-game::before,
+.YinYang-column--dark .YinYang-game::before {
+    content: '·';
+    position: absolute;
+    top: 6px;
+    opacity: 0.7;
+}
+
+.YinYang-column--light .YinYang-game::before { right: -14px; }
+.YinYang-column--dark .YinYang-game::before  { left: -14px; }
+
+/* Fade la colonne opposée pendant un takeover (opacité seule). */
+.YinYang[data-active='light'] .YinYang-column--dark  { opacity: 0.22; }
+.YinYang[data-active='dark']  .YinYang-column--light { opacity: 0.22; }
+
+/* Léger lift de la colonne survolée pour signaler l'interactivité. */
+.YinYang[data-active='light'] .YinYang-column--light .YinYang-columnInner {
+    transform: translateX(-6px);
+}
+
+.YinYang[data-active='dark'] .YinYang-column--dark .YinYang-columnInner {
+    transform: translateX(6px);
+}
+
+.YinYang-grain {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 20;
+    opacity: 0.35;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.08 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 1100px) {
+    .YinYang-grid {
+        grid-template-columns: 1fr 2fr 1fr;
+        padding: 200px 32px 48px;
+    }
+    .YinYang-columnInner { max-width: 240px; }
+    .YinYang-columnTitle { font-size: 18px; }
+    .YinYang-columnDesc { font-size: 11px; }
+    .YinYang-column--light::after { right: -16px; }
+    .YinYang-column--dark::after  { left: -16px; }
+}
+
+@media (max-width: 768px) {
+    /* Sous mobile : colonnes empilées sous le disque (le yin-yang
+       garde la primauté visuelle, le texte se met en chevet). */
+    .YinYang-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+        padding: 180px 24px 32px;
+    }
+    .YinYang-stage { order: 1; }
+    .YinYang-column--light { order: 2; justify-content: center; }
+    .YinYang-column--dark  { order: 3; justify-content: center; }
+    .YinYang-columnInner {
+        text-align: center !important;
+        max-width: 100%;
+    }
+    .YinYang-column::after { display: none; }
+    .YinYang-disc {
+        width: min(64vmin, 480px);
+        height: min(64vmin, 480px);
+    }
+}

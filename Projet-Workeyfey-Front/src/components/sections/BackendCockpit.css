@@ -1,0 +1,2545 @@
+/* ──────────────────────────────────────────────────────────────────
+   BackendCockpit — Section 1 back view.
+   Full-width "control room" replacement for the old glass blade.
+   Layout: header + 2-col body (telemetry / services pad) + bottom
+   control deck spanning full width.
+   ────────────────────────────────────────────────────────────────── */
+
+/* Deconstructed: the cockpit no longer reads as a "box". No border, no
+   solid background, no gradient ring — only a faint radial wash so the
+   panels still feel anchored on the mesh. Components float at corners,
+   bound by the SVG nerve system instead of a frame. */
+.Cockpit {
+    position: relative;
+    width: 100%;
+    max-width: 1480px;
+    min-height: 75vh;
+    margin: 0 auto;
+    padding: 28px clamp(28px, 3vw, 64px) 24px;
+    display: flex;
+    flex-direction: column;
+    background:
+        radial-gradient(80% 60% at 8% 12%, rgba(26, 120, 255, 0.08) 0%, transparent 55%),
+        radial-gradient(80% 60% at 92% 88%, rgba(74, 222, 128, 0.06) 0%, transparent 55%);
+    color: rgba(255, 255, 255, 0.88);
+    z-index: 1;
+}
+
+/* Light CRT chromatic aberration — a near-black overlay tinted in two
+   complementary directions blended with mix-blend-mode. Subtle by intent;
+   stronger versions feel like a broken screen. Disabled while scanning so
+   the focused tile reads cleanly. */
+.Cockpit::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        repeating-linear-gradient(
+            0deg,
+            rgba(255, 255, 255, 0.018) 0px,
+            rgba(255, 255, 255, 0.018) 1px,
+            transparent 1px,
+            transparent 3px
+        );
+    mix-blend-mode: overlay;
+    opacity: 0.6;
+    z-index: 2;
+}
+
+/* Holographic scanner: when a service tile is focused, everything that
+   is *not* the active tile or its HUD fades to 20%. The viewer's eye is
+   guided to the single illuminated point. */
+.Cockpit--scanning .Cockpit-telemetry,
+.Cockpit--scanning .Cockpit-head,
+.Cockpit--scanning .Cockpit-control,
+.Cockpit--scanning .Cockpit-edge,
+.Cockpit--scanning .Cockpit-bodyLines,
+.Cockpit--scanning .Cockpit-tile:not(.Cockpit-tile--focus) {
+    opacity: 0.2;
+    transition: opacity 220ms ease;
+    filter: saturate(0.4);
+}
+.Cockpit-telemetry,
+.Cockpit-head,
+.Cockpit-control,
+.Cockpit-tile {
+    transition: opacity 220ms ease, filter 220ms ease;
+}
+
+/* Static wrapper kept so GSAP's exploded-view transforms still have a
+   stable inner element to target. Tilt parallax was removed because it
+   interfered with hovering controls. Flex column so the body grows to
+   fill the cockpit's 85vh shell and the control deck stays pinned at
+   the bottom. */
+.Cockpit-tilt {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Head ────────────────────────────────────────────────────────────── */
+.Cockpit-head {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px dashed rgba(127, 227, 255, 0.18);
+}
+
+.Cockpit-title {
+    margin: 0;
+    font-size: clamp(1.35rem, 3.2vw, 1.875rem);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #5EE7E7;
+}
+
+.Cockpit-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.5);
+    text-decoration: none;
+    transition: color 200ms ease;
+}
+.Cockpit-link:hover { color: #5EE7E7; }
+
+/* Body 2-col ─────────────────────────────────────────────────────── */
+.Cockpit-body {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(280px, 4fr) minmax(0, 8fr);
+    gap: 22px;
+    margin-bottom: 16px;
+    flex: 1;
+    min-height: 0;
+}
+
+.Cockpit-gauges,
+.Cockpit-flowWrap {
+    position: relative;
+    z-index: 1;
+    padding: 20px 22px 22px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.018);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Nervous-system overlay — sits behind the panels, draws 6 wires that
+   reveal on mount (stagger via --line-delay) and host the DEPLOY pulse. */
+.Cockpit-bodyLines {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    overflow: visible;
+}
+
+.Cockpit-line {
+    fill: none;
+    stroke: url(#cockpit-line-grad);
+    stroke-width: 0.4;
+    stroke-linecap: round;
+    stroke-dasharray: 100 100;
+    stroke-dashoffset: 100;
+    animation: cockpit-line-draw 600ms ease-out forwards;
+    animation-delay: var(--line-delay, 0ms);
+    opacity: 0;
+    filter: drop-shadow(0 0 1.5px rgba(94, 231, 231, 0.35));
+}
+
+/* Ambient data-flow: a tiny dash travelling along each wire forever.
+   Slow + subtle so the wires read as "alive" without competing with
+   the panels. Each line has its own --flow-delay phase so the dots are
+   not synchronised. */
+.Cockpit-line-flow {
+    fill: none;
+    stroke: #4ADE80;
+    stroke-width: 0.55;
+    stroke-linecap: round;
+    stroke-dasharray: 2 98;
+    stroke-dashoffset: 0;
+    opacity: 0;
+    animation:
+        cockpit-line-flow-in 800ms ease-out var(--flow-delay, 1000ms) forwards,
+        cockpit-line-flow 7s linear var(--flow-delay, 1000ms) infinite;
+    filter: drop-shadow(0 0 1.5px rgba(74, 222, 128, 0.9));
+}
+
+/* DEPLOY light pulse: a bright white-blue dash that races along the wire.
+   White core + cyan halo + blue outer glow — much more intense than the
+   ambient flow so it visually "fires" the wires. */
+.Cockpit-line-pulse {
+    fill: none;
+    stroke: #ffffff;
+    stroke-width: 0.85;
+    stroke-linecap: round;
+    stroke-dasharray: 6 94;
+    stroke-dashoffset: 100;
+    animation: cockpit-line-pulse 400ms linear forwards;
+    filter:
+        drop-shadow(0 0 1.5px rgba(255, 255, 255, 1))
+        drop-shadow(0 0 5px rgba(94, 231, 231, 0.95))
+        drop-shadow(0 0 11px rgba(26, 120, 255, 0.7));
+    opacity: 0;
+}
+
+/* Invisible click/hover hit-area on each wire. Parent .Cockpit-bodyLines
+   has pointer-events:none, so this path explicitly opts back in via
+   pointer-events:stroke and uses a much wider transparent stroke so the
+   user doesn't have to chase a 0.4-unit line with their cursor. */
+.Cockpit-line-hit {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 3.2;
+    stroke-linecap: round;
+    pointer-events: stroke;
+    cursor: pointer;
+}
+
+/* Hover wakes the wire — thicker visible stroke + cyan halo + the
+   ambient flow dot grows. :has() lets a single CSS rule react to the
+   hit-path being hovered without React state. */
+.Cockpit-bodyLines .Cockpit-lineGroup:hover .Cockpit-line {
+    stroke-width: 0.85;
+    opacity: 0.7;
+    filter: drop-shadow(0 0 3px rgba(94, 231, 231, 0.85));
+    transition: stroke-width 180ms ease, opacity 180ms ease, filter 180ms ease;
+}
+.Cockpit-bodyLines .Cockpit-lineGroup:hover .Cockpit-line-flow {
+    stroke-width: 0.95;
+    filter: drop-shadow(0 0 2.5px rgba(74, 222, 128, 1));
+    transition: stroke-width 180ms ease, filter 180ms ease;
+}
+
+/* Full-wire flash on click — the entire stroke lights up for ~380ms so
+   the activated wire reads as "alive" even before the travelling pulses
+   resolve. Separate path from .Cockpit-line so the existing reveal
+   animation isn't disturbed. */
+.Cockpit-line-flash {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.95);
+    stroke-width: 0.55;
+    stroke-linecap: round;
+    pointer-events: none;
+    opacity: 0;
+    filter:
+        drop-shadow(0 0 2px rgba(255, 255, 255, 0.95))
+        drop-shadow(0 0 6px rgba(94, 231, 231, 0.9));
+    animation: cockpit-line-flash 380ms ease-out forwards;
+}
+
+/* Click pulse — two paths per click sharing the same --click-origin so
+   the bright dash radiates in both directions from the cursor point.
+   White core + layered cyan/blue glow matches the DEPLOY pulse style. */
+.Cockpit-line-click {
+    fill: none;
+    stroke: #ffffff;
+    stroke-width: 1.05;
+    stroke-linecap: round;
+    stroke-dasharray: 5 95;
+    pointer-events: none;
+    opacity: 0;
+    filter:
+        drop-shadow(0 0 1.8px rgba(255, 255, 255, 1))
+        drop-shadow(0 0 6px rgba(94, 231, 231, 0.95))
+        drop-shadow(0 0 12px rgba(26, 120, 255, 0.7));
+}
+.Cockpit-line-click--fwd {
+    animation: cockpit-line-click-fwd 520ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.Cockpit-line-click--rev {
+    animation: cockpit-line-click-rev 520ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Disable wire clicks while the holographic scanner is up — the focused
+   tile already owns the user's attention. */
+.Cockpit--scanning .Cockpit-line-hit {
+    pointer-events: none;
+}
+
+.Cockpit-panelHead {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: rgba(127, 227, 255, 0.65);
+    margin-bottom: 14px;
+    text-transform: uppercase;
+}
+.Cockpit-panelDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #5EE7E7;
+    box-shadow: 0 0 8px rgba(94, 231, 231, 0.9);
+    animation: cockpit-pulse 2.4s ease-in-out infinite;
+}
+
+/* Telemetry rows ─────────────────────────────────────────────────── */
+.Cockpit-row {
+    display: grid;
+    grid-template-columns: 84px 1fr auto;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 13px;
+}
+.Cockpit-row:first-of-type { border-top: 0; }
+
+.Cockpit-rowKey {
+    color: rgba(127, 227, 255, 0.55);
+    letter-spacing: 0.1em;
+}
+
+.Cockpit-rowVal {
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-align: right;
+    min-width: 64px;
+    text-shadow: 0 0 12px rgba(74, 222, 128, 0.22);
+}
+
+/* Uptime gauge ───────────────────────────────────────────────────── */
+.Cockpit-gauge {
+    position: relative;
+    height: 14px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(127, 227, 255, 0.14);
+    overflow: hidden;
+}
+.Cockpit-gaugeBar {
+    position: absolute;
+    inset: 0;
+    width: var(--gauge-fill, 0%);
+    background: linear-gradient(90deg, #1A78FF 0%, #4ADE80 100%);
+    box-shadow: 0 0 14px rgba(74, 222, 128, 0.5);
+    transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.Cockpit-gaugeShine {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 28px;
+    left: var(--gauge-fill, 0%);
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+    opacity: 0;
+    animation: cockpit-shine 3.2s linear infinite;
+    animation-delay: 1.4s;
+}
+
+/* Latency sparkline ──────────────────────────────────────────────── */
+.Cockpit-spark {
+    width: 100%;
+    height: 60px;
+    overflow: visible;
+}
+
+/* Replicas LED array ─────────────────────────────────────────────── */
+.Cockpit-leds {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.Cockpit-led {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    background: #4ADE80;
+    box-shadow:
+        0 0 6px rgba(74, 222, 128, 0.85),
+        inset 0 0 2px rgba(255, 255, 255, 0.35);
+    transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+.Cockpit-led:hover {
+    transform: scale(1.18);
+    box-shadow:
+        0 0 10px rgba(74, 222, 128, 1),
+        inset 0 0 2px rgba(255, 255, 255, 0.55);
+}
+.Cockpit-led--down {
+    background: #ff5a5a;
+    box-shadow:
+        0 0 8px rgba(255, 90, 90, 0.9),
+        inset 0 0 2px rgba(255, 255, 255, 0.3);
+    transform: scale(0.7);
+    animation: cockpit-led-blink 600ms ease;
+}
+
+/* FORCE ERROR phase — the crashing pod blinks bright red with a tight,
+   urgent pulse + a soft outer halo so it reads as a real incident at a
+   glance, even from across the room. */
+.Cockpit-led--crash {
+    background: #ff3a3a;
+    box-shadow:
+        0 0 10px rgba(255, 58, 58, 1),
+        0 0 22px rgba(255, 58, 58, 0.55),
+        inset 0 0 2px rgba(255, 255, 255, 0.4);
+    animation: cockpit-led-crash 360ms ease-in-out infinite;
+    transform: scale(1.12);
+}
+@keyframes cockpit-led-crash {
+    0%, 100% { opacity: 1;    transform: scale(1.12); }
+    50%      { opacity: 0.32; transform: scale(0.78); }
+}
+
+/* Stack rotator ──────────────────────────────────────────────────── */
+.Cockpit-stack {
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.Cockpit-iconBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid rgba(127, 227, 255, 0.25);
+    background: rgba(127, 227, 255, 0.06);
+    color: #5EE7E7;
+    cursor: pointer;
+    transition: background 200ms ease, border-color 200ms ease;
+}
+.Cockpit-iconBtn:hover {
+    background: rgba(127, 227, 255, 0.16);
+    border-color: rgba(127, 227, 255, 0.55);
+}
+.Cockpit-iconBtn svg {
+    transform: rotate(var(--spin, 0deg));
+    transition: transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Region ping ───────────────────────────────────────────────────── */
+.Cockpit-region {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+}
+.Cockpit-regionPing {
+    position: relative;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4ADE80;
+    box-shadow: 0 0 6px rgba(74, 222, 128, 0.9);
+}
+.Cockpit-regionPing::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(74, 222, 128, 0.85);
+    animation: cockpit-ping 2.5s ease-out infinite;
+}
+
+/* Gauges panel — Zone B (observability) ─────────────────────────── */
+.Cockpit-row--spark { padding: 18px 0 16px; }
+.Cockpit-spark {
+    width: 100%;
+    height: 44px;
+    overflow: visible;
+}
+.Cockpit-rowVal--stack {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.15;
+    text-align: right;
+    text-shadow: none;
+    gap: 1px;
+}
+.Cockpit-rowVal-sub {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: rgba(127, 227, 255, 0.55);
+    font-weight: 500;
+}
+.Cockpit-rowVal-main {
+    font-size: 14px;
+    color: #4ADE80;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-shadow: 0 0 10px rgba(74, 222, 128, 0.45);
+    transition: color 220ms ease, text-shadow 220ms ease;
+}
+.Cockpit-rowVal-main--warn {
+    color: #ff9f1c;
+    text-shadow: 0 0 10px rgba(255, 159, 28, 0.55);
+}
+.Cockpit-rowVal-unit {
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    color: rgba(255, 255, 255, 0.5);
+    margin-left: 4px;
+    font-weight: 500;
+}
+
+/* Throughput bar ──────────────────────────────────────────────── */
+.Cockpit-throughput {
+    position: relative;
+    height: 10px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(127, 227, 255, 0.14);
+    overflow: hidden;
+}
+.Cockpit-throughput-bar {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(127, 227, 255, 0.85) 0%, rgba(74, 222, 128, 0.9) 100%);
+    box-shadow: 0 0 10px rgba(74, 222, 128, 0.4);
+    transition: width 360ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Heap meter with GC teeth pattern ────────────────────────────── */
+.Cockpit-heap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+.Cockpit-heap-track {
+    position: relative;
+    flex: 1;
+    height: 14px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(127, 227, 255, 0.14);
+    overflow: hidden;
+}
+.Cockpit-heap-fill {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, #1A78FF 0%, #5EE7E7 60%, #ff9f1c 100%);
+    transition: width 600ms cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 0 10px rgba(94, 231, 231, 0.35);
+}
+.Cockpit-heap-teeth {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: repeating-linear-gradient(
+        90deg,
+        rgba(0, 0, 0, 0.18) 0px,
+        rgba(0, 0, 0, 0.18) 1px,
+        transparent 1px,
+        transparent 8px
+    );
+    mix-blend-mode: overlay;
+    opacity: 0.6;
+}
+.Cockpit-heap-val {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    min-width: 92px;
+    text-align: right;
+    letter-spacing: 0.02em;
+}
+.Cockpit-heap-total {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.45);
+    font-weight: 500;
+    margin-left: 2px;
+}
+
+/* DB connection pool ──────────────────────────────────────────── */
+.Cockpit-pool {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+.Cockpit-pool-slots {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(20, 1fr);
+    gap: 3px;
+    align-items: center;
+}
+.Cockpit-pool-slot {
+    height: 12px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: background 200ms ease, box-shadow 200ms ease;
+}
+.Cockpit-pool-slot--active {
+    background: linear-gradient(180deg, #5EE7E7 0%, #1A78FF 100%);
+    border-color: rgba(127, 227, 255, 0.5);
+    box-shadow: 0 0 6px rgba(127, 227, 255, 0.75);
+}
+.Cockpit-pool-slot--wait {
+    background: #ff9f1c;
+    border-color: rgba(255, 159, 28, 0.5);
+    box-shadow: 0 0 8px rgba(255, 159, 28, 0.85);
+    animation: cockpit-pool-wait 900ms ease-in-out infinite;
+}
+@keyframes cockpit-pool-wait {
+    0%, 100% { opacity: 0.55; }
+    50%      { opacity: 1; }
+}
+.Cockpit-pool-val {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    min-width: 50px;
+    text-align: right;
+}
+.Cockpit-pool-total {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.45);
+    font-weight: 500;
+}
+
+/* Replicas — rolling-update phases overlaid on existing LED grid. */
+.Cockpit-led--drain {
+    background: #ff9f1c;
+    box-shadow:
+        0 0 8px rgba(255, 159, 28, 0.95),
+        inset 0 0 2px rgba(255, 255, 255, 0.3);
+    animation: cockpit-led-pulse 700ms ease-in-out infinite;
+}
+.Cockpit-led--term {
+    background: rgba(255, 255, 255, 0.18);
+    box-shadow:
+        0 0 4px rgba(255, 255, 255, 0.3),
+        inset 0 0 2px rgba(0, 0, 0, 0.35);
+    transform: scale(0.65);
+}
+.Cockpit-led--start {
+    background: #5EE7E7;
+    box-shadow:
+        0 0 8px rgba(127, 227, 255, 0.9),
+        inset 0 0 2px rgba(255, 255, 255, 0.4);
+    animation: cockpit-led-pulse 520ms ease-in-out infinite;
+}
+@keyframes cockpit-led-pulse {
+    0%, 100% { opacity: 0.55; transform: scale(0.9); }
+    50%      { opacity: 1;    transform: scale(1.05); }
+}
+
+/* Footer chips (stack + region) ──────────────────────────────── */
+.Cockpit-gauges-footer {
+    margin-top: auto;
+    padding-top: 16px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    border-top: 1px dashed rgba(127, 227, 255, 0.12);
+    padding-bottom: 0;
+}
+.Cockpit-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px 6px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(127, 227, 255, 0.22);
+    background: rgba(127, 227, 255, 0.04);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: rgba(255, 255, 255, 0.85);
+    cursor: default;
+}
+.Cockpit-chip--stack {
+    cursor: pointer;
+    transition: background 200ms ease, border-color 200ms ease;
+}
+.Cockpit-chip--stack:hover {
+    background: rgba(127, 227, 255, 0.12);
+    border-color: rgba(127, 227, 255, 0.5);
+}
+.Cockpit-chip-key {
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    color: rgba(127, 227, 255, 0.6);
+    text-transform: uppercase;
+}
+.Cockpit-chip-val {
+    color: #fff;
+    font-weight: 600;
+}
+.Cockpit-chip-spin {
+    display: inline-flex;
+    width: 16px;
+    height: 16px;
+    align-items: center;
+    justify-content: center;
+    color: #5EE7E7;
+}
+.Cockpit-chip-spin svg {
+    transform: rotate(var(--spin, 0deg));
+    transition: transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* HEALTH chip — shows the cluster's nominal/healing/incident state.
+   The leading dot inherits the chip-key colour; the trailing tag
+   ("NOMINAL"/"HEALING"/"INCIDENT") swaps in lockstep with the colour
+   ramp green → amber → red. Reads as the SRE pager status. */
+.Cockpit-chip--health {
+    --chip-accent: #4ADE80;
+    --chip-shadow: rgba(74, 222, 128, 0.55);
+    border-color: rgba(74, 222, 128, 0.4);
+    background: rgba(74, 222, 128, 0.06);
+    transition:
+        border-color 220ms ease,
+        background 220ms ease,
+        color 220ms ease,
+        box-shadow 220ms ease;
+}
+.Cockpit-chip--health .Cockpit-chip-key {
+    color: var(--chip-accent);
+}
+.Cockpit-chip--health .Cockpit-chip-val {
+    color: var(--chip-accent);
+    text-shadow: 0 0 8px var(--chip-shadow);
+    font-weight: 700;
+}
+.Cockpit-chip-tag {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    color: var(--chip-accent);
+    background: transparent;
+    transition: color 220ms ease, border-color 220ms ease, background 220ms ease;
+}
+.Cockpit-chip--health-degraded {
+    --chip-accent: #ff9f1c;
+    --chip-shadow: rgba(255, 159, 28, 0.6);
+    border-color: rgba(255, 159, 28, 0.5);
+    background: rgba(255, 159, 28, 0.08);
+}
+.Cockpit-chip--health-degraded .Cockpit-chip-tag {
+    background: rgba(255, 159, 28, 0.12);
+}
+.Cockpit-chip--health-crash {
+    --chip-accent: #ff5a5a;
+    --chip-shadow: rgba(255, 90, 90, 0.75);
+    border-color: rgba(255, 90, 90, 0.7);
+    background: rgba(255, 90, 90, 0.1);
+    box-shadow:
+        0 0 0 1px rgba(255, 90, 90, 0.4) inset,
+        0 0 18px rgba(255, 90, 90, 0.42);
+    animation: cockpit-chip-incident 700ms ease-in-out infinite;
+}
+.Cockpit-chip--health-crash .Cockpit-chip-tag {
+    background: rgba(255, 90, 90, 0.18);
+    border-color: rgba(255, 90, 90, 0.85);
+}
+@keyframes cockpit-chip-incident {
+    0%, 100% {
+        box-shadow:
+            0 0 0 1px rgba(255, 90, 90, 0.45) inset,
+            0 0 20px rgba(255, 90, 90, 0.55);
+    }
+    50% {
+        box-shadow:
+            0 0 0 1px rgba(255, 90, 90, 0.85) inset,
+            0 0 32px rgba(255, 90, 90, 0.85);
+    }
+}
+
+/* Flow zone — Zone A (architecture) ──────────────────────────── */
+.Cockpit-panelHint {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    color: rgba(255, 255, 255, 0.32);
+    text-transform: lowercase;
+}
+.Cockpit-flow {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1000 / 220;
+    margin-bottom: 12px;
+    min-height: 0;
+}
+.Cockpit-flow-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+}
+.Cockpit-flow-track {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.08);
+    stroke-width: 1.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.Cockpit-flow-line {
+    fill: none;
+    stroke: url(#cockpit-flow-grad);
+    stroke-width: 1.1;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 4 6;
+    filter: drop-shadow(0 0 4px rgba(127, 227, 255, 0.45));
+    animation: cockpit-flow-march 1.4s linear infinite;
+}
+@keyframes cockpit-flow-march {
+    from { stroke-dashoffset: 10; }
+    to   { stroke-dashoffset: 0; }
+}
+.Cockpit-flow-particle {
+    fill: #5EE7E7;
+    filter:
+        drop-shadow(0 0 4px rgba(127, 227, 255, 0.95))
+        drop-shadow(0 0 8px rgba(26, 120, 255, 0.75));
+}
+.Cockpit-flow-particle--fail {
+    fill: #ff5a5a;
+    filter:
+        drop-shadow(0 0 6px rgba(255, 90, 90, 1))
+        drop-shadow(0 0 12px rgba(255, 90, 90, 0.7));
+}
+
+.Cockpit-flow-nodes {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.Cockpit-flow-node {
+    position: absolute;
+    transform: translate(-50%, -50%) translate(var(--mag-x, 0px), var(--mag-y, 0px));
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(127, 227, 255, 0.28);
+    background: rgba(8, 14, 26, 0.78);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    color: #fff;
+    cursor: pointer;
+    pointer-events: auto;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    text-align: center;
+    white-space: nowrap;
+    box-shadow:
+        0 4px 14px rgba(0, 0, 0, 0.5),
+        0 0 18px rgba(127, 227, 255, 0.18);
+    transition: border-color 220ms ease, box-shadow 220ms ease, transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.Cockpit-flow-node:hover {
+    border-color: rgba(127, 227, 255, 0.85);
+    box-shadow:
+        0 6px 22px rgba(0, 0, 0, 0.55),
+        0 0 26px rgba(127, 227, 255, 0.55);
+}
+.Cockpit-flow-node-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #5EE7E7;
+    box-shadow: 0 0 10px rgba(127, 227, 255, 0.95);
+}
+.Cockpit-flow-node-label {
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    color: rgba(127, 227, 255, 0.85);
+}
+.Cockpit-flow-node-stack {
+    font-size: 11px;
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+.Cockpit-flow-node--service {
+    border-color: rgba(74, 222, 128, 0.4);
+}
+.Cockpit-flow-node--service .Cockpit-flow-node-dot {
+    background: #4ADE80;
+    box-shadow: 0 0 10px rgba(74, 222, 128, 0.95);
+}
+.Cockpit-flow-node--service.Cockpit-flow-node--active {
+    border-color: rgba(74, 222, 128, 0.9);
+    box-shadow:
+        0 6px 22px rgba(0, 0, 0, 0.55),
+        0 0 28px rgba(74, 222, 128, 0.6);
+}
+.Cockpit-flow-node--db .Cockpit-flow-node-dot { background: #ff9f1c; box-shadow: 0 0 10px rgba(255, 159, 28, 0.85); }
+.Cockpit-flow-node--cache .Cockpit-flow-node-dot { background: #4ADE80; box-shadow: 0 0 10px rgba(74, 222, 128, 0.85); }
+
+/* Drilldown card shown when a flow node is clicked. */
+.Cockpit-flow-detail {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 14px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(127, 227, 255, 0.45);
+    background: rgba(8, 14, 26, 0.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    box-shadow:
+        0 12px 28px rgba(0, 0, 0, 0.55),
+        0 0 30px rgba(127, 227, 255, 0.35);
+    animation: cockpit-flow-detail-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+    min-width: 220px;
+    max-width: 340px;
+}
+@keyframes cockpit-flow-detail-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.Cockpit-flow-detail-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    width: 18px;
+    height: 18px;
+    border: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+}
+.Cockpit-flow-detail-close:hover { color: #5EE7E7; }
+.Cockpit-flow-detail-key {
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    color: rgba(127, 227, 255, 0.7);
+    text-transform: uppercase;
+}
+.Cockpit-flow-detail-stack {
+    font-size: 13px;
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+.Cockpit-flow-detail-msg {
+    font-size: 11px;
+    color: rgba(220, 240, 255, 0.7);
+    letter-spacing: 0.02em;
+    line-height: 1.5;
+    margin-top: 2px;
+}
+
+/* Services strip header inside the flow panel. */
+.Cockpit-servicesStripHead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 14px 0 10px;
+    padding-top: 12px;
+    border-top: 1px dashed rgba(127, 227, 255, 0.12);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    color: rgba(127, 227, 255, 0.65);
+    text-transform: uppercase;
+}
+.Cockpit-servicesStripHint {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: rgba(255, 255, 255, 0.32);
+    text-transform: lowercase;
+}
+
+/* Live Tail panel — Zone C (debugging) ─────────────────────────
+   Lives inside .Cockpit-body so it can flow into the grid. In the
+   default 2-column body it spans both columns as a third row;
+   the Atelier override repositions it as a 3rd column. */
+.Cockpit-livetail {
+    position: relative;
+    z-index: 1;
+    grid-column: 1 / -1;
+    padding: 16px 22px 14px;
+    border-radius: 14px;
+    background: rgba(2, 6, 12, 0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1px solid rgba(127, 227, 255, 0.18);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        0 0 24px rgba(127, 227, 255, 0.08);
+    margin-bottom: 0;
+    overflow: hidden;
+    max-height: 220px;
+    display: flex;
+    flex-direction: column;
+}
+.Cockpit-livetail-head {
+    margin-bottom: 10px;
+}
+.Cockpit-livetail-cmd {
+    margin-left: auto;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.35);
+    letter-spacing: 0.04em;
+    text-transform: none;
+}
+.Cockpit-livetail-list {
+    flex: 1;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 1px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px;
+    line-height: 1.45;
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 22%, #000 100%);
+    mask-image: linear-gradient(180deg, transparent 0%, #000 22%, #000 100%);
+    overflow: hidden;
+}
+.Cockpit-livetail-line {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    padding: 2px 0;
+    animation: cockpit-livetail-in 240ms cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: 0.01em;
+}
+@keyframes cockpit-livetail-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.Cockpit-livetail-ts {
+    color: rgba(127, 227, 255, 0.45);
+    font-size: 11px;
+}
+.Cockpit-livetail-level {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    min-width: 56px;
+}
+.Cockpit-livetail-source {
+    color: rgba(255, 255, 255, 0.85);
+    font-weight: 600;
+    flex-shrink: 0;
+}
+.Cockpit-livetail-msg {
+    color: rgba(220, 240, 255, 0.7);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.Cockpit-livetail-line--info .Cockpit-livetail-level {
+    color: #5EE7E7;
+    text-shadow: 0 0 8px rgba(127, 227, 255, 0.5);
+}
+.Cockpit-livetail-line--warn .Cockpit-livetail-level {
+    color: #ff9f1c;
+    text-shadow: 0 0 8px rgba(255, 159, 28, 0.7);
+}
+.Cockpit-livetail-line--error .Cockpit-livetail-level {
+    color: #ff5a5a;
+    text-shadow: 0 0 8px rgba(255, 90, 90, 0.75);
+}
+.Cockpit-livetail-line--error .Cockpit-livetail-source {
+    color: #ff5a5a;
+}
+.Cockpit-livetail-line--warn .Cockpit-livetail-source {
+    color: #ff9f1c;
+}
+
+/* Services pad ───────────────────────────────────────────────────── */
+.Cockpit-servicesGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    min-height: 0;
+    align-content: start;
+}
+
+.Cockpit-tile {
+    position: relative;
+    padding: 16px 18px 18px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(
+        135deg,
+        rgba(20, 28, 50, 0.6),
+        rgba(12, 18, 36, 0.4)
+    );
+    color: #fff;
+    text-align: left;
+    cursor: pointer;
+    overflow: hidden;
+    transform-style: preserve-3d;
+    /* Magnetic + 3D scanner vars all merged into one transform stack.
+       --tile-rx / --tile-ry are pushed from the mousemove walker only on
+       the focused tile, so non-focused tiles stay flat. */
+    transform:
+        translate(var(--mag-x, 0px), var(--mag-y, 0px))
+        perspective(900px)
+        rotateX(var(--tile-rx, 0deg))
+        rotateY(var(--tile-ry, 0deg))
+        scale(var(--tile-scale, 1));
+    transition:
+        transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+        border-color 200ms ease,
+        box-shadow 200ms ease,
+        opacity 200ms ease;
+    font-family: inherit;
+}
+
+/* Focus tile during scan: lifted, scaled, 3D-pivoted toward cursor.
+   The transform inherits the perspective from the base rule above so we
+   only need to override --tile-scale here — the rotation is driven by
+   --tile-rx / --tile-ry CSS vars set in JS from a per-tile mousemove. */
+.Cockpit-tile--focus {
+    --tile-scale: 1.1;
+    z-index: 6;
+    border-color: rgba(127, 227, 255, 0.95);
+    box-shadow:
+        0 24px 70px rgba(0, 0, 0, 0.6),
+        0 0 0 1px rgba(127, 227, 255, 0.55) inset,
+        0 0 40px rgba(127, 227, 255, 0.45),
+        0 0 90px rgba(26, 120, 255, 0.35);
+}
+
+/* Corner brackets that "cadrent" the focused tile — pure CSS L-shapes
+   appearing on the tile's four corners. The scanner card uses the same
+   bracket motif on its own corners (defined in the HUD section below). */
+.Cockpit-tile--focus::before,
+.Cockpit-tile--focus::after {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid #5EE7E7;
+    pointer-events: none;
+    box-shadow: 0 0 12px rgba(127, 227, 255, 0.8);
+    animation: cockpit-bracket-in 220ms ease-out;
+}
+.Cockpit-tile--focus::before {
+    top: -3px;
+    left: -3px;
+    border-right: 0;
+    border-bottom: 0;
+}
+.Cockpit-tile--focus::after {
+    bottom: -3px;
+    right: -3px;
+    border-left: 0;
+    border-top: 0;
+}
+
+@keyframes cockpit-bracket-in {
+    from { transform: scale(1.4); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+}
+.Cockpit-tile:hover {
+    transform: translate(var(--mag-x, 0px), var(--mag-y, 0px)) translateY(-3px);
+    border-color: rgba(127, 227, 255, 0.75);
+}
+.Cockpit-tile--blue:hover {
+    box-shadow:
+        0 10px 28px rgba(26, 120, 255, 0.35),
+        0 0 0 1px rgba(26, 120, 255, 0.5) inset;
+}
+.Cockpit-tile--green:hover {
+    box-shadow:
+        0 10px 28px rgba(74, 222, 128, 0.35),
+        0 0 0 1px rgba(74, 222, 128, 0.5) inset;
+}
+.Cockpit-tile[data-clack]:active {
+    transform: translate(var(--mag-x, 0px), var(--mag-y, 0px)) translateY(-1px) scale(0.97);
+    transition-duration: 80ms;
+}
+
+/* Touch-mode "inspect" state — the tile keeps the lifted glow while the
+   HUD popover is anchored above it, signalling that a second tap will
+   commit the action (toggle Maintenance). */
+.Cockpit-tile--inspecting {
+    border-color: rgba(127, 227, 255, 0.85);
+    transform: translate(var(--mag-x, 0px), var(--mag-y, 0px)) translateY(-3px);
+}
+.Cockpit-tile--blue.Cockpit-tile--inspecting {
+    box-shadow:
+        0 10px 28px rgba(26, 120, 255, 0.4),
+        0 0 0 1px rgba(26, 120, 255, 0.55) inset;
+}
+.Cockpit-tile--green.Cockpit-tile--inspecting {
+    box-shadow:
+        0 10px 28px rgba(74, 222, 128, 0.4),
+        0 0 0 1px rgba(74, 222, 128, 0.55) inset;
+}
+
+.Cockpit-tileTop {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: rgba(94, 231, 231, 0.75);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.Cockpit-tileLed {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4ADE80;
+    box-shadow: 0 0 6px rgba(74, 222, 128, 0.9);
+    transition: background 220ms ease, box-shadow 220ms ease;
+}
+.Cockpit-tile--maint .Cockpit-tileLed {
+    background: #ff9f1c;
+    box-shadow: 0 0 8px rgba(255, 159, 28, 0.9);
+}
+
+.Cockpit-tileState {
+    color: rgba(255, 255, 255, 0.65);
+}
+.Cockpit-tile--maint .Cockpit-tileState {
+    color: rgba(255, 159, 28, 0.9);
+}
+
+.Cockpit-tileName {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #fff;
+}
+
+/* Deploy cascade: triggered by data-deploy-pulse on root. Each tile gets
+   its own --cascade-delay so the wave sweeps left → right. */
+.Cockpit[data-deploy-pulse]:not([data-deploy-pulse="0"]) .Cockpit-tile {
+    animation: cockpit-cascade 700ms ease;
+    animation-delay: var(--cascade-delay, 0ms);
+}
+
+/* Control deck ───────────────────────────────────────────────────── */
+.Cockpit-control {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    padding: 16px 20px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    flex-wrap: wrap;
+    margin-top: auto;
+    box-shadow:
+        0 -8px 24px rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.Cockpit-loadCtl {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1 1 280px;
+    min-width: 240px;
+}
+
+.Cockpit-loadKey {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: rgba(127, 227, 255, 0.65);
+}
+
+.Cockpit-loadRange {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 4px;
+    background: linear-gradient(
+        90deg,
+        #1A78FF 0%,
+        #4ADE80 var(--load-pct, 50%),
+        rgba(255, 255, 255, 0.08) var(--load-pct, 50%),
+        rgba(255, 255, 255, 0.08) 100%
+    );
+    outline: none;
+    cursor: pointer;
+}
+.Cockpit-loadRange::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #5EE7E7;
+    box-shadow:
+        0 0 10px rgba(94, 231, 231, 0.9),
+        0 2px 6px rgba(0, 0, 0, 0.4);
+    cursor: grab;
+    transition: transform 120ms ease;
+}
+.Cockpit-loadRange::-webkit-slider-thumb:hover { transform: scale(1.15); }
+.Cockpit-loadRange::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.05); }
+.Cockpit-loadRange::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #5EE7E7;
+    box-shadow: 0 0 10px rgba(94, 231, 231, 0.9);
+    cursor: grab;
+}
+
+.Cockpit-loadVal {
+    min-width: 44px;
+    text-align: right;
+    color: #fff;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.Cockpit-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.Cockpit-btn {
+    position: relative;
+    padding: 10px 18px;
+    border-radius: 10px;
+    border: 1px solid rgba(127, 227, 255, 0.22);
+    background: rgba(127, 227, 255, 0.05);
+    color: #fff;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    overflow: hidden;
+    transform: translate(var(--mag-x, 0px), var(--mag-y, 0px));
+    box-shadow:
+        inset 0 -2px 0 rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 1px 2px rgba(0, 0, 0, 0.3);
+    transition:
+        background 200ms ease,
+        border-color 200ms ease,
+        box-shadow 180ms ease,
+        transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.Cockpit-btn:hover {
+    background: rgba(127, 227, 255, 0.14);
+    border-color: rgba(127, 227, 255, 0.55);
+}
+.Cockpit-btn:active {
+    transform: translate(var(--mag-x, 0px), var(--mag-y, 0px)) scale(0.96);
+    box-shadow:
+        inset 0 2px 6px rgba(0, 0, 0, 0.4),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+    transition-duration: 80ms;
+}
+.Cockpit-btn--primary {
+    background: linear-gradient(135deg, rgba(26, 120, 255, 0.5), rgba(74, 222, 128, 0.5));
+    border-color: rgba(74, 222, 128, 0.6);
+    box-shadow:
+        0 0 16px rgba(26, 120, 255, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.Cockpit-btn--primary:hover {
+    background: linear-gradient(135deg, rgba(26, 120, 255, 0.7), rgba(74, 222, 128, 0.7));
+    animation: cockpit-deploy-glow 1.8s ease-in-out infinite;
+}
+.Cockpit-btn--primary:active {
+    animation: none;
+    box-shadow:
+        inset 0 2px 6px rgba(0, 0, 0, 0.4),
+        0 0 12px rgba(26, 120, 255, 0.3);
+}
+.Cockpit-btn--small {
+    padding: 10px 12px;
+    letter-spacing: 0.08em;
+}
+
+/* FORCE ERROR — discreet red variant. Sits among the small buttons but
+   carries a faint red border + leading dot so it reads as a danger
+   action without yelling. Hover ramps the red so the intent is clear. */
+.Cockpit-btn--danger {
+    border-color: rgba(255, 90, 90, 0.42);
+    color: rgba(255, 138, 138, 0.92);
+    background: rgba(255, 90, 90, 0.06);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.Cockpit-btn--danger .Cockpit-btn-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ff5a5a;
+    box-shadow: 0 0 8px rgba(255, 90, 90, 0.85);
+    animation: cockpit-danger-dot 1.8s ease-in-out infinite;
+}
+@keyframes cockpit-danger-dot {
+    0%, 100% { opacity: 0.5; }
+    50%      { opacity: 1; }
+}
+.Cockpit-btn--danger:hover {
+    border-color: rgba(255, 90, 90, 0.92);
+    color: #ff8a8a;
+    background: rgba(255, 90, 90, 0.16);
+    box-shadow:
+        0 0 0 1px rgba(255, 90, 90, 0.55) inset,
+        0 0 22px rgba(255, 90, 90, 0.42);
+}
+.Cockpit-btn--danger:active {
+    transform: translate(var(--mag-x, 0px), var(--mag-y, 0px)) translateY(-1px) scale(0.97);
+}
+
+/* Ripple element keyed by ripples count → remounts each click, so the
+   animation restarts cleanly even on rapid presses. */
+.Cockpit-btnRipple {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(
+        circle at center,
+        rgba(255, 255, 255, 0.4),
+        transparent 60%
+    );
+    opacity: 0;
+    transform: scale(0.4);
+    pointer-events: none;
+    animation: cockpit-ripple 480ms ease-out;
+}
+
+/* Keyframes ──────────────────────────────────────────────────────── */
+@keyframes cockpit-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.55; transform: scale(0.85); }
+}
+
+@keyframes cockpit-shine {
+    0%   { left: 0%; opacity: 0; }
+    20%  { opacity: 0.65; }
+    80%  { opacity: 0.65; }
+    100% { left: 100%; opacity: 0; }
+}
+
+@keyframes cockpit-ping {
+    0%   { transform: scale(0.6); opacity: 0.9; }
+    100% { transform: scale(3); opacity: 0; }
+}
+
+@keyframes cockpit-led-blink {
+    0%   { transform: scale(0.7); }
+    40%  { transform: scale(0.55); }
+    100% { transform: scale(0.7); }
+}
+
+@keyframes cockpit-cascade {
+    0%   {
+        box-shadow: 0 0 0 0 rgba(74, 222, 128, 0);
+        transform: translate(var(--mag-x, 0px), var(--mag-y, 0px));
+    }
+    30%  {
+        box-shadow:
+            0 0 0 2px rgba(74, 222, 128, 0.7),
+            0 0 18px rgba(74, 222, 128, 0.5);
+        transform: translate(var(--mag-x, 0px), var(--mag-y, 0px)) translateY(-4px);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(74, 222, 128, 0);
+        transform: translate(var(--mag-x, 0px), var(--mag-y, 0px));
+    }
+}
+
+@keyframes cockpit-ripple {
+    0%   { opacity: 0.7; transform: scale(0.4); }
+    100% { opacity: 0;   transform: scale(1.6); }
+}
+
+/* DEPLOY hover pulse — continuous blue→cyan/green glow breathing on the
+   primary button. Stops on :active so the press feels distinct. */
+@keyframes cockpit-deploy-glow {
+    0%, 100% {
+        box-shadow:
+            0 0 16px rgba(26, 120, 255, 0.35),
+            0 0 0 rgba(74, 222, 128, 0),
+            inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    }
+    50% {
+        box-shadow:
+            0 0 24px rgba(26, 120, 255, 0.55),
+            0 0 28px rgba(74, 222, 128, 0.35),
+            inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    }
+}
+
+/* Wire reveal on mount — fades the line in while the dash retracts. */
+@keyframes cockpit-line-draw {
+    0%   { stroke-dashoffset: 100; opacity: 0; }
+    20%  { opacity: 0.35; }
+    100% { stroke-dashoffset: 0;   opacity: 0.35; }
+}
+
+/* DEPLOY pulse — a short bright dash that races along the wire. */
+@keyframes cockpit-line-pulse {
+    0%   { stroke-dashoffset: 100; opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { stroke-dashoffset: 0;   opacity: 0; }
+}
+
+/* Ambient flow — fades in after the line reveal, then loops forever. */
+@keyframes cockpit-line-flow-in {
+    to { opacity: 0.55; }
+}
+
+@keyframes cockpit-line-flow {
+    0%   { stroke-dashoffset: 100; }
+    100% { stroke-dashoffset: 0; }
+}
+
+/* Click pulse — bright dash spawned at the cursor position then carried
+   to one of the wire's endpoints. Forward path travels click origin →
+   end (dashoffset −O → −100); reverse path travels click origin → start
+   (dashoffset −O → 0). Opacity holds at 1 from 10–90% so the dash is
+   visible the whole way; the last 10% fades it out before any modular
+   wrap of the dash pattern can become visible. Both keyframes read the
+   same --click-origin CSS var set inline by the click handler. */
+@keyframes cockpit-line-click-fwd {
+    0%   { stroke-dashoffset: calc(var(--click-origin, 50) * -1); opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { stroke-dashoffset: -100; opacity: 0; }
+}
+
+@keyframes cockpit-line-click-rev {
+    0%   { stroke-dashoffset: calc(var(--click-origin, 50) * -1); opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+/* Full-wire flash on click — entire stroke lights up briefly. */
+@keyframes cockpit-line-flash {
+    0%   { opacity: 0; }
+    18%  { opacity: 0.95; }
+    100% { opacity: 0; }
+}
+
+/* DOM particle burst — anchored at the wire's nearest point to the
+   click. Lives inside .Cockpit-body so its absolute coords are simple
+   pixels. Stays out of the SVG so the ring renders as a true circle
+   regardless of the SVG's non-uniform preserveAspectRatio="none" stretch. */
+.Cockpit-clickBurst {
+    position: absolute;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.Cockpit-clickBurst-ring {
+    position: absolute;
+    left: -3px;
+    top: -3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.95);
+    box-shadow:
+        0 0 8px rgba(255, 255, 255, 0.7),
+        0 0 14px rgba(94, 231, 231, 0.75),
+        inset 0 0 6px rgba(94, 231, 231, 0.5);
+    opacity: 0;
+    transform: scale(0.4);
+    animation: cockpit-clickBurst-ring 560ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.Cockpit-clickBurst-dot {
+    position: absolute;
+    left: -2px;
+    top: -2px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #5EE7E7;
+    box-shadow: 0 0 5px rgba(94, 231, 231, 1);
+    opacity: 0;
+    --dot-angle: calc(var(--dot-i) * 60deg);
+    transform: rotate(var(--dot-angle)) translateY(0) scale(1);
+    animation: cockpit-clickBurst-dot 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes cockpit-clickBurst-ring {
+    0%   { transform: scale(0.4); opacity: 0; }
+    18%  { opacity: 1; }
+    100% { transform: scale(9); opacity: 0; }
+}
+
+@keyframes cockpit-clickBurst-dot {
+    0%   { transform: rotate(var(--dot-angle)) translateY(0) scale(1); opacity: 0; }
+    14%  { opacity: 1; }
+    100% { transform: rotate(var(--dot-angle)) translateY(-26px) scale(0); opacity: 0; }
+}
+
+/* ── Mouse-following HUD popover (portaled to document.body) ──────
+   The portal wrapper carries the fixed position driven by rAF lerp in
+   BackendCockpit.tsx. The card inside is the visible glass plate. */
+.Cockpit-tileHud-portal {
+    /* position + left/top set inline. */
+    pointer-events: none;
+    z-index: 10000;
+    will-change: left, top;
+}
+
+.Cockpit-tileHud {
+    width: 420px;
+    padding: 18px 20px 18px;
+    border-radius: 4px;
+    /* Holographic scanner spec: nearly invisible plate — only the neon
+       brackets at the corners give shape. The blur keeps text legible
+       over the busy mesh. */
+    background: rgba(4, 8, 14, 0.32);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(127, 227, 255, 0.18);
+    box-shadow:
+        0 0 0 1px rgba(127, 227, 255, 0.08),
+        0 0 28px rgba(127, 227, 255, 0.28),
+        0 0 90px rgba(26, 120, 255, 0.18);
+    overflow: visible;
+    position: relative;
+    animation: cockpit-hud-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    text-align: left;
+}
+
+/* The 4 scanner brackets framing the HUD card — same motif as the
+   focused tile but bigger. Implemented as overlay pseudo-elements via
+   layered box-shadows on dedicated children rather than ::before/::after
+   so we can stack with the existing content layout. */
+.Cockpit-tileHud-bracket {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border: 1.5px solid #5EE7E7;
+    pointer-events: none;
+    box-shadow: 0 0 14px rgba(127, 227, 255, 0.9);
+}
+.Cockpit-tileHud-bracket--tl { top: -6px; left: -6px; border-right: 0; border-bottom: 0; }
+.Cockpit-tileHud-bracket--tr { top: -6px; right: -6px; border-left: 0; border-bottom: 0; }
+.Cockpit-tileHud-bracket--bl { bottom: -6px; left: -6px; border-right: 0; border-top: 0; }
+.Cockpit-tileHud-bracket--br { bottom: -6px; right: -6px; border-left: 0; border-top: 0; }
+
+/* Inner content wrapper — drives the cross-fade when the user moves
+   from one service tile to another. The card shell + brackets stay
+   mounted and continue to glide; only the data inside fades 1→0→1. */
+.Cockpit-tileHud-body {
+    transition: opacity 80ms ease-out;
+}
+.Cockpit-tileHud-body.is-fading {
+    opacity: 0;
+}
+
+/* While the popover is gliding behind the cursor, drop the expensive
+   backdrop-filter(blur 20px) and tighten the background so the card
+   stays readable. The eye can't perceive blur quality during fast
+   motion anyway, and removing it gives back ~6–10ms of paint time
+   per frame on the busy mesh background. */
+.Cockpit-tileHud-portal.is-moving .Cockpit-tileHud {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(4, 8, 14, 0.62);
+}
+
+/* Side log cascade — a column of ultra-tiny lines streaming downward
+   on the right of the HUD, simulating live tail -f output. Each row is
+   independent so they don't all blink in sync. */
+.Cockpit-tileHud-logCol {
+    position: absolute;
+    top: 0;
+    left: calc(100% + 14px);
+    width: 240px;
+    height: 100%;
+    pointer-events: none;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 8.5px;
+    line-height: 1.45;
+    color: rgba(127, 227, 255, 0.6);
+    text-shadow: 0 0 6px rgba(74, 222, 128, 0.45);
+    mask-image: linear-gradient(180deg, transparent 0%, #000 12%, #000 88%, transparent 100%);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 12%, #000 88%, transparent 100%);
+}
+.Cockpit-tileHud-logCol-track {
+    animation: cockpit-hud-log-scroll 9s linear infinite;
+    white-space: nowrap;
+}
+.Cockpit-tileHud-logCol-track > span {
+    display: block;
+    opacity: 0.55;
+}
+.Cockpit-tileHud-logCol-track > span:nth-child(3n) { color: #4ADE80; opacity: 0.85; }
+.Cockpit-tileHud-logCol-track > span:nth-child(7n) { color: #ff9f1c; opacity: 0.85; }
+
+@keyframes cockpit-hud-log-scroll {
+    from { transform: translateY(0%); }
+    to   { transform: translateY(-50%); }
+}
+
+/* Live waveform inside the HUD — sin-wave SVG continuously phase-shifted
+   via CSS animation on a clip-path. Reads as "signal capture". */
+.Cockpit-tileHud-wave {
+    margin-top: 10px;
+    height: 36px;
+    width: 100%;
+    border-radius: 4px;
+    background:
+        linear-gradient(180deg, transparent 0%, rgba(127, 227, 255, 0.06) 100%),
+        rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(127, 227, 255, 0.18);
+    position: relative;
+    overflow: hidden;
+}
+.Cockpit-tileHud-wave svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+.Cockpit-tileHud-wave-path {
+    fill: none;
+    stroke: #5EE7E7;
+    stroke-width: 1.6;
+    filter: drop-shadow(0 0 4px rgba(127, 227, 255, 0.9));
+    animation: cockpit-hud-wave-pan 2.4s linear infinite;
+}
+.Cockpit-tileHud-wave-grid {
+    position: absolute;
+    inset: 0;
+    background:
+        repeating-linear-gradient(90deg, transparent 0px, transparent 18px, rgba(127, 227, 255, 0.06) 18px, rgba(127, 227, 255, 0.06) 19px),
+        repeating-linear-gradient(0deg, transparent 0px, transparent 9px, rgba(127, 227, 255, 0.05) 9px, rgba(127, 227, 255, 0.05) 10px);
+    pointer-events: none;
+}
+
+@keyframes cockpit-hud-wave-pan {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-40px); }
+}
+
+/* Touch mode: GSAP drives the entrance (scale + opacity + y), so the CSS
+   keyframe would fight it. We disable both the card animation and the
+   scanline so the GSAP "deploy" tween runs unchallenged. */
+.Cockpit-tileHud-portal--touch .Cockpit-tileHud {
+    animation: none;
+}
+.Cockpit-tileHud-portal--touch .Cockpit-tileHud-scan {
+    animation-duration: 420ms;
+}
+
+/* Horizontal scanline that sweeps top → bottom once on appear. */
+.Cockpit-tileHud-scan {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 2px;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(94, 231, 231, 0.95) 50%,
+        transparent 100%
+    );
+    pointer-events: none;
+    animation: cockpit-hud-scan 300ms ease-out forwards;
+    box-shadow: 0 0 8px rgba(94, 231, 231, 0.8);
+}
+
+.Cockpit-tileHud-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed rgba(127, 227, 255, 0.25);
+}
+
+.Cockpit-tileHud-dot {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4ADE80;
+    box-shadow: 0 0 8px currentColor;
+    animation: cockpit-pulse 2.4s ease-in-out infinite;
+}
+.Cockpit-tileHud-dot--ok   { color: #4ADE80; background: #4ADE80; }
+.Cockpit-tileHud-dot--warn { color: #ff9f1c; background: #ff9f1c; }
+.Cockpit-tileHud-dot--idle { color: #7FE3FF; background: #7FE3FF; }
+
+.Cockpit-tileHud-svc {
+    flex: 1 1 auto;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: rgba(127, 227, 255, 0.85);
+    text-transform: uppercase;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.Cockpit-tileHud-ver {
+    flex: 0 0 auto;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: #4ADE80;
+    text-shadow: 0 0 8px rgba(74, 222, 128, 0.45);
+    font-weight: 600;
+}
+
+.Cockpit-tileHud-list {
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 6px 12px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+}
+
+.Cockpit-tileHud-list > div {
+    display: contents;
+}
+
+.Cockpit-tileHud-list dt {
+    color: rgba(127, 227, 255, 0.85);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 10px;
+    align-self: center;
+}
+
+.Cockpit-tileHud-list dd {
+    margin: 0;
+    color: #fff;
+    text-shadow: 0 0 8px rgba(74, 222, 128, 0.35);
+    text-align: right;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.Cockpit-tileHud-val--warn {
+    color: #ff9f1c !important;
+    text-shadow: 0 0 8px rgba(255, 159, 28, 0.55) !important;
+}
+
+.Cockpit-tileHud-snippet {
+    margin-top: 10px;
+    padding: 7px 9px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 6px;
+    border: 1px solid rgba(127, 227, 255, 0.12);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: rgba(127, 227, 255, 0.7);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    animation: cockpit-hud-snippet-in 220ms ease-out 200ms forwards;
+}
+
+.Cockpit-tileHud-snippet-ok {
+    color: #4ADE80;
+    text-shadow: 0 0 6px rgba(74, 222, 128, 0.5);
+}
+
+@keyframes cockpit-hud-snippet-in {
+    to { opacity: 1; }
+}
+
+@keyframes cockpit-hud-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes cockpit-hud-scan {
+    0%   { top: 0;     opacity: 1; }
+    100% { top: 100%;  opacity: 0; }
+}
+
+/* ── RESTART overlay (flash + progress bar) ──────────────────────── */
+.Cockpit--restarting {
+    animation: cockpit-flash 200ms ease-out;
+}
+
+@keyframes cockpit-flash {
+    0% {
+        border-color: rgba(127, 227, 255, 0.18);
+        box-shadow:
+            0 20px 60px rgba(0, 0, 0, 0.6),
+            inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+    50% {
+        border-color: rgba(255, 159, 28, 0.85);
+        box-shadow:
+            0 20px 60px rgba(0, 0, 0, 0.6),
+            0 0 36px rgba(255, 159, 28, 0.4),
+            inset 0 0 24px rgba(255, 159, 28, 0.15);
+    }
+    100% {
+        border-color: rgba(127, 227, 255, 0.18);
+        box-shadow:
+            0 20px 60px rgba(0, 0, 0, 0.6),
+            inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+}
+
+.Cockpit-restartOverlay {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(8, 11, 18, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border-radius: inherit;
+    animation: cockpit-overlay-in 200ms ease-out, cockpit-overlay-out 200ms ease-in 900ms forwards;
+    pointer-events: none;
+}
+
+.Cockpit-restartCard {
+    min-width: 280px;
+    padding: 18px 22px 20px;
+    border-radius: 12px;
+    background: rgba(15, 22, 36, 0.92);
+    border: 1px solid rgba(255, 159, 28, 0.45);
+    box-shadow:
+        0 12px 36px rgba(0, 0, 0, 0.6),
+        0 0 24px rgba(255, 159, 28, 0.25);
+    text-align: center;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.Cockpit-restartLabel {
+    display: block;
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    color: #ff9f1c;
+    margin-bottom: 12px;
+    text-shadow: 0 0 12px rgba(255, 159, 28, 0.65);
+}
+
+.Cockpit-restartBar {
+    height: 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 159, 28, 0.25);
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.Cockpit-restartBarFill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #ff9f1c, #ffd166);
+    box-shadow: 0 0 12px rgba(255, 159, 28, 0.85);
+    animation: cockpit-restart-fill 700ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+.Cockpit-restartSub {
+    display: block;
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    color: rgba(255, 255, 255, 0.45);
+    text-transform: lowercase;
+}
+
+@keyframes cockpit-overlay-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes cockpit-overlay-out {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+}
+
+@keyframes cockpit-restart-fill {
+    0%   { width: 0%;   }
+    100% { width: 100%; }
+}
+
+/* Responsive ─────────────────────────────────────────────────────── */
+@media (max-width: 1280px) {
+    .Cockpit {
+        max-width: 1100px;
+    }
+    .Cockpit-body {
+        grid-template-columns: minmax(260px, 4fr) minmax(0, 7fr);
+    }
+    /* DB pool widget shrinks to 14 slots layout — under 1280px the 20-dot
+       row gets too cramped against the value chip. */
+    .Cockpit-pool-slots {
+        grid-template-columns: repeat(20, 1fr);
+        gap: 2px;
+    }
+    .Cockpit-pool-slot {
+        height: 10px;
+    }
+}
+
+/* ── Mobile / iPhone SE Gauges focus ───────────────────────────────
+   The 6 Gauges rows (LATENCY, THROUGHPUT, HEAP, DB POOL, REPLICAS, +
+   chips footer) get cramped on a 375px screen. We hide the HEAP and
+   DB POOL rows on mobile — they remain visible in the drawer. The
+   sparkline is the headline indicator so it stays. */
+@media (max-width: 768px) {
+    .Cockpit-gauges .Cockpit-row:nth-of-type(3),  /* HEAP     */
+    .Cockpit-gauges .Cockpit-row:nth-of-type(4) { /* DB POOL  */
+        display: none;
+    }
+    .Cockpit-edge--left,
+    .Cockpit-edge--right {
+        display: none;
+    }
+    .Cockpit::after {
+        opacity: 0.3;
+    }
+    .Cockpit-gauges .Cockpit-spark {
+        height: 56px;
+    }
+    /* Flow diagram needs more vertical room when stacked on narrow
+       screens — the 5 node labels would otherwise overlap. */
+    .Cockpit-flow {
+        aspect-ratio: auto;
+        height: 280px;
+    }
+    .Cockpit-flow-node-stack {
+        font-size: 10px;
+    }
+    .Cockpit-flow-node-label {
+        font-size: 8px;
+    }
+    .Cockpit-flow-node {
+        padding: 6px 10px;
+    }
+    /* Live Tail collapses to a smaller card — keeps it visible but
+       doesn't compete for screen real estate with the gauges + flow. */
+    .Cockpit-livetail {
+        max-height: 150px;
+        padding: 12px 16px 10px;
+    }
+    .Cockpit-livetail-list {
+        font-size: 10.5px;
+    }
+    .Cockpit-livetail-cmd {
+        display: none;
+    }
+}
+
+@media (max-width: 860px) {
+    .Cockpit {
+        padding: 24px 22px 22px;
+        min-height: 0;
+    }
+    .Cockpit-body {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    .Cockpit-servicesGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .Cockpit-row {
+        grid-template-columns: 84px 1fr auto;
+        gap: 10px;
+        font-size: 12px;
+    }
+    .Cockpit-control {
+        gap: 14px;
+    }
+    .Cockpit-tileHud {
+        width: 280px;
+    }
+    .Cockpit-tilt {
+        transform: none !important;
+    }
+    /* Tilt + 3D pivot feels busy on tablets — disable. */
+    .Cockpit-tile {
+        transform: translate(var(--mag-x, 0px), var(--mag-y, 0px)) !important;
+    }
+}
+
+@media (hover: none) {
+    /* No mouse → no magnetic, no parallax, no follow-cursor popover. */
+    .Cockpit-tilt {
+        transform: none !important;
+    }
+}
+
+@media (max-width: 520px) {
+    .Cockpit-servicesGrid {
+        grid-template-columns: 1fr;
+    }
+    .Cockpit-actions {
+        width: 100%;
+        justify-content: stretch;
+    }
+    .Cockpit-btn {
+        flex: 1;
+    }
+}
+
+/* Mobile : le backdrop-filter à 20px sur le cockpit + 12px sur le HUD
+   coûte cher au compositing. On retombe à 8px en mobile. */
+@media (max-width: 768px) {
+    .Cockpit {
+        backdrop-filter: blur(8px) saturate(140%);
+        -webkit-backdrop-filter: blur(8px) saturate(140%);
+    }
+    .Cockpit-tileHud {
+        backdrop-filter: blur(8px) saturate(160%);
+        -webkit-backdrop-filter: blur(8px) saturate(160%);
+    }
+    /* JetBrains Mono à 400 devient illisible en extérieur sur les reflets
+       de l'écran du téléphone. On remonte à 500 pour ces nœuds HUD dont
+       le poids n'est pas déjà surchargé ailleurs (rowVal=600, btn=700). */
+    .Cockpit-panelHead,
+    .Cockpit-row,
+    .Cockpit-tileTop,
+    .Cockpit-loadKey,
+    .Cockpit-tileHud-svc,
+    .Cockpit-tileHud-list,
+    .Cockpit-restartCard {
+        font-weight: 500;
+    }
+}
+
+/* ── Mobile drawer : divulgation progressive ─────────────────────────
+   Sur petit écran la densité du services pad (6 tuiles + HUD popover)
+   noie les metrics vitales. On masque la grille par défaut et on la
+   ressort à la demande dans un volet plein-écran. Desktop intact. */
+
+.Cockpit-mobileDrawerTrigger,
+.Cockpit-mobileDrawerBackdrop,
+.Cockpit-mobileDrawerClose {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    /* Flow zone (with services grid) caché par défaut → débrayé dans
+       le drawer. Sur mobile la priorité va aux Gauges + LiveTail qui
+       restent visibles ; le détail architecture s'ouvre à la demande. */
+    .Cockpit-flowWrap {
+        display: none;
+    }
+
+    /* Trigger HUD : pill JetBrains Mono cohérente avec le reste du
+       cockpit. Placée après le control deck, dégage la zone des
+       boutons DEPLOY/RESTART. */
+    .Cockpit-mobileDrawerTrigger {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        align-self: center;
+        margin: 18px auto 4px;
+        padding: 12px 20px;
+        min-height: 44px; /* iOS HIG hitbox */
+        background: rgba(8, 14, 28, 0.85);
+        border: 1px solid rgba(94, 231, 231, 0.32);
+        border-radius: 999px;
+        color: rgba(245, 252, 255, 0.92);
+        font-family: 'JetBrains Mono', 'Consolas', 'Menlo', monospace;
+        font-size: 11.5px;
+        font-weight: 500;
+        letter-spacing: 0.16em;
+        cursor: pointer;
+        backdrop-filter: blur(8px) saturate(140%);
+        -webkit-backdrop-filter: blur(8px) saturate(140%);
+        transition: border-color 200ms ease, background 200ms ease, transform 200ms ease;
+    }
+
+    .Cockpit-mobileDrawerTrigger:active {
+        transform: scale(0.97);
+        background: rgba(8, 14, 28, 0.95);
+    }
+
+    .Cockpit-mobileDrawerTrigger-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #5EE7E7;
+        box-shadow: 0 0 8px rgba(94, 231, 231, 0.85);
+    }
+
+    .Cockpit-mobileDrawerTrigger-chev {
+        display: inline-flex;
+        color: rgba(94, 231, 231, 0.85);
+        transition: transform 240ms ease;
+    }
+
+    .Cockpit--mobile-drawer-open .Cockpit-mobileDrawerTrigger-chev {
+        transform: rotate(180deg);
+    }
+
+    /* Backdrop : présent en DOM mais inert tant que le drawer est fermé.
+       Quand ouvert, capture les taps hors-drawer pour fermer. */
+    .Cockpit-mobileDrawerBackdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 8500;
+        background: rgba(2, 6, 14, 0);
+        pointer-events: none;
+        transition: background 240ms ease;
+    }
+
+    .Cockpit--mobile-drawer-open .Cockpit-mobileDrawerBackdrop {
+        background: rgba(2, 6, 14, 0.55);
+        pointer-events: auto;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+
+    /* Drawer = .Cockpit-services repromu en overlay plein écran. */
+    .Cockpit--mobile-drawer-open .Cockpit-flowWrap {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 8600;
+        padding: 28px 22px max(28px, calc(20px + env(safe-area-inset-bottom)));
+        background: rgba(8, 14, 28, 0.96);
+        border-top: 1px solid rgba(94, 231, 231, 0.25);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        animation: cockpit-drawer-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .Cockpit--mobile-drawer-open .Cockpit-flowWrap .Cockpit-panelHead {
+        position: relative;
+        font-size: 13px;
+        padding-bottom: 14px;
+        margin-bottom: 18px;
+        border-bottom: 1px solid rgba(94, 231, 231, 0.18);
+    }
+
+    .Cockpit--mobile-drawer-open .Cockpit-flowWrapGrid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    /* Close button : visible uniquement quand le drawer est ouvert.
+       Hitbox 44px, ancré à droite du panelHead. */
+    .Cockpit--mobile-drawer-open .Cockpit-mobileDrawerClose {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        right: -4px;
+        top: -10px;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        background: transparent;
+        border: 0;
+        color: rgba(220, 240, 255, 0.78);
+        cursor: pointer;
+    }
+
+    .Cockpit--mobile-drawer-open .Cockpit-mobileDrawerClose:active {
+        color: rgba(245, 252, 255, 1);
+    }
+}
+
+@keyframes cockpit-drawer-in {
+    from {
+        transform: translateY(8%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   HIGH-IMPACT OVERLAYS — boot sequence (RESTART) + shockwave (DEPLOY)
+   + edge data streams (binary/hex). Performance pragma: these run on
+   the compositor (transform/opacity only) so GPU eats them happily;
+   none of the lines below are responsible for layout thrash.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Edge streams ──────────────────────────────────────────────────
+   Twin vertical columns of mono digits pinned to the left/right of
+   the cockpit. The track is duplicated and animated upward, looping
+   seamlessly. Pure visual noise — no semantic value, pointer-events
+   off so they never block clicks. */
+.Cockpit-edge {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: clamp(20px, 2.4vw, 36px);
+    pointer-events: none;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    overflow: hidden;
+    z-index: 2;
+    mask-image: linear-gradient(180deg, transparent 0%, #000 8%, #000 92%, transparent 100%);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 8%, #000 92%, transparent 100%);
+}
+.Cockpit-edge--left {
+    left: 6px;
+    color: rgba(127, 227, 255, 0.32);
+    text-align: center;
+}
+.Cockpit-edge--right {
+    right: 6px;
+    color: rgba(74, 222, 128, 0.35);
+    text-align: center;
+}
+.Cockpit-edge-track {
+    animation: cockpit-edge-stream 16s linear infinite;
+    will-change: transform;
+}
+.Cockpit-edge-track span {
+    display: block;
+    text-shadow: 0 0 4px currentColor;
+}
+.Cockpit-edge-track span:nth-child(7n)  { color: #5EE7E7; opacity: 0.85; }
+.Cockpit-edge-track span:nth-child(13n) { color: #ff9f1c; opacity: 0.7;  }
+
+@keyframes cockpit-edge-stream {
+    from { transform: translateY(0); }
+    to   { transform: translateY(-50%); }
+}
+
+/* ── Boot sequence on RESTART ──────────────────────────────────────
+   1) Hard blackout flash (100ms) — full-viewport black sheet.
+   2) Boot card slides up, lines reveal one by one, last line flips
+      to SYSTEM_OK in green.
+   Replaces the old orange progress overlay entirely. */
+.Cockpit-boot {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    animation: cockpit-boot-flash 1200ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+@keyframes cockpit-boot-flash {
+    0%   { background: rgba(0, 0, 0, 0); }
+    8%   { background: rgba(0, 0, 0, 1); }    /* hard blackout */
+    20%  { background: rgba(0, 0, 0, 0.92); }
+    90%  { background: rgba(0, 0, 0, 0.82); }
+    100% { background: rgba(0, 0, 0, 0); }
+}
+
+.Cockpit-boot-frame {
+    width: min(560px, 92vw);
+    padding: 28px 32px 30px;
+    border-radius: 6px;
+    background: rgba(2, 6, 12, 0.85);
+    border: 1px solid rgba(127, 227, 255, 0.4);
+    box-shadow:
+        0 0 0 1px rgba(127, 227, 255, 0.18),
+        0 0 60px rgba(127, 227, 255, 0.4),
+        0 0 140px rgba(26, 120, 255, 0.3);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    color: rgba(220, 240, 255, 0.9);
+    animation: cockpit-boot-frame-in 280ms ease-out 80ms backwards;
+    position: relative;
+}
+.Cockpit-boot-frame::before,
+.Cockpit-boot-frame::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border: 1.5px solid #5EE7E7;
+    box-shadow: 0 0 10px rgba(127, 227, 255, 0.9);
+}
+.Cockpit-boot-frame::before {
+    top: -6px; left: -6px;
+    border-right: 0; border-bottom: 0;
+}
+.Cockpit-boot-frame::after {
+    bottom: -6px; right: -6px;
+    border-left: 0; border-top: 0;
+}
+
+@keyframes cockpit-boot-frame-in {
+    from { transform: scale(0.96); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+}
+
+.Cockpit-boot-title {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: rgba(127, 227, 255, 0.7);
+    margin-bottom: 14px;
+}
+
+.Cockpit-boot-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    padding: 4px 0;
+    opacity: 0;
+    transform: translateX(-6px);
+    animation: cockpit-boot-line-in 180ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: var(--line-delay, 0ms);
+}
+.Cockpit-boot-line-label { color: rgba(220, 240, 255, 0.75); }
+.Cockpit-boot-line-tag   {
+    font-size: 11px;
+    color: #4ADE80;
+    text-shadow: 0 0 6px rgba(74, 222, 128, 0.7);
+    letter-spacing: 0.18em;
+}
+.Cockpit-boot-line--err .Cockpit-boot-line-tag  {
+    color: #ff5a5a;
+    text-shadow: 0 0 6px rgba(255, 90, 90, 0.7);
+}
+.Cockpit-boot-line--final {
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px dashed rgba(127, 227, 255, 0.25);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    color: #4ADE80;
+    text-shadow: 0 0 12px rgba(74, 222, 128, 0.7);
+    text-transform: uppercase;
+}
+
+@keyframes cockpit-boot-line-in {
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* ── DEPLOY shockwave ─────────────────────────────────────────────
+   Full-viewport SVG with two concentric expanding rings + bright
+   core flash. Positioned via inline style on click. Each major
+   component picks up a cascading awaken-glow as the wave reaches it
+   (delays set inline). */
+.Cockpit-shockwave {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9000;
+    overflow: visible;
+}
+.Cockpit-shockwave svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+.Cockpit-shockwave-ring {
+    fill: none;
+    stroke: #5EE7E7;
+    transform-origin: var(--shock-x, 50%) var(--shock-y, 50%);
+    transform: scale(0);
+    opacity: 1;
+    animation: cockpit-shock-ring 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    filter: drop-shadow(0 0 12px rgba(127, 227, 255, 0.9));
+}
+.Cockpit-shockwave-ring--outer {
+    stroke-width: 1.4;
+    stroke: rgba(74, 222, 128, 0.85);
+    animation-delay: 60ms;
+}
+.Cockpit-shockwave-flash {
+    position: absolute;
+    width: 220px;
+    height: 220px;
+    left: var(--shock-x, 50%);
+    top: var(--shock-y, 50%);
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(127, 227, 255, 0.9) 0%, rgba(26, 120, 255, 0.4) 38%, transparent 70%);
+    mix-blend-mode: screen;
+    animation: cockpit-shock-flash 700ms ease-out forwards;
+}
+
+@keyframes cockpit-shock-ring {
+    0%   { transform: scale(0);   opacity: 1;   stroke-width: 4;   }
+    60%  { opacity: 0.6;          stroke-width: 1.5; }
+    100% { transform: scale(38);  opacity: 0;   stroke-width: 0.5; }
+}
+@keyframes cockpit-shock-flash {
+    0%   { opacity: 1;   transform: translate(-50%, -50%) scale(0.4); }
+    100% { opacity: 0;   transform: translate(-50%, -50%) scale(2.4); }
+}
+
+/* Wake-up cascade is now driven via Web Animations API from deploy() —
+   no CSS rule needed (CSS animation-name doesn't retrigger reliably on
+   attribute changes). The JS path also lets us stagger arbitrary
+   selectors without exploding the rule list. */

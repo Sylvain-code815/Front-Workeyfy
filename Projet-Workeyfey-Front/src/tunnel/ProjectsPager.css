@@ -1,0 +1,105 @@
+/* SatellitePager — timeless 5-dot indicator. The visible footprint
+   never changes with the number of projects. Active dot in the centre,
+   four steady neutrals around it. A drop-shadow halo keeps every dot
+   legible across the full mesh palette (deep void, blue lobe, green
+   lobe, refraction band). */
+
+.SatellitePager {
+    width: 100%;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Parent stays click-through; only the dot buttons re-enable pointer
+       events so taps land precisely on each thumb-friendly hitbox. */
+    pointer-events: none;
+    user-select: none;
+}
+
+.SatellitePager-strip {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    will-change: transform;
+}
+
+.SatellitePager-dot {
+    position: relative;
+    display: block;
+    width: 7px;
+    height: 7px;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 50%;
+    background: #fff;
+    opacity: 0.8;
+    cursor: pointer;
+    pointer-events: auto;
+    filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.85));
+    transition:
+        opacity 320ms ease,
+        background 320ms ease,
+        width 320ms cubic-bezier(0.22, 1, 0.36, 1),
+        height 320ms cubic-bezier(0.22, 1, 0.36, 1),
+        box-shadow 320ms ease;
+}
+
+/* Invisible 44×44 thumb target around every dot — meets the iOS HIG
+   minimum without inflating the visual weight of the indicator. */
+.SatellitePager-dot::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+}
+
+.SatellitePager-dot:disabled {
+    cursor: default;
+}
+
+.SatellitePager-dot--active {
+    width: 10px;
+    height: 10px;
+    opacity: 1;
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.55),
+        0 0 8px rgba(255, 255, 255, 0.75);
+}
+
+/* Front-view (light theme) variant — invert tone but keep the same
+   contrast strategy: dark dots over the white iframe with a soft white
+   halo so they stay distinct on tonal regions of the loaded site. */
+.Projects-section--back-front .SatellitePager-dot {
+    background: #000;
+    opacity: 0.8;
+    filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.85));
+}
+
+.Projects-section--back-front .SatellitePager-dot--active {
+    opacity: 1;
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.55),
+        0 0 8px rgba(0, 0, 0, 0.55);
+}
+
+/* Mobile : la carte iframe s'arrête 132px avant le bas (cf. Projects.css
+   .ProjectsBack-slotPos height: calc(100svh - 204px), réserve 72px en
+   haut pour le Header). Les dots + caption vivent donc sur la bande
+   sombre — on force la palette claire même en front-view pour rester
+   lisibles indépendamment du tonal du site. */
+@media (max-width: 768px) {
+    .Projects-section--back-front .SatellitePager-dot {
+        background: #fff;
+        opacity: 0.8;
+        filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.85));
+    }
+    .Projects-section--back-front .SatellitePager-dot--active {
+        box-shadow:
+            0 0 0 1px rgba(0, 0, 0, 0.55),
+            0 0 8px rgba(255, 255, 255, 0.75);
+    }
+}

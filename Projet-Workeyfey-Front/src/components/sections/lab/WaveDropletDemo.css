@@ -1,0 +1,254 @@
+.WaveDroplet {
+    --ink: #0A0908;
+    --bone: #EAE5DC;
+    --hair: rgba(234, 229, 220, 0.20);
+    --quart: cubic-bezier(0.77, 0, 0.175, 1);
+    --quart-damp: cubic-bezier(0.34, 1.06, 0.5, 1);
+
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    height: 100svh;
+    overflow: hidden;
+    background:
+        radial-gradient(ellipse 90% 65% at 28% 95%, rgba(150, 138, 175, 0.55) 0%, transparent 65%),
+        radial-gradient(ellipse 75% 60% at 72% 8%, rgba(120, 108, 145, 0.48) 0%, transparent 65%),
+        linear-gradient(180deg, #2D2738 0%, #18141E 100%);
+    color: var(--bone);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-weight: 300;
+}
+
+.WaveDroplet-defs {
+    position: absolute;
+    width: 0;
+    height: 0;
+}
+
+.WaveDroplet-header {
+    position: absolute;
+    top: 92px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    text-align: center;
+    max-width: 480px;
+    padding: 0 32px;
+    pointer-events: none;
+}
+
+.WaveDroplet-eyebrow {
+    display: block;
+    font-size: 9px;
+    letter-spacing: 0.5em;
+    text-transform: uppercase;
+    color: rgba(234, 229, 220, 0.42);
+    margin-bottom: 22px;
+}
+
+.WaveDroplet-title {
+    font-size: 32px;
+    font-weight: 200;
+    letter-spacing: 0.14em;
+    color: rgba(234, 229, 220, 0.95);
+    margin: 0 0 22px;
+    font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
+}
+
+.WaveDroplet-blurb {
+    font-size: 11px;
+    line-height: 1.85;
+    color: rgba(234, 229, 220, 0.48);
+    margin: 0;
+    font-weight: 300;
+    letter-spacing: 0.04em;
+}
+
+.WaveDroplet-stage {
+    position: absolute;
+    inset: 0;
+}
+
+/* Une vidéo par colonne — clipée naturellement par le clip-path de la
+   colonne parente. La colonne expose son fond gradient comme overlay
+   tonal au-dessus de la vidéo (rendu après dans le flux). */
+.WaveDroplet-column-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+}
+
+.WaveDroplet-grain {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 20;
+    opacity: 0.45;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.09 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+.WaveDroplet-hairline {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 4;
+    opacity: 1;
+    transition: opacity 900ms var(--quart);
+}
+
+.WaveDroplet[data-active]:not([data-active='none']) .WaveDroplet-hairline {
+    opacity: 0;
+}
+
+.WaveDroplet-column {
+    position: absolute;
+    inset: 0;
+    cursor: pointer;
+    overflow: hidden;
+    transition:
+        clip-path 1100ms var(--quart),
+        opacity 900ms var(--quart),
+        transform 1100ms var(--quart),
+        filter 900ms var(--quart);
+}
+
+.WaveDroplet-column--light {
+    clip-path: polygon(0 0, 100% 0, 0 100%);
+    border-right: 0.5px solid var(--hair);
+    border-bottom: 0.5px solid var(--hair);
+}
+
+.WaveDroplet-column--dark {
+    clip-path: polygon(100% 0, 100% 100%, 0 100%);
+    border-top: 0.5px solid var(--hair);
+    border-left: 0.5px solid var(--hair);
+}
+
+/* Tint d'univers — overlay léger au-dessus de la vidéo pour rappeler
+   le thème (chaud côté light, froid/sombre côté dark) sans masquer la
+   vidéo. Rendu après la vidéo dans le DOM, donc empile par-dessus. */
+.WaveDroplet-column-tint {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.WaveDroplet-column--light .WaveDroplet-column-tint {
+    background:
+        linear-gradient(135deg, rgba(255, 250, 240, 0.12) 0%, rgba(255, 250, 240, 0.03) 100%),
+        radial-gradient(ellipse 60% 80% at 20% 100%, rgba(255, 250, 240, 0.08) 0%, transparent 70%);
+}
+
+.WaveDroplet-column--dark .WaveDroplet-column-tint {
+    background:
+        linear-gradient(315deg, rgba(8, 6, 12, 0.28) 0%, rgba(8, 6, 12, 0.10) 100%),
+        radial-gradient(ellipse 60% 80% at 80% 100%, rgba(55, 48, 65, 0.20) 0%, transparent 70%);
+}
+
+/* Active state — la colonne active s'étend, le sibling se dissipe.
+   Sibling fadé : pointer-events: none pour qu'il ne re-déclenche pas
+   le hover quand le curseur le traverse. */
+.WaveDroplet[data-active='light'] .WaveDroplet-column--light {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+}
+
+.WaveDroplet[data-active='light'] .WaveDroplet-column--dark {
+    opacity: 0;
+    transform: scale(0.94) translate(3%, 3%);
+    transform-origin: 100% 100%;
+    filter: blur(3px);
+    pointer-events: none;
+}
+
+.WaveDroplet[data-active='dark'] .WaveDroplet-column--dark {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+}
+
+.WaveDroplet[data-active='dark'] .WaveDroplet-column--light {
+    opacity: 0;
+    transform: scale(0.94) translate(-3%, -3%);
+    transform-origin: 0 0;
+    filter: blur(3px);
+    pointer-events: none;
+}
+
+.WaveDroplet-label {
+    position: absolute;
+    bottom: 88px;
+    font-size: 10px;
+    font-weight: 300;
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    color: rgba(234, 229, 220, 0.65);
+}
+
+.WaveDroplet-column--light .WaveDroplet-label { left: 96px; }
+.WaveDroplet-column--dark .WaveDroplet-label { right: 96px; }
+
+/* ─── Ménisque persistant (lentille WebGL) ───
+   Le visuel est rendu par <MeniscusLens> (Three.js / R3F) à l'intérieur
+   du <button>. Le CSS pilote seulement la position, la migration et
+   l'opacité — aucun effet visuel propre (pas de backdrop-filter ni
+   box-shadow sur l'élément qui bouge). */
+.WaveDroplet-meniscus {
+    position: absolute;
+    width: 320px;
+    height: 320px;
+    margin: -160px 0 0 -160px;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    opacity: 0;
+    transform: scale(0.3);
+    pointer-events: none;
+    z-index: 5;
+    appearance: none;
+    padding: 0;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    overflow: hidden;
+    transition:
+        top 1500ms var(--quart-damp),
+        left 1500ms var(--quart-damp),
+        transform 1500ms var(--quart-damp),
+        opacity 1000ms var(--quart);
+}
+
+.WaveDroplet-meniscus:focus {
+    outline: none;
+}
+
+.WaveDroplet-meniscus:focus-visible {
+    outline: 1px solid rgba(248, 244, 235, 0.6);
+    outline-offset: 4px;
+}
+
+.WaveDroplet[data-active='light'] .WaveDroplet-meniscus {
+    top: 82%;
+    left: 82%;
+    transform: scale(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.WaveDroplet[data-active='dark'] .WaveDroplet-meniscus {
+    top: 18%;
+    left: 18%;
+    transform: scale(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .WaveDroplet-meniscus {
+        transition:
+            opacity 200ms linear;
+    }
+}

@@ -1,0 +1,188 @@
+.Remnant {
+    --ink: #0A0908;
+    --bone: #EAE5DC;
+    --hair: rgba(234, 229, 220, 0.20);
+    --quart: cubic-bezier(0.77, 0, 0.175, 1);
+    --quart-out: cubic-bezier(0.165, 0.84, 0.44, 1);
+    --quart-damp: cubic-bezier(0.34, 1.06, 0.5, 1);
+
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    height: 100svh;
+    overflow: hidden;
+    background:
+        radial-gradient(ellipse 90% 65% at 28% 95%, rgba(150, 138, 175, 0.55) 0%, transparent 65%),
+        radial-gradient(ellipse 75% 60% at 72% 8%, rgba(120, 108, 145, 0.48) 0%, transparent 65%),
+        linear-gradient(180deg, #2D2738 0%, #18141E 100%);
+    color: var(--bone);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-weight: 300;
+}
+
+.Remnant-defs {
+    position: absolute;
+    width: 0;
+    height: 0;
+}
+
+.Remnant-header {
+    position: absolute;
+    top: 92px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    text-align: center;
+    max-width: 480px;
+    padding: 0 32px;
+    pointer-events: none;
+}
+
+.Remnant-eyebrow {
+    display: block;
+    font-size: 9px;
+    letter-spacing: 0.5em;
+    text-transform: uppercase;
+    color: rgba(234, 229, 220, 0.42);
+    margin-bottom: 22px;
+}
+
+.Remnant-title {
+    font-size: 32px;
+    font-weight: 200;
+    letter-spacing: 0.14em;
+    color: rgba(234, 229, 220, 0.95);
+    margin: 0 0 22px;
+    font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
+}
+
+.Remnant-blurb {
+    font-size: 11px;
+    line-height: 1.85;
+    color: rgba(234, 229, 220, 0.48);
+    margin: 0;
+    font-weight: 300;
+    letter-spacing: 0.04em;
+}
+
+.Remnant-stage {
+    position: absolute;
+    inset: 0;
+}
+
+.Remnant-column-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+}
+
+.Remnant-column-tint {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.Remnant-column--light .Remnant-column-tint {
+    background:
+        linear-gradient(135deg, rgba(255, 250, 240, 0.12) 0%, rgba(255, 250, 240, 0.03) 100%),
+        radial-gradient(ellipse 60% 80% at 20% 100%, rgba(255, 250, 240, 0.08) 0%, transparent 70%);
+}
+
+.Remnant-column--dark .Remnant-column-tint {
+    background:
+        linear-gradient(315deg, rgba(8, 6, 12, 0.28) 0%, rgba(8, 6, 12, 0.10) 100%),
+        radial-gradient(ellipse 60% 80% at 80% 100%, rgba(55, 48, 65, 0.20) 0%, transparent 70%);
+}
+
+.Remnant-grain {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 20;
+    opacity: 0.45;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.09 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+.Remnant-hairline {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 4;
+    opacity: 1;
+    transition: opacity 900ms var(--quart);
+}
+
+.Remnant-stage:hover .Remnant-hairline {
+    opacity: 0;
+}
+
+.Remnant-column {
+    position: absolute;
+    inset: 0;
+    cursor: pointer;
+    overflow: hidden;
+    transition:
+        clip-path 1300ms var(--quart-damp),
+        transform 1300ms var(--quart-damp),
+        opacity 900ms var(--quart),
+        filter 900ms var(--quart);
+}
+
+.Remnant-column--light {
+    clip-path: polygon(0 0, 100% 0, 100% 0, 0 100%, 0 100%);
+    border-right: 0.5px solid var(--hair);
+    border-bottom: 0.5px solid var(--hair);
+}
+
+.Remnant-column--dark {
+    clip-path: polygon(100% 0, 100% 0, 100% 100%, 0 100%, 0 100%);
+    border-top: 0.5px solid var(--hair);
+    border-left: 0.5px solid var(--hair);
+}
+
+/* Sibling shrink + push : fragment dans le coin (zone trop petite pour
+   bloquer la vue de la colonne active). Inertie via quart-damp pour
+   le sentiment "objet repoussé qui glisse". */
+.Remnant-stage:hover .Remnant-column--light:not(:hover) {
+    clip-path: polygon(0 0, 14% 0, 14% 0, 0 14%, 0 14%);
+    transform: translate(-6%, -6%) scale(0.96);
+    opacity: 0.7;
+}
+
+.Remnant-stage:hover .Remnant-column--dark:not(:hover) {
+    clip-path: polygon(100% 86%, 100% 86%, 100% 100%, 86% 100%, 86% 100%);
+    transform: translate(6%, 6%) scale(0.96);
+    opacity: 0.7;
+}
+
+.Remnant-stage .Remnant-column--light:hover {
+    clip-path: polygon(0 0, 100% 0, 100% 86%, 86% 100%, 0 100%);
+}
+
+.Remnant-stage .Remnant-column--dark:hover {
+    clip-path: polygon(14% 0, 100% 0, 100% 100%, 0 100%, 0 14%);
+}
+
+.Remnant-label {
+    position: absolute;
+    bottom: 88px;
+    font-size: 10px;
+    font-weight: 300;
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    color: rgba(234, 229, 220, 0.65);
+    transition: opacity 700ms var(--quart);
+}
+
+.Remnant-column--light .Remnant-label { left: 96px; }
+.Remnant-column--dark .Remnant-label { right: 96px; }
+
+.Remnant-stage:hover .Remnant-column:not(:hover) .Remnant-label {
+    opacity: 0;
+}

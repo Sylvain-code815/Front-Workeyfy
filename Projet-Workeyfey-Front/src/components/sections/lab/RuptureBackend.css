@@ -1,0 +1,349 @@
+.RuptureBackend {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    height: 100svh;
+    overflow: hidden;
+    background: #F1ECDB;
+    color: #0A0A0A;
+    isolation: isolate;
+    cursor: crosshair;
+    font-family: 'Inter Tight', 'Helvetica Neue', system-ui, sans-serif;
+    --r-green: #0CB370;
+    --r-magenta: #FF1B8D;
+    --r-ink: #0A0A0A;
+    --r-paper: #F1ECDB;
+}
+
+.RuptureBackend-paper {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.65;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.1 0 0 0 0 0.05 0 0 0 0.32 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+.RuptureBackend-particles {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* ---------- Head bar ---------- */
+.RuptureBackend-head {
+    position: absolute;
+    top: 22px;
+    left: 0;
+    right: 0;
+    z-index: 6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 clamp(20px, 4vw, 56px);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--r-green);
+    pointer-events: none;
+}
+
+.RuptureBackend-tag {
+    color: var(--r-green);
+}
+
+.RuptureBackend-meta {
+    color: var(--r-ink);
+    opacity: 0.5;
+}
+
+/* ---------- Title (shattered) ---------- */
+.RuptureBackend-title {
+    position: absolute;
+    top: 64px;
+    left: 0;
+    right: 0;
+    margin: 0;
+    z-index: 5;
+    font-weight: 900;
+    line-height: 0.86;
+    letter-spacing: -0.03em;
+    text-transform: uppercase;
+    pointer-events: none;
+    font-family: 'Inter Tight', 'Helvetica Neue Condensed', 'Arial Narrow', sans-serif;
+}
+
+.RuptureBackend-title-l1,
+.RuptureBackend-title-l2,
+.RuptureBackend-title-l3 {
+    display: block;
+    color: var(--r-ink);
+}
+
+.RuptureBackend-title-l1 {
+    font-size: clamp(78px, 18vw, 280px);
+    padding-left: clamp(20px, 4vw, 60px);
+}
+
+.RuptureBackend-title-l2 {
+    font-size: clamp(28px, 4vw, 64px);
+    padding-left: clamp(220px, 32vw, 520px);
+    margin-top: -0.08em;
+    color: var(--r-magenta);
+    font-style: italic;
+    font-weight: 800;
+}
+
+.RuptureBackend-title-l3 {
+    font-size: clamp(56px, 12vw, 196px);
+    padding-left: clamp(80px, 14vw, 240px);
+    margin-top: -0.06em;
+}
+
+/* ---------- Marginal notes ---------- */
+.RuptureBackend-note {
+    position: absolute;
+    z-index: 5;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--r-green);
+    background: var(--r-paper);
+    padding: 6px 9px;
+    border-left: 2px solid var(--r-green);
+    pointer-events: none;
+    max-width: 240px;
+}
+
+.RuptureBackend-note--a {
+    top: 24%;
+    right: clamp(20px, 4vw, 56px);
+    transform: rotate(-1.5deg);
+}
+
+.RuptureBackend-note--b {
+    bottom: 38%;
+    left: clamp(20px, 4vw, 56px);
+    transform: rotate(1deg);
+    color: var(--r-magenta);
+    border-left-color: var(--r-magenta);
+}
+
+.RuptureBackend-note--c {
+    top: 16%;
+    left: 36%;
+    transform: rotate(2deg);
+}
+
+/* ---------- ASCII infra topology ---------- */
+.RuptureBackend-ascii {
+    position: absolute;
+    right: clamp(20px, 4vw, 56px);
+    bottom: 32%;
+    z-index: 5;
+    margin: 0;
+    max-width: 460px;
+    pointer-events: none;
+}
+
+.RuptureBackend-ascii-pre {
+    margin: 0;
+    padding: 14px 16px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    line-height: 1.35;
+    color: var(--r-ink);
+    background: rgba(10, 10, 10, 0.04);
+    border: 1px solid var(--r-ink);
+    border-radius: 0;
+    box-shadow: 4px 4px 0 var(--r-ink);
+    animation: RuptureBackend-ascii-pop 4.2s steps(1, end) infinite;
+    white-space: pre;
+    overflow: hidden;
+}
+
+@keyframes RuptureBackend-ascii-pop {
+    0%   { transform: translateX(0); }
+    1%   { transform: translateX(-2px); }
+    2%   { transform: translateX(1px); }
+    3%   { transform: translateX(0); }
+}
+
+.RuptureBackend-ascii-caption {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--r-ink);
+}
+
+.RuptureBackend-ascii-state {
+    color: var(--r-green);
+    font-weight: 700;
+}
+
+/* ---------- Manifesto ---------- */
+.RuptureBackend-manifesto {
+    position: absolute;
+    bottom: clamp(48px, 7vh, 84px);
+    left: clamp(20px, 4vw, 56px);
+    right: clamp(20px, 4vw, 56px);
+    z-index: 5;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px 36px;
+    pointer-events: none;
+    border-top: 1px solid var(--r-ink);
+    padding-top: 18px;
+}
+
+.RuptureBackend-manifesto-item {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-size: clamp(15px, 1.5vw, 22px);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+    color: var(--r-ink);
+    flex: 1 1 auto;
+    min-width: 240px;
+}
+
+.RuptureBackend-manifesto-item[data-i='1'] .RuptureBackend-manifesto-text {
+    color: var(--r-green);
+}
+
+.RuptureBackend-manifesto-item[data-i='3'] .RuptureBackend-manifesto-text {
+    color: var(--r-magenta);
+    font-style: italic;
+}
+
+.RuptureBackend-manifesto-bullet {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    font-weight: 600;
+    color: var(--r-ink);
+    opacity: 0.55;
+}
+
+.RuptureBackend-manifesto-text {
+    line-height: 1.05;
+}
+
+/* ---------- Hint ---------- */
+.RuptureBackend-hint {
+    position: absolute;
+    bottom: clamp(48px, 7vh, 84px);
+    right: clamp(20px, 4vw, 56px);
+    z-index: 7;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--r-green);
+    color: var(--r-paper);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    font-weight: 700;
+    pointer-events: none;
+    transform: rotate(-2deg);
+    box-shadow: 3px 3px 0 var(--r-ink);
+}
+
+/* ---------- Code snippet overlay ---------- */
+.RuptureBackend-snippet {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 30;
+    width: min(560px, 88vw);
+    background: var(--r-ink);
+    color: var(--r-paper);
+    border: 1px solid var(--r-green);
+    box-shadow: 10px 10px 0 var(--r-magenta);
+    animation: RuptureBackend-snippet-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes RuptureBackend-snippet-in {
+    from { opacity: 0; transform: translate(-50%, -50%) scale(0.92); }
+    to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.RuptureBackend-snippet-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+}
+
+.RuptureBackend-snippet-tag {
+    color: var(--r-green);
+    font-weight: 700;
+}
+
+.RuptureBackend-snippet-close {
+    background: transparent;
+    border: 0;
+    color: var(--r-paper);
+    cursor: pointer;
+    font-size: 22px;
+    line-height: 1;
+    padding: 0;
+}
+
+.RuptureBackend-snippet-close:hover {
+    color: var(--r-magenta);
+}
+
+.RuptureBackend-snippet-pre {
+    margin: 0;
+    padding: 18px 18px 22px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--r-paper);
+    white-space: pre-wrap;
+}
+
+@media (max-width: 1080px) {
+    .RuptureBackend-ascii {
+        display: none;
+    }
+    .RuptureBackend-note--c {
+        display: none;
+    }
+    .RuptureBackend-title-l2 {
+        padding-left: clamp(80px, 16vw, 220px);
+    }
+}
+
+@media (max-width: 720px) {
+    .RuptureBackend-note {
+        display: none;
+    }
+    .RuptureBackend-manifesto-item {
+        font-size: 14px;
+    }
+    .RuptureBackend-title {
+        top: 84px;
+    }
+}

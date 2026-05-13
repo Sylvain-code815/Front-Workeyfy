@@ -1,0 +1,419 @@
+.NeuralGrid {
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
+    min-height: 100svh;
+    box-sizing: border-box;
+    padding: 110px 80px 60px 130px;
+    color: var(--color-white);
+    font-family: var(--lab-mono);
+    background:
+        radial-gradient(circle at 20% 20%, rgba(94, 231, 231, 0.07), transparent 60%),
+        radial-gradient(circle at 80% 80%, rgba(255, 61, 203, 0.05), transparent 60%),
+        #06081a;
+    overflow: hidden;
+}
+
+.NeuralGrid-noise {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.6;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.36, 0 0 0 0 0.9, 0 0 0 0 0.9, 0 0 0 0.05 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    mix-blend-mode: screen;
+}
+
+.NeuralGrid-header {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.NeuralGrid-tag {
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    color: var(--lab-cyan);
+    border: 1px solid rgba(94, 231, 231, 0.5);
+    padding: 4px 10px;
+    background: rgba(94, 231, 231, 0.08);
+}
+
+.NeuralGrid-title {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+}
+
+.NeuralGrid-subtitle {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: rgba(250, 250, 250, 0.45);
+    text-transform: lowercase;
+}
+
+.NeuralGrid-audio {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: transparent;
+    border: 1px solid rgba(94, 231, 231, 0.45);
+    color: rgba(94, 231, 231, 0.85);
+    font-family: var(--lab-mono);
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    cursor: pointer;
+    transition: background 200ms ease, color 200ms ease;
+}
+
+.NeuralGrid-audio:hover { color: var(--lab-cyan); }
+
+.NeuralGrid-audio.is-on {
+    background: rgba(94, 231, 231, 0.12);
+    color: var(--lab-cyan);
+    box-shadow: 0 0 16px rgba(94, 231, 231, 0.35);
+}
+
+.NeuralGrid-audio-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(94, 231, 231, 0.4);
+}
+
+.NeuralGrid-audio.is-on .NeuralGrid-audio-dot {
+    background: var(--lab-cyan);
+    box-shadow: 0 0 10px var(--lab-cyan);
+    animation: NeuralGrid-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes NeuralGrid-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.4); opacity: 0.6; }
+}
+
+/* ---------- Grid layout ---------- */
+.NeuralGrid-grid {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: 168px;
+    gap: 18px;
+}
+
+/* ---------- Card ---------- */
+.NeuralCard {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    padding: 18px 20px;
+    background: linear-gradient(160deg, rgba(94, 231, 231, 0.04), rgba(0, 0, 0, 0.6));
+    color: var(--color-white);
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 250ms ease, background 250ms ease;
+    outline: none;
+}
+
+.NeuralCard:hover,
+.NeuralCard:focus {
+    transform: translateY(-2px);
+    background: linear-gradient(160deg, rgba(94, 231, 231, 0.07), rgba(0, 0, 0, 0.7));
+}
+
+/* Double-line border (outer + inner) */
+.NeuralCard-frame {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border: 1px solid rgba(94, 231, 231, 0.55);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+
+.NeuralCard-frame-inner {
+    position: absolute;
+    inset: 5px;
+    border: 1px solid rgba(94, 231, 231, 0.25);
+}
+
+.NeuralCard.is-magenta .NeuralCard-frame {
+    border-color: rgba(255, 61, 203, 0.55);
+}
+.NeuralCard.is-magenta .NeuralCard-frame-inner {
+    border-color: rgba(255, 61, 203, 0.25);
+}
+
+.NeuralCard.is-hovered .NeuralCard-frame {
+    border-color: var(--lab-cyan);
+    box-shadow:
+        inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+        0 0 22px rgba(94, 231, 231, 0.35);
+}
+.NeuralCard.is-magenta.is-hovered .NeuralCard-frame {
+    border-color: var(--lab-magenta);
+    box-shadow:
+        inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+        0 0 22px rgba(255, 61, 203, 0.4);
+}
+
+/* Corners */
+.NeuralCard-corners {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.NeuralCard-corner {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--lab-cyan);
+    opacity: 0.85;
+}
+.NeuralCard.is-magenta .NeuralCard-corner { border-color: var(--lab-magenta); }
+
+.NeuralCard-corner--tl { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+.NeuralCard-corner--tr { top: -1px; right: -1px; border-left: none; border-bottom: none; }
+.NeuralCard-corner--bl { bottom: -1px; left: -1px; border-right: none; border-top: none; }
+.NeuralCard-corner--br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+
+/* Header */
+.NeuralCard-header {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    letter-spacing: 0.28em;
+}
+
+.NeuralCard-id {
+    color: rgba(94, 231, 231, 0.8);
+    font-weight: 700;
+}
+.NeuralCard.is-magenta .NeuralCard-id {
+    color: rgba(255, 61, 203, 0.85);
+}
+
+.NeuralCard-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: rgba(250, 250, 250, 0.7);
+}
+.NeuralCard-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(250, 250, 250, 0.5);
+}
+.NeuralCard-status.is-stable .NeuralCard-status-dot {
+    background: var(--lab-cyan);
+    box-shadow: 0 0 6px var(--lab-cyan);
+}
+.NeuralCard-status.is-beta .NeuralCard-status-dot {
+    background: #ffd166;
+    box-shadow: 0 0 6px #ffd166;
+}
+.NeuralCard-status.is-offline .NeuralCard-status-dot {
+    background: var(--lab-magenta);
+    box-shadow: 0 0 6px var(--lab-magenta);
+}
+
+/* Body */
+.NeuralCard-body {
+    position: relative;
+    z-index: 2;
+    margin-top: auto;
+    transition: opacity 240ms ease, transform 240ms ease;
+}
+
+.NeuralCard.is-hovered .NeuralCard-body {
+    opacity: 0;
+    transform: translateY(-6px);
+}
+
+.NeuralCard-title {
+    margin: 0 0 6px;
+    font-family: var(--lab-mono);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    color: var(--color-white);
+}
+
+.NeuralCard-domain {
+    margin: 0 0 8px;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: rgba(94, 231, 231, 0.85);
+}
+.NeuralCard.is-magenta .NeuralCard-domain {
+    color: rgba(255, 61, 203, 0.85);
+}
+
+.NeuralCard-tagline {
+    margin: 0;
+    font-family: var(--font-family-base);
+    font-size: 12px;
+    line-height: 1.4;
+    color: rgba(250, 250, 250, 0.55);
+}
+
+/* Reveal panel */
+.NeuralCard-reveal {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 18px;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 240ms ease 60ms, transform 240ms ease 60ms;
+    pointer-events: none;
+}
+
+.NeuralCard.is-hovered .NeuralCard-reveal {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.NeuralCard-typewrite {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    font-size: 11.5px;
+    letter-spacing: 0.05em;
+    color: rgba(250, 250, 250, 0.85);
+}
+
+.NeuralCard-key {
+    color: var(--lab-cyan);
+    font-weight: 700;
+    flex-shrink: 0;
+    width: 70px;
+}
+.NeuralCard.is-magenta .NeuralCard-key {
+    color: var(--lab-magenta);
+}
+
+.NeuralCard-typewrite-text {
+    overflow: hidden;
+    white-space: nowrap;
+    border-right: 1px solid transparent;
+    width: 0;
+    color: rgba(250, 250, 250, 0.92);
+}
+
+.NeuralCard.is-hovered .NeuralCard-typewrite-text {
+    animation:
+        NeuralCard-typewriter 700ms steps(36, end) forwards,
+        NeuralCard-caret 600ms steps(2, end) 4;
+    border-right-color: var(--lab-cyan);
+}
+
+.NeuralCard.is-hovered .NeuralCard-typewrite:nth-child(2) .NeuralCard-typewrite-text {
+    animation-delay: 200ms, 200ms;
+}
+.NeuralCard.is-hovered .NeuralCard-typewrite:nth-child(3) .NeuralCard-typewrite-text {
+    animation-delay: 380ms, 380ms;
+}
+
+@keyframes NeuralCard-typewriter {
+    from { width: 0; }
+    to { width: 100%; }
+}
+@keyframes NeuralCard-caret {
+    from { border-right-color: var(--lab-cyan); }
+    to { border-right-color: transparent; }
+}
+
+/* Glitch layers (RGB split) shown on hover */
+.NeuralCard-glitch {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 200ms ease;
+    mix-blend-mode: screen;
+    overflow: hidden;
+}
+
+.NeuralCard.is-hovered .NeuralCard-glitch {
+    opacity: 0.35;
+}
+
+.NeuralCard-glitch-layer {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(40px, 6vw, 96px);
+    font-family: var(--lab-mono);
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    white-space: nowrap;
+    opacity: 0.6;
+}
+
+.NeuralCard-glitch-layer--r {
+    color: #ff3d6e;
+    text-shadow: 0 0 12px rgba(255, 61, 110, 0.8);
+}
+.NeuralCard-glitch-layer--g {
+    color: #5EE7E7;
+    text-shadow: 0 0 12px rgba(94, 231, 231, 0.8);
+}
+.NeuralCard-glitch-layer--b {
+    color: #6affe1;
+}
+
+.NeuralCard.is-hovered .NeuralCard-glitch-layer--r {
+    animation: NeuralCard-glitch-r 280ms steps(2, end) infinite;
+}
+.NeuralCard.is-hovered .NeuralCard-glitch-layer--g {
+    animation: NeuralCard-glitch-g 220ms steps(2, end) infinite;
+}
+.NeuralCard.is-hovered .NeuralCard-glitch-layer--b {
+    animation: NeuralCard-glitch-b 320ms steps(2, end) infinite;
+}
+
+@keyframes NeuralCard-glitch-r {
+    0% { transform: translate(2px, -1px); clip-path: inset(20% 0 60% 0); }
+    50% { transform: translate(-3px, 2px); clip-path: inset(60% 0 10% 0); }
+    100% { transform: translate(1px, -2px); clip-path: inset(40% 0 40% 0); }
+}
+@keyframes NeuralCard-glitch-g {
+    0% { transform: translate(-2px, 1px); clip-path: inset(40% 0 30% 0); }
+    50% { transform: translate(3px, -2px); clip-path: inset(10% 0 70% 0); }
+    100% { transform: translate(-1px, 2px); clip-path: inset(70% 0 10% 0); }
+}
+@keyframes NeuralCard-glitch-b {
+    0% { transform: translate(0, 0); clip-path: inset(0 0 0 0); }
+    50% { transform: translate(2px, 0); clip-path: inset(80% 0 5% 0); }
+    100% { transform: translate(-2px, 0); clip-path: inset(20% 0 60% 0); }
+}
+
+@media (max-width: 1100px) {
+    .NeuralGrid {
+        padding: 100px 32px 40px 90px;
+    }
+    .NeuralGrid-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .NeuralCard {
+        grid-column: span 1 !important;
+        grid-row: span 1 !important;
+    }
+}

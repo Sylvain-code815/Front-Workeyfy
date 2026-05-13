@@ -1,0 +1,278 @@
+/* ===== Quantum Tunnel — sober black overlay =====
+   Opacity is driven entirely by CSS animations triggered through class
+   toggles (see overlayPhase in TunnelContext.tsx). No RAF loop, no JS
+   per-frame style writes: the opacity ramp runs on the browser's
+   compositor thread, completely insulated from React/Three.js work on
+   the main thread. This was the last main-thread animation contributing
+   to "saccadé" complaints during route mount. */
+
+.QuantumTunnel-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0;
+    background: #02050a;
+    will-change: opacity;
+}
+
+.QuantumTunnel-overlay--rising,
+.QuantumTunnel-overlay--peak,
+.QuantumTunnel-overlay--falling,
+.QuantumTunnel-overlay--cancelling {
+    pointer-events: auto;
+}
+
+.QuantumTunnel-overlay--rising {
+    /* Front-loaded easing (expo.out) — the rise's job is to cover the
+       route swap fast, not to feel slow & buttery. The premium feel
+       lives in the scanline, not the cover-up. */
+    animation: tunnel-overlay-rise 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.QuantumTunnel-overlay--peak {
+    opacity: 1;
+}
+
+.QuantumTunnel-overlay--falling {
+    animation: tunnel-overlay-fall 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Cancel path: a quick interrupt fade. The 'from' opacity is omitted on
+   purpose — when the previous --rising/--peak/--falling class is
+   replaced, the browser interpolates from the current computed opacity
+   value to 0, regardless of how far the prior animation had progressed. */
+.QuantumTunnel-overlay--cancelling {
+    animation: tunnel-overlay-cancel 0.18s ease-out forwards;
+}
+
+@keyframes tunnel-overlay-rise {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes tunnel-overlay-fall {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes tunnel-overlay-cancel {
+    to { opacity: 0; }
+}
+
+/* ===== Scanline sweep — GPU-only translateY panel =====
+   A single fixed-position black panel covers the viewport and slides down
+   via `transform: translateY` (composited, never re-paints children). The
+   luminous line sits at the panel's TOP edge — as the panel descends, the
+   line traces the reveal frontier and content above is uncovered.
+
+   Why not mask-image: dynamic mask gradients are not GPU-accelerated and
+   re-mask the entire children subtree every frame → visible jank on the
+   Projects page (carousel iframes, AnalyticsDashboard).
+*/
+
+.ScanlineSweep {
+    position: relative;
+}
+
+.ScanlineSweep-content {
+    /* Rendered once, never animated. The .ScanlineSweep-mask above does
+       all the visual work. */
+}
+
+/* Single composited layer: the line + halos + black panel are ALL baked
+   into one vertical gradient on this element. No box-shadow, no filter,
+   no child elements that need repainting. The descent is driven by a
+   CSS `@keyframes` animation (not GSAP) so it runs on the browser's
+   compositor thread — completely insulated from main-thread stalls
+   (React reconciliation, Three.js shader compilation, etc.) that would
+   otherwise cause GSAP's RAF-based animation to drop frames.
+
+   The panel extends 48px above the viewport so the "above-the-line"
+   diffusion glow is part of the same gradient (no separate halo
+   element). Height grows accordingly so the panel still fully covers
+   to the bottom of the viewport at translateY(0). */
+.ScanlineSweep-mask {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: -48px;
+    height: calc(100vh + 48px);
+    height: calc(100svh + 48px);
+    pointer-events: none;
+    z-index: 9000;
+    will-change: transform, opacity;
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    background: linear-gradient(
+        180deg,
+        rgba(0, 229, 255, 0) 0px,
+        rgba(0, 229, 255, 0.04) 16px,
+        rgba(0, 229, 255, 0.14) 32px,
+        rgba(0, 229, 255, 0.45) 42px,
+        rgba(255, 255, 255, 0.95) 48px,
+        rgba(255, 255, 255, 0.95) 49px,
+        rgba(0, 229, 255, 0.55) 54px,
+        rgba(0, 229, 255, 0.22) 72px,
+        rgba(0, 229, 255, 0.08) 110px,
+        rgba(2, 5, 10, 0.85) 150px,
+        #02050a 200px,
+        #02050a 100%
+    );
+    /* The animations are declared but paused from the moment the element
+       mounts. This pre-warms the compositor: the layer is promoted and
+       the gradient texture is rasterized while the panel still sits at
+       frame 0 (covering the viewport). Toggling `--play` only flips
+       `animation-play-state` — no style recalc, no first-frame paint
+       hitch, no layer creation work. The animation starts truly
+       instantaneously. */
+    animation:
+        scanline-sweep-translate 1.6s cubic-bezier(0.87, 0, 0.13, 1) forwards,
+        scanline-sweep-fade 0.55s cubic-bezier(0.16, 1, 0.3, 1) 1.45s forwards;
+    animation-play-state: paused;
+}
+
+.ScanlineSweep-mask--play {
+    animation-play-state: running;
+}
+
+@keyframes scanline-sweep-translate {
+    from {
+        transform: translate3d(0, 0, 0);
+    }
+    to {
+        transform: translate3d(0, 100%, 0);
+    }
+}
+
+@keyframes scanline-sweep-fade {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+/* ===== Typewriter ===== */
+
+.Typewriter {
+    font-family:
+        'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    white-space: pre-wrap;
+}
+
+.Typewriter-cursor {
+    display: inline-block;
+    width: 0.55ch;
+    margin-left: 0.05ch;
+    color: #00e5ff;
+    animation: tw-blink 0.9s step-end infinite;
+}
+
+.Typewriter-cursor--magenta {
+    color: #ff2a8a;
+}
+
+@keyframes tw-blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+}
+
+/* ===== DataPager — linear progress rail =====
+   A 0.5px hairline spans the full width. N evenly-spaced ticks sit on it.
+   A white luminous fill grows from origin to the active tick (GSAP-driven,
+   see DataPager.tsx). Inactive ticks at 0.2 opacity, passed ticks brighten
+   to 0.85, the active tick is the brightest beacon on the rail. */
+
+.DataPager {
+    position: relative;
+    width: 100%;
+    height: 22px;
+    margin: 0;
+    user-select: none;
+}
+
+/* Continuous hairline rail at 0.5px (1px box scaled to 0.5 on Y so the
+   browser composites it as a true sub-pixel line on retina). */
+.DataPager-rail {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.10);
+    transform: translateY(-50%) scaleY(0.5);
+    transform-origin: center;
+    overflow: visible;
+}
+
+/* Luminous fill — starts at left:0 with width 0, GSAP grows it toward the
+   active tick. The box-shadow halo gives the "data-flow" glow that
+   matches the page's blue/green palette. scaleY(2) here cancels the
+   parent's scaleY(0.5) so the fill renders at full 1px even though the
+   rail track is half that. */
+.DataPager-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    background: #FFFFFF;
+    transform: scaleY(2);
+    transform-origin: center;
+    box-shadow:
+        0 0 4px rgba(255, 255, 255, 0.85),
+        0 0 12px rgba(127, 227, 255, 0.55),
+        0 0 24px rgba(74, 222, 128, 0.35);
+    will-change: width;
+}
+
+.DataPager-ticks {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.DataPager-tick {
+    position: absolute;
+    top: 50%;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.20);
+    border: none;
+    padding: 0;
+    transform: translate(-50%, -50%);
+    transition:
+        background 220ms ease,
+        box-shadow 220ms ease,
+        width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+        height 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.DataPager-tick:hover:not(.DataPager-tick--active) {
+    background: rgba(127, 227, 255, 0.85);
+    width: 7px;
+    height: 7px;
+}
+
+.DataPager-tick--passed {
+    background: rgba(255, 255, 255, 0.85);
+}
+
+.DataPager-tick--active {
+    width: 11px;
+    height: 11px;
+    background: #FFFFFF;
+    box-shadow:
+        0 0 0 2px rgba(10, 14, 39, 1),
+        0 0 0 3px rgba(127, 227, 255, 0.85),
+        0 0 14px rgba(127, 227, 255, 0.85),
+        0 0 28px rgba(74, 222, 128, 0.45);
+    cursor: default;
+}

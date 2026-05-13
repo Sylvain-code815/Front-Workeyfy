@@ -1,0 +1,44 @@
+/* ──────────────────────────────────────────────────────────────────
+   CockpitLegacy.css — minimal framing for the Lab archive of the
+   original card-grid BackendCockpit. Only styles the meta header;
+   the BackendCockpit underneath ships with its own CSS untouched.
+   ────────────────────────────────────────────────────────────────── */
+
+.LegacyCockpit {
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
+    padding: 96px clamp(24px, 4vw, 64px) 64px;
+    background: #060912;
+    color: rgba(255, 255, 255, 0.92);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.LegacyCockpit-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 640px;
+    margin: 0 auto 36px;
+}
+.LegacyCockpit-meta-tag {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: rgba(255, 159, 28, 0.7);
+}
+.LegacyCockpit-meta-title {
+    margin: 0;
+    font-size: clamp(1.5rem, 3vw, 2.25rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: rgba(255, 255, 255, 0.94);
+    line-height: 1.1;
+}
+.LegacyCockpit-meta-note {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.58);
+    letter-spacing: -0.005em;
+}
