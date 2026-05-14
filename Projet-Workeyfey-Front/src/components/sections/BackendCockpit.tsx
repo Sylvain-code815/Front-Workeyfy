@@ -849,17 +849,23 @@ function FlowDiagram({
             if (now - lastSpawnRef.current >= interval) {
                 lastSpawnRef.current = now;
                 FLOW_PARTICLE_SEQ = (FLOW_PARTICLE_SEQ + 1) >>> 0;
+                // Pin the particle object (and its id) at spawn time. Reading
+                // FLOW_PARTICLE_SEQ inside the updater would race: with React
+                // automatic batching, multiple ticks can queue updaters before
+                // a render, and each lazy read would resolve to the LATEST
+                // SEQ value → identical keys → "two children with key X".
                 const target: 'cache' | 'db' = Math.random() < 0.55 ? 'cache' : 'db';
                 const failed = pressure.errorBias > 0 && Math.random() < pressure.errorBias * 0.5;
+                const spawned: FlowParticle = {
+                    id: FLOW_PARTICLE_SEQ,
+                    born: now,
+                    duration: 1600 + Math.random() * 600,
+                    target,
+                    failed,
+                };
                 setParticles((prev) => {
                     const next = prev.filter((p) => now - p.born < p.duration);
-                    next.push({
-                        id: FLOW_PARTICLE_SEQ,
-                        born: now,
-                        duration: 1600 + Math.random() * 600,
-                        target,
-                        failed,
-                    });
+                    next.push(spawned);
                     return next.slice(-60); // hard cap
                 });
             } else {

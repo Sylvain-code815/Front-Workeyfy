@@ -851,24 +851,6 @@
     -webkit-backdrop-filter: blur(8px);
 }
 
-/* Mobile-only HUD toggle — desktop keeps the dual column. Hidden by
-   default; the mobile media query below the section toggles it on. */
-.ProjectsGaming-universeToggle {
-    display: none;
-}
-
-@keyframes projects-universe-pulse {
-    0%   { box-shadow: 0 0 0 0 rgba(94, 231, 231, 0); }
-    35%  { box-shadow: 0 0 24px 2px rgba(94, 231, 231, 0.55); }
-    100% { box-shadow: 0 0 0 0 rgba(94, 231, 231, 0); }
-}
-
-@keyframes projects-universe-pulse-green {
-    0%   { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
-    35%  { box-shadow: 0 0 24px 2px rgba(74, 222, 128, 0.55); }
-    100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
-}
-
 /* Diagonal split: each column is absolute and covers the full section,
    then clip-path carves a triangle out of it. The shared edge between the
    two clip polygons forms the diagonal divider running top-right ↔
@@ -2115,151 +2097,54 @@ html.Projects-snap .Footer {
     }
 }
 
-/* SECTION 2 mobile — comparateur FiveM ↔ Metaverse.
-   Le vertical stack hérité de la media query 1250px casse l'effet de
-   comparaison sur petit écran : on bascule sur un switch HUD 2-segments
-   qui n'affiche qu'un univers à la fois. Le shader de fond suit la
-   palette via activeUniverse (cf. Projects.tsx > activePalette). */
+/* SECTION 2 mobile — comparateur FiveM ↔ Metaverse en triangles diagonaux.
+   On garde la diagonale top-right ↔ bottom-left du desktop : le triangle
+   est le sélecteur tactile (~156 000 px² par côté = bien au-delà de
+   44×44pt). Tap direct sur un triangle → mode immersif (clip-path 100/0,
+   son ON) via handleVideoClick. Tap sur le petit coin visible de l'autre
+   → switch d'univers. */
 @media (max-width: 768px) {
     .Projects-section--gaming {
         position: relative;
     }
 
-    /* Re-passe en single-column stack pour que la colonne active occupe
-       la pleine hauteur (la 1250px breakpoint l'avait déjà fait). */
-    .Projects-section-inner--gaming {
-        flex-direction: column;
-    }
-
-    /* Le badge GAMING PRODUCTIONS = "catégorie" demandée en haut.
-       Placé sous le Header (72px) et au-dessus du toggle Metaverse/FiveM. */
+    /* Badge GAMING PRODUCTIONS centré en haut, au-dessus des deux
+       triangles. z-index élevé pour rester lisible quand un triangle
+       passe en immersif (la vidéo en plein cadre couvre tout le reste). */
     .ProjectsGaming-badge {
         display: inline-block;
         top: 88px;
         font-size: 10px;
         padding: 6px 14px;
         letter-spacing: 0.28em;
+        z-index: 4;
     }
 
-    .ProjectsGaming-universeToggle {
-        display: inline-flex;
-        position: absolute;
-        top: 128px;      /* badge top 88 + ~28 hauteur badge + 12 gap */
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 3;
-        gap: 4px;
-        padding: 4px;
-        background: rgba(8, 14, 28, 0.78);
-        border: 1px solid rgba(94, 231, 231, 0.22);
-        border-radius: 999px;
-        backdrop-filter: blur(8px) saturate(140%);
-        -webkit-backdrop-filter: blur(8px) saturate(140%);
-        font-family: 'JetBrains Mono', 'Consolas', 'Menlo', monospace;
+    /* Padding triangulaire resserré — le clip-path mange déjà les coins
+       opposés, donc inutile de réserver 64×80px comme sur desktop. 20×16
+       laisse le contenu à l'intérieur de la zone visible du triangle. */
+    .ProjectsGaming-column {
+        padding: 20px 16px;
     }
 
-    .ProjectsGaming-universeToggle-segment {
-        appearance: none;
-        position: relative;
-        padding: 8px 18px;
-        min-height: 36px;
-        border: 0;
-        border-radius: 999px;
-        background: transparent;
-        color: rgba(220, 240, 255, 0.55);
-        font-size: 11px;
-        font-weight: 500;
-        letter-spacing: 0.18em;
-        cursor: pointer;
-        transition:
-            color 200ms ease,
-            background 200ms ease,
-            border-color 200ms ease;
+    /* Roblox occupe le triangle haut-gauche. Le contenu (ancré flex-start)
+       est poussé sous le header (72px) + le badge (88px + ~28px) pour ne
+       pas le chevaucher. max-width 62vw garde le bloc à l'intérieur de la
+       moitié top-left du portrait, du bon côté de la diagonale. */
+    .ProjectsGaming-column--roblox .ProjectsGaming-content {
+        margin-top: 80px;
+        max-width: 62vw;
     }
 
-    .ProjectsGaming-universeToggle-segment::before {
-        /* Invisible thumb-target — same trick that SatellitePager uses
-           to land iOS-HIG-compliant 44px hitboxes without inflating the
-           visual size of the chip. */
-        content: '';
-        position: absolute;
-        inset: -4px;
+    /* FiveM occupe le triangle bas-droite. Le contenu (ancré flex-end)
+       est remonté au-dessus du ContactButton fixé (≈ bottom 24px + 56px
+       de hauteur). max-width 62vw symétrique à Roblox. */
+    .ProjectsGaming-column--fivem .ProjectsGaming-content {
+        margin-bottom: 80px;
+        max-width: 62vw;
     }
 
-    .ProjectsGaming-universeToggle-segment--active {
-        background: rgba(255, 255, 255, 0.08);
-        color: rgba(245, 252, 255, 0.95);
-        font-weight: 600;
-    }
-
-    .ProjectsGaming-universeToggle-segment--metaverse.ProjectsGaming-universeToggle-segment--active {
-        box-shadow: inset 0 0 0 1px rgba(94, 231, 231, 0.55);
-        color: #5EE7E7;
-        /* Re-mounted via React key on every switch → animation replays. */
-        animation: projects-universe-pulse 320ms cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
-    .ProjectsGaming-universeToggle-segment--fivem.ProjectsGaming-universeToggle-segment--active {
-        box-shadow: inset 0 0 0 1px rgba(74, 222, 128, 0.55);
-        color: #4ADE80;
-        animation: projects-universe-pulse-green 320ms cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
-    /* Cache l'univers non-actif ; l'actif occupe seul la zone visible. */
-    .Projects-section--gaming[data-active-universe='roblox'] .ProjectsGaming-column--fivem,
-    .Projects-section--gaming[data-active-universe='fivem'] .ProjectsGaming-column--roblox {
-        display: none;
-    }
-
-    /* Colonne active : full-bleed (100vw × 100svh) avec le contenu
-       (titre + description + cartes) BUNDLED en bas, comme demandé.
-       padding-top minimal — le badge + le toggle vivent en absolute
-       sur la section, ils n'ont pas besoin de "pousser" la colonne.
-       padding-bottom 0 — le bloc texte gère son propre espace par
-       rapport au bord. !important sur filter pour battre les règles
-       desktop (grayscale(0.9) brightness(0.55)) que le hover ne peut
-       pas déclencher sur touch.
-       clip-path: none !important — le diagonal du desktop n'a pas de sens
-       sur mobile où il n'y a qu'une seule colonne visible à la fois.
-       L'!important bat les règles desktop `:hover` / `:has(--immersive)`
-       qui définissent clip-path à des polygones. */
-    .Projects-section--gaming[data-active-universe='roblox'] .ProjectsGaming-column--roblox,
-    .Projects-section--gaming[data-active-universe='fivem'] .ProjectsGaming-column--fivem {
-        flex: 1 1 100%;
-        width: 100%;
-        min-height: 100svh;
-        filter: none !important;
-        clip-path: none !important;
-        padding: 0;
-        align-items: stretch;
-        justify-content: flex-end;
-    }
-
-    /* Le bloc texte (titre + description + cartes) s'étire en largeur
-       pour que la barre de cartes puisse scroller pleine-largeur.
-       padding-bottom 24px = respiration sous les cartes. */
-    .Projects-section--gaming[data-active-universe='roblox'] .ProjectsGaming-column--roblox .ProjectsGaming-content,
-    .Projects-section--gaming[data-active-universe='fivem'] .ProjectsGaming-column--fivem .ProjectsGaming-content {
-        align-self: stretch;
-        max-width: none;
-        width: 100%;
-        gap: 12px;
-        padding: 0 20px 24px;
-        box-sizing: border-box;
-        /* Halo dégradé sombre derrière le bloc texte : sans ça le titre
-           blanc se mange par la vidéo de fond claire (ex. mockup
-           gameplay). Le gradient remonte d'env. 280px = hauteur typique
-           titre + description + barre de cartes + padding. */
-        background: linear-gradient(
-            180deg,
-            transparent 0%,
-            rgba(0, 0, 0, 0.55) 30%,
-            rgba(0, 0, 0, 0.85) 100%
-        );
-    }
-
-    /* Title : compact, lisible sur fond vidéo, alignement gauche
-       sous le bandeau de description. */
+    /* Titre compact qui tient dans le coin large du triangle. */
     .ProjectsGaming-title {
         font-size: clamp(1.05rem, 4.6vw, 1.4rem);
         line-height: 1.15;
@@ -2270,8 +2155,6 @@ html.Projects-snap .Footer {
         transform-origin: left center;
     }
 
-    /* Description re-affichée sur mobile (était masquée avant).
-       Plafonnée à 88vw pour ne pas s'étirer jusqu'au bord. */
     .ProjectsGaming-description {
         display: block;
         font-size: 13px;
@@ -2280,14 +2163,14 @@ html.Projects-snap .Footer {
         color: rgba(var(--color-white-rgb), 0.82);
     }
 
-    /* Cards : barre swipable horizontale dans le flux normal (plus
-       d'absolute → plus de "cards qui se baladent quand on clique sur
-       la vidéo"). margin négatif pour mordre le padding du content et
-       coller aux bords du viewport. Snap par tuile. */
+    /* Cards : scroll horizontal interne au content block (plus de marge
+       négative — le content n'est plus full-bleed, il vit dans son coin
+       de triangle). overflow:hidden + clip-path masquent naturellement
+       les cartes qui sortiraient du triangle au scroll. */
     .ProjectsGaming-cards {
         position: static;
-        margin: 4px -20px 0;
-        padding: 0 20px;
+        margin: 4px 0 0;
+        padding: 0;
         gap: 12px;
         flex-wrap: nowrap;
         overflow-x: auto;

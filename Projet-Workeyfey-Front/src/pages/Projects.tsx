@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import ProjectsPager from '../tunnel/ProjectsPager';
@@ -15,7 +15,7 @@ import ScanlineSweep from '../tunnel/ScanlineSweep';
 import Typewriter from '../tunnel/Typewriter';
 import generatedPalettesRaw from '../data/generatedPalettes.json';
 import robloxLogo from '../assets/roblox-logo.png';
-import fivemLogo from '../assets/fivem-logo.jpg';
+import fivemLogo from '../assets/fivem-logo.png';
 import './Projects.css';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -452,6 +452,7 @@ function GamingColumn({
     description,
     revealStart,
     logo,
+    onImmersiveChange,
 }: {
     columnClass: 'ProjectsGaming-column--roblox' | 'ProjectsGaming-column--fivem';
     accent: Accent;
@@ -462,6 +463,7 @@ function GamingColumn({
     description: string;
     revealStart: boolean;
     logo: string;
+    onImmersiveChange?: (active: boolean) => void;
 }) {
     const [activeIndex, setActiveIndex] = useState(0);
     const [fading, setFading] = useState(false);
@@ -516,6 +518,10 @@ function GamingColumn({
             if (centerTimeoutRef.current) window.clearTimeout(centerTimeoutRef.current);
         };
     }, []);
+
+    useEffect(() => {
+        onImmersiveChange?.(isImmersive);
+    }, [isImmersive, onImmersiveChange]);
 
     // Mirror the <video> element's play/pause state so the toggle button
     // shows the correct icon regardless of who initiated the change
@@ -989,12 +995,11 @@ export default function Projects() {
     // onActiveSlideChange callback. Used to source the fluid-mesh palette
     // when section 3 dominates the viewport.
     const [s3ActiveSlide, setS3ActiveSlide] = useState<AnalyticsSlide | null>(null);
-    // Mobile-only HUD toggle for Section 2 — splits the FiveM ↔ Metaverse
-    // dual column into two switchable views (vertical stacking under 768px
-    // killed the comparison effect). Pulse nonce drives a one-shot CSS
-    // animation on the activated segment for the "click" visual feedback.
+    // Drives the GlobalFluidMesh palette in section 2. Updated whenever one
+    // of the two GamingColumns enters immersive mode (cf. onImmersiveChange
+    // wired on each column below). Idle 50/50 keeps the last selected
+    // universe so the shader doesn't reset to a default on exit.
     const [activeUniverse, setActiveUniverse] = useState<'roblox' | 'fivem'>('roblox');
-    const [universePulseNonce, setUniversePulseNonce] = useState(0);
     const { setTheme } = usePageTheme();
     const tunnel = useTunnel();
 
@@ -1040,11 +1045,9 @@ export default function Projects() {
             return { ...palette, speed: currentSlide.speed ?? DEFAULT_SPEED };
         }
         if (activeSection === 2) {
-            // Mobile-only toggle drives the fluid mesh palette so the shader
-            // ambient transition reinforces the switch between universes.
-            // Desktop stays on Liquid Silver (dual column = no single
-            // dominant universe). roblox = cyan/blue calm, fivem = neon
-            // green/magenta energetic.
+            // Tracks the last universe entered in immersive mode (driven by
+            // each GamingColumn via onImmersiveChange). roblox = cyan/blue
+            // calm, fivem = neon green/magenta energetic.
             if (activeUniverse === 'roblox') {
                 return { colorLeft: '#5EE7E7', colorRight: '#3B82F6', speed: 0.05 };
             }
@@ -1061,20 +1064,16 @@ export default function Projects() {
         };
     }, [activeSection, currentSlide, s3ActiveSlide, activeUniverse]);
 
-    // Toggle handler — short haptic + nonce bump that re-keys the activated
-    // segment so its CSS pulse animation replays on every click.
-    const switchUniverse = (u: 'roblox' | 'fivem') => {
-        if (u === activeUniverse) return;
-        setActiveUniverse(u);
-        setUniversePulseNonce((n) => n + 1);
-        if (typeof navigator !== 'undefined') {
-            try {
-                navigator.vibrate?.(8);
-            } catch {
-                /* iOS Safari silently no-op, Firefox throws outside gesture */
-            }
-        }
-    };
+    // Stable callbacks for each column's onImmersiveChange. Re-promoting the
+    // universe to "active" when its column enters immersive mode (no-op on
+    // exit so idle 50/50 retains the last palette and we avoid resetting the
+    // shader mid-comparison).
+    const handleRobloxImmersive = useCallback((active: boolean) => {
+        if (active) setActiveUniverse('roblox');
+    }, []);
+    const handleFivemImmersive = useCallback((active: boolean) => {
+        if (active) setActiveUniverse('fivem');
+    }, []);
 
     // ── Cinematic toggle between carousel front and BackendCockpit ──
     // goToBack: slot stage explodes (scale + blur + opacity in 350ms ease-in)
@@ -1707,7 +1706,6 @@ export default function Projects() {
             <section
                 ref={section2Ref}
                 data-section="2"
-                data-active-universe={activeUniverse}
                 className="Projects-section Projects-section--gaming"
                 aria-label="Gaming Productions"
             >
@@ -1724,37 +1722,6 @@ export default function Projects() {
                     play={revealStart}
                 />
 
-                {/* Mobile-only HUD toggle — hidden via CSS above 768px.
-                    The 2-segment switch replaces the vertical stack of
-                    columns with a single dominant universe at a time so
-                    the comparison effect survives small viewports. */}
-                <div
-                    className="ProjectsGaming-universeToggle"
-                    role="tablist"
-                    aria-label="Univers gaming"
-                >
-                    <button
-                        type="button"
-                        role="tab"
-                        aria-selected={activeUniverse === 'roblox'}
-                        key={`metaverse-${activeUniverse === 'roblox' ? universePulseNonce : 'idle'}`}
-                        className={`ProjectsGaming-universeToggle-segment ProjectsGaming-universeToggle-segment--metaverse${activeUniverse === 'roblox' ? ' ProjectsGaming-universeToggle-segment--active' : ''}`}
-                        onClick={() => switchUniverse('roblox')}
-                    >
-                        METAVERSE
-                    </button>
-                    <button
-                        type="button"
-                        role="tab"
-                        aria-selected={activeUniverse === 'fivem'}
-                        key={`fivem-${activeUniverse === 'fivem' ? universePulseNonce : 'idle'}`}
-                        className={`ProjectsGaming-universeToggle-segment ProjectsGaming-universeToggle-segment--fivem${activeUniverse === 'fivem' ? ' ProjectsGaming-universeToggle-segment--active' : ''}`}
-                        onClick={() => switchUniverse('fivem')}
-                    >
-                        FIVEM
-                    </button>
-                </div>
-
                 <GamingColumn
                     columnClass="ProjectsGaming-column--roblox"
                     accent="cyan"
@@ -1765,6 +1732,7 @@ export default function Projects() {
                     description="Immersive experiences built with Lua scripting, custom physics engines, and advanced monetization systems."
                     revealStart={revealStart}
                     logo={robloxLogo}
+                    onImmersiveChange={handleRobloxImmersive}
                 />
 
                 <GamingColumn
@@ -1777,6 +1745,7 @@ export default function Projects() {
                     description="Advanced GTA V multiplayer servers with custom React-based HUDs, real-time economy systems, and fully scripted roleplay mechanics."
                     revealStart={revealStart}
                     logo={fivemLogo}
+                    onImmersiveChange={handleFivemImmersive}
                 />
                 </div>
             </section>
