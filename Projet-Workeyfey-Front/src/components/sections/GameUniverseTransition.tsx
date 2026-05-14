@@ -9,9 +9,9 @@ import { HalfFloatType } from 'three';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import { useCanvasFrameloop } from '../../hooks/useCanvasFrameloop';
-import diffuseUrl from '../../assets/faux_fur_geometric_1k/faux_fur_geometric_diff_1k.jpg';
-import normalUrl from '../../assets/faux_fur_geometric_1k/faux_fur_geometric_nor_gl_1k.jpg';
-import roughUrl from '../../assets/faux_fur_geometric_1k/faux_fur_geometric_rough_1k.jpg';
+const diffuseUrl = '/textures/faux_fur_geometric_1k/faux_fur_geometric_diff_1k.jpg';
+const normalUrl = '/textures/faux_fur_geometric_1k/faux_fur_geometric_nor_gl_1k.jpg';
+const roughUrl = '/textures/faux_fur_geometric_1k/faux_fur_geometric_rough_1k.jpg';
 import './GameUniverseTransition.css';
 
 // Bleu nuit très profond — couleur unique pour le ciel, le fond Environment
@@ -595,7 +595,7 @@ function useWetRoadRoughnessMap() {
     }, []);
 }
 
-const BUILDING_URL = encodeURI('/cyberpunk v2.glb');
+const BUILDING_URL = encodeURI('/3d_models/cyberpunk v2.glb');
 // Empreinte au sol cible (max(largeur, profondeur) en unités monde).
 // Ramène n'importe quel GLB à une taille cohérente avec la rue (7 unités
 // de large) et le reste de la scène, sans avoir à toucher au scale du modèle.

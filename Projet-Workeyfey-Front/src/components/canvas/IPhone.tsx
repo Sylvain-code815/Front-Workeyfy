@@ -33,7 +33,7 @@ type Axis = 'x' | 'y' | 'z';
  * facing the camera regardless of how the GLB was authored.
  */
 export default function IPhone({ screenMaterial, ...props }: IPhoneProps) {
-    const gltf = useGLTF('/iphone_13_pro_2021.glb') as unknown as GLTF;
+    const gltf = useGLTF('/3d_models/iphone_13_pro_2021.glb') as unknown as GLTF;
 
     const { sceneClone, fitScale, offset, screenPlane } = useMemo(() => {
         const clone = gltf.scene.clone(true);
@@ -133,4 +133,4 @@ export default function IPhone({ screenMaterial, ...props }: IPhoneProps) {
     );
 }
 
-useGLTF.preload('/iphone_13_pro_2021.glb');
+useGLTF.preload('/3d_models/iphone_13_pro_2021.glb');

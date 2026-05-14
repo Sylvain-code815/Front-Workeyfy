@@ -39,7 +39,7 @@ export default function OldComputer({
     bodyMaterial,
     ...props
 }: OldComputerProps) {
-    const gltf = useGLTF('/old_computer.glb') as unknown as OldComputerGLTF;
+    const gltf = useGLTF('/3d_models/old_computer.glb') as unknown as OldComputerGLTF;
     const { nodes, materials, scene } = gltf;
 
     const { fitScale, offset } = useMemo(() => {
@@ -82,4 +82,4 @@ export default function OldComputer({
     );
 }
 
-useGLTF.preload('/old_computer.glb');
+useGLTF.preload('/3d_models/old_computer.glb');

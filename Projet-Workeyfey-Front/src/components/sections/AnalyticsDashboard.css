@@ -22,7 +22,7 @@
        increase Y to push the window further down (e.g. to keep its
        drop shadow from being clipped by the section's bottom edge). */
     --docked-window-scale: 0.8;
-    --docked-window-x: 90%;
+    --docked-window-x: 75%;
     --docked-window-y: 100%;
 
     /* Docked iPhone (window mode). Same convention — tweak X / Y.
@@ -30,7 +30,7 @@
        sa base soit légèrement cut par le bord bas de la section
        (overflow:hidden), au lieu de flotter trop haut. */
     --docked-phone-scale: 0.8;
-    --docked-phone-x: 180%;
+    --docked-phone-x: 200%;
     --docked-phone-y: 170%;
 }
 
@@ -682,6 +682,12 @@
 }
 
 .AnalyticsDashboard-nav {
+    /* Le footer est un grid 1fr / auto / 1fr mais seuls deux enfants sont
+       rendus (nav + spacer). Sans grid-column explicite la nav atterrirait
+       dans la 1fr de gauche → l'indicateur 5-dots flottait bas-gauche.
+       On l'ancre dans la colonne médiane pour qu'il soit vraiment centré
+       sur la viewport. */
+    grid-column: 2;
     justify-self: center;
     display: flex;
     align-items: center;
@@ -719,6 +725,7 @@
 }
 
 .AnalyticsDashboard-footerSpacer {
+    grid-column: 3;
     justify-self: end;
 }
 
@@ -776,29 +783,19 @@
     .AnalyticsDashboard-slotPos {
         width: 100vw;
         height: calc(100svh - 180px);
-        top: calc(50% + 30px);
+        top: calc(50% + 27px);
     }
     .AnalyticsDashboard-frame {
         border-radius: 0;
         border: 0;
         box-shadow: none;
-        /* La barre macOS contient le nom de l'app (l'"indication"
-           actuelle en haut-milieu). User want it en bas → on inverse
-           l'ordre flex de la frame pour la pousser sous le mockup. */
-        flex-direction: column-reverse;
     }
 
-    /* Title bar mac-style : 36px → 24px, traffic lights réduits, le
-       titre encore lisible mais beaucoup moins gourmand en hauteur. Now
-       placée en bas via column-reverse → on inverse aussi la bordure :
-       border-bottom → border-top pour que la séparation visuelle se
-       fasse au-dessus du bandeau au lieu d'en-dessous. */
+    /* Title bar mac-style : 36px → 28px, traffic lights réduits, le
+       titre encore lisible mais beaucoup moins gourmand en hauteur. */
     .AnalyticsDashboard-titleBar {
         height: 28px;
         padding: 0 12px;
-        border-bottom: 0;
-        border-top: 1px solid rgba(0, 0, 0, 0.4);
-        background: linear-gradient(180deg, #232326 0%, #2c2c30 100%);
     }
     .AnalyticsDashboard-trafficLight {
         width: 9px;
@@ -888,6 +885,10 @@
         display: none;
     }
     .AnalyticsDashboard-nav {
+        /* Reset le grid-column: 2 hérité du desktop. Le footer mobile
+           passe à grid-template-columns: 1fr et la nav doit rester dans
+           cette unique colonne, sans créer de colonne implicite à droite. */
+        grid-column: auto;
         justify-self: center;
         background: transparent;
         border: 0;
@@ -906,7 +907,7 @@
        (bottom:36/left:64). */
     .AnalyticsDashboard-pill {
         display: inline-flex;
-        top: 88px;
+        top: 77px;
         bottom: auto;
         left: 50%;
         right: auto;

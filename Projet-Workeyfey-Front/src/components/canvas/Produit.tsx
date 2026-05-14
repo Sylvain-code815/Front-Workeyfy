@@ -147,7 +147,7 @@ type ProduitProps = JSX.IntrinsicElements['group'] & {
 }
 
 export function Model({ screenMaterials, ...props }: ProduitProps) {
-  const { nodes, materials } = useGLTF('/produit_b2b.glb') as GLTFResult
+  const { nodes, materials } = useGLTF('/3d_models/produit_b2b.glb') as GLTFResult
   const screen = (i: number): THREE.Material =>
     screenMaterials?.[i] ?? materials.Screen
   return (
@@ -293,6 +293,6 @@ export function Model({ screenMaterials, ...props }: ProduitProps) {
   )
 }
 
-useGLTF.preload('/produit_b2b.glb')
+useGLTF.preload('/3d_models/produit_b2b.glb')
 
 export default Model

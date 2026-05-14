@@ -3,7 +3,7 @@ import { useGLTF, Environment } from '@react-three/drei';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 
-useGLTF.preload('/cog.glb');
+useGLTF.preload('/3d_models/cog.glb');
 
 const TARGET_SIZE = 1.5;
 const SPIN_DURATION_MS = 420;
@@ -18,7 +18,7 @@ type CogModelProps = {
 };
 
 function CogModel({ spinning, hovered }: CogModelProps) {
-    const { scene } = useGLTF('/cog.glb');
+    const { scene } = useGLTF('/3d_models/cog.glb');
     const groupRef = useRef<THREE.Group>(null);
     const yDriftRef = useRef<THREE.Group>(null);
 

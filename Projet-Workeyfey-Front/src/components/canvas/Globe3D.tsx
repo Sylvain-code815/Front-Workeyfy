@@ -23,40 +23,45 @@ function GlobeMesh({ spinning, hovered }: GlobeMeshProps) {
     });
 
     return (
-        <group ref={groupRef}>
-            <mesh>
-                <sphereGeometry args={[0.88, 32, 32]} />
-                <meshBasicMaterial
-                    color={ACCENT}
-                    transparent
-                    opacity={0.1}
-                    toneMapped={false}
-                />
-            </mesh>
+        // Static parent lifts the whole sphere ~12% of its radius so the
+        // globe sits visually higher in its circular container without
+        // shifting the rotation axis in world space.
+        <group position={[0, 0.12, 0]}>
+            <group ref={groupRef}>
+                <mesh>
+                    <sphereGeometry args={[0.88, 32, 32]} />
+                    <meshBasicMaterial
+                        color={ACCENT}
+                        transparent
+                        opacity={0.1}
+                        toneMapped={false}
+                    />
+                </mesh>
 
-            <mesh>
-                <sphereGeometry args={[1, 14, 10]} />
-                <meshBasicMaterial
-                    color={ACCENT}
-                    wireframe
-                    transparent
-                    opacity={0.75}
-                    toneMapped={false}
-                />
-            </mesh>
+                <mesh>
+                    <sphereGeometry args={[1, 14, 10]} />
+                    <meshBasicMaterial
+                        color={ACCENT}
+                        wireframe
+                        transparent
+                        opacity={0.75}
+                        toneMapped={false}
+                    />
+                </mesh>
 
-            <mesh rotation={[Math.PI / 2, 0, 0]}>
-                <torusGeometry args={[1, 0.014, 10, 64]} />
-                <meshBasicMaterial color={ACCENT} toneMapped={false} />
-            </mesh>
-            <mesh>
-                <torusGeometry args={[1, 0.014, 10, 64]} />
-                <meshBasicMaterial color={ACCENT} toneMapped={false} />
-            </mesh>
-            <mesh rotation={[0, Math.PI / 2, 0]}>
-                <torusGeometry args={[1, 0.014, 10, 64]} />
-                <meshBasicMaterial color={ACCENT} toneMapped={false} />
-            </mesh>
+                <mesh rotation={[Math.PI / 2, 0, 0]}>
+                    <torusGeometry args={[1, 0.014, 10, 64]} />
+                    <meshBasicMaterial color={ACCENT} toneMapped={false} />
+                </mesh>
+                <mesh>
+                    <torusGeometry args={[1, 0.014, 10, 64]} />
+                    <meshBasicMaterial color={ACCENT} toneMapped={false} />
+                </mesh>
+                <mesh rotation={[0, Math.PI / 2, 0]}>
+                    <torusGeometry args={[1, 0.014, 10, 64]} />
+                    <meshBasicMaterial color={ACCENT} toneMapped={false} />
+                </mesh>
+            </group>
         </group>
     );
 }

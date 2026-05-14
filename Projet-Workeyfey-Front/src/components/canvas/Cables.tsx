@@ -2,9 +2,9 @@ import { useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
-import diffuseUrl from '../../assets/faux_fur_geometric_1k/faux_fur_geometric_diff_1k.jpg';
-import normalUrl from '../../assets/faux_fur_geometric_1k/faux_fur_geometric_nor_gl_1k.jpg';
-import roughUrl from '../../assets/faux_fur_geometric_1k/faux_fur_geometric_rough_1k.jpg';
+const diffuseUrl = '/textures/faux_fur_geometric_1k/faux_fur_geometric_diff_1k.jpg';
+const normalUrl = '/textures/faux_fur_geometric_1k/faux_fur_geometric_nor_gl_1k.jpg';
+const roughUrl = '/textures/faux_fur_geometric_1k/faux_fur_geometric_rough_1k.jpg';
 
 interface CablesProps {
     pcPositions: [number, number, number][];

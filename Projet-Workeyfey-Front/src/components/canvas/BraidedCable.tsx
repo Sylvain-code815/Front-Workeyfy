@@ -2,9 +2,9 @@ import { useMemo } from 'react';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 
-import diffuseUrl from '../../assets/garden_hose_wall_mounted_01_1k/garden_hose_wall_mounted_01_diff_1k.png';
-import normalUrl from '../../assets/garden_hose_wall_mounted_01_1k/garden_hose_wall_mounted_01_nor_gl_1k.png';
-import roughnessUrl from '../../assets/garden_hose_wall_mounted_01_1k/garden_hose_wall_mounted_01_rough_1k.png';
+const diffuseUrl = '/textures/garden_hose_wall_mounted_01_1k/garden_hose_wall_mounted_01_diff_1k.png';
+const normalUrl = '/textures/garden_hose_wall_mounted_01_1k/garden_hose_wall_mounted_01_nor_gl_1k.png';
+const roughnessUrl = '/textures/garden_hose_wall_mounted_01_1k/garden_hose_wall_mounted_01_rough_1k.png';
 
 interface BraidedCableProps {
     curve: THREE.CatmullRomCurve3;

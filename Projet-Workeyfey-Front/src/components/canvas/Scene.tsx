@@ -183,14 +183,14 @@ export default function Scene({ progressRef }: SceneProps) {
         }),
     });
 
-    const produitGltf = useGLTF('/produit_b2b.glb') as unknown as {
+    const produitGltf = useGLTF('/3d_models/produit_b2b.glb') as unknown as {
         materials: { Screen?: THREE.MeshStandardMaterial };
     };
 
     // === Desk : surface physique sous l'OldComputer ============================
     // Top du desk ramené pile à y=0. C'est l'OldComputer qu'on monte ensuite
     // sur l'axe Y pour qu'il soit posé clairement dessus (cf. JSX plus bas).
-    const deskGltf = useGLTF('/desk.glb');
+    const deskGltf = useGLTF('/3d_models/desk.glb');
 
     const { deskPosition, deskScale, deskTopY } = useMemo(() => {
         const bbox = new THREE.Box3().setFromObject(deskGltf.scene);

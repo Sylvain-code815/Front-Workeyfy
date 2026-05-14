@@ -252,17 +252,24 @@
     .ProjectsBack-slot {
         border-radius: 0;
     }
-    /* Cog (vue front) / Globe (vue back) descend en bas-droite, ALIGNÉ
-       avec la rangée de dots du SatellitePager. Calibre réduit
-       (124px desktop → 48px mobile) pour cohabiter avec les dots
-       centrés sans les écraser.
-       - Pager bottom 38 + caption 18 + gap 14 = 70 → top de la rangée
-         dots à section_bottom - 70 - 44 (height row) ; centre dots à
-         section_bottom - 92.
-       - Cog 48px centré sur cette ligne : bottom: 68px (92 - 24). */
+    /* Cog (vue front) / Globe (vue back) en bas-droite, sur la MÊME
+       baseline horizontale visuelle que la rangée de dots du
+       SatellitePager (les dots étant décalés à gauche, cf. règle
+       .SatellitePager ci-dessous). Calibre réduit (124px desktop →
+       48px mobile).
+       - Pager bottom 38 + caption min-height 32 + gap 6 = 76 → bottom
+         de la rangée dots à section_bottom - 76 ; centre des dots à
+         section_bottom - 98.
+       - Le modèle 3D du cog n'occupe PAS tout le canvas 48px : la
+         caméra (position [0, 5, 2.6], fov 35°) regarde le rouage en
+         plongée, donc la silhouette visible se loge dans la moitié
+         supérieure du canvas, ≈14px au-dessus du centre géométrique.
+         On compense en abaissant le canvas (bottom: 60) pour que la
+         silhouette VISIBLE retombe ≈ à hauteur du centre des dots,
+         et pas le centre géométrique du canvas. */
     .ProjectsBack-toggle {
         top: auto;
-        bottom: 68px;
+        bottom: 60px;
         right: 18px;
     }
     .ProjectsBack-cog3d,
@@ -467,7 +474,7 @@
 
 .ProjectsBack-toggle {
     position: absolute;
-    top: 130px;
+    top: 110px;
     right: 30px;
     z-index: 11;
     display: flex;
@@ -770,6 +777,43 @@
     .ProjectsBack-pager-caption-count {
         font-size: 10px;
     }
+
+    /* Stabilise la hauteur du caption pour que la rangée de dots
+       au-dessus garde un offset constant vis-à-vis du bas de la section.
+       Sans ça, certains slides ont un domaine assez long (ex. "sylvain
+       -code815.github.io") qui force le wrap sur 2 lignes via
+       flex-wrap, alors que d'autres tiennent sur 1 ligne — comme le
+       pager est ancré `bottom: 38px`, la rangée de dots se décale
+       verticalement de ~14px selon le slide actif et donne la
+       sensation qu'elle "colle" à la fenêtre du site front au-dessus.
+       Réserver d'office la hauteur du cas wrappé (2 lignes + gap) +
+       coller le contenu en bas → la position des dots est stable
+       quel que soit le slide. */
+    .ProjectsBack-pager-caption {
+        min-height: 32px;
+        align-content: flex-end;
+    }
+
+    /* On rapproche la rangée de dots du caption (titre projet) : gap
+       desktop = 14px, mobile = 6px. Effet net : les dots descendent
+       d'environ 8px et s'inscrivent franchement "entre le titre du
+       bas et la fenêtre du site" plutôt que collés à la fenêtre.
+       Calibrage utilisé par .ProjectsBack-toggle pour aligner le cog
+       sur la nouvelle baseline (cf. règle au-dessus). */
+    .ProjectsBack-pager {
+        gap: 6px;
+    }
+
+    /* Décalage horizontal léger vers la gauche : on garde l'animation
+       GSAP du strip (translateX ±18 → 0) intacte en agissant sur le
+       parent flex plutôt que sur le strip. padding-right rétrécit la
+       zone de contenu sur la droite, donc justify-content:center
+       recentre les dots sur la partie gauche → strip décalé ≈50px
+       vers la gauche. Laisse une fenêtre confortable à droite où le
+       cog vient se poser sur la même ligne horizontale. */
+    .ProjectsBack-pager .SatellitePager {
+        padding-right: 100px;
+    }
 }
 
 /* ============================================== */
@@ -855,6 +899,9 @@
        duplicated so the polygon has 5 points and can morph into the
        hover/immersive pentagons below. */
     clip-path: polygon(0 0, 100% 0, 100% 0, 0 100%, 0 100%);
+    /* Override du align-items: flex-end hérité — la géométrie du triangle
+       top-left appelle un contenu ancré en haut-gauche. */
+    align-items: flex-start;
 }
 
 .ProjectsGaming-column--fivem {
@@ -906,9 +953,69 @@
     transform-origin: left center;
 }
 
+/* Le bloc de contenu Roblox (titre → description → cards → controls) est
+   ancré en haut-gauche du triangle (align-items: flex-start) → trop collé
+   au header WorkeyFy fixe. Petit décrochage vertical pour respirer. */
+.ProjectsGaming-column--roblox .ProjectsGaming-content {
+    margin-top: 24px;
+}
+
 .ProjectsGaming-column--fivem .ProjectsGaming-title {
-    align-self: flex-end;
-    transform-origin: right center;
+    /* Le titre suit la rive gauche du content block (ancré à droite via
+       justify-content: flex-end). Avant : align-self: flex-end le collait
+       contre la droite, désaligné de la description. */
+    align-self: flex-start;
+    transform-origin: left center;
+}
+
+.ProjectsGaming-titleWrap {
+    display: flex;
+    align-items: center;
+    /* Espacement logo ↔ titre : un peu plus généreux qu'un simple espace
+       typographique pour que le logo respire visuellement. */
+    gap: 0.5em;
+    width: max-content;
+    will-change: opacity, transform;
+    transition: opacity 250ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ProjectsGaming-column--fivem .ProjectsGaming-titleWrap {
+    align-self: flex-start;
+}
+
+.ProjectsGaming-titleLogo {
+    height: 1.4em;
+    width: auto;
+    display: block;
+    flex: 0 0 auto;
+    user-select: none;
+    pointer-events: none;
+}
+
+.ProjectsGaming-cornerLogo {
+    position: absolute;
+    width: clamp(40px, 6vw, 72px);
+    height: auto;
+    z-index: 2;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 320ms cubic-bezier(0.22, 1, 0.36, 1) 120ms;
+}
+
+/* Centré dans le coin haut-gauche du triangle collapsé (≈ 7% × 7%). */
+.ProjectsGaming-column--roblox .ProjectsGaming-cornerLogo {
+    top: 7%;
+    left: 7%;
+    transform: translate(-50%, -50%);
+}
+
+/* Centré dans le coin bas-droite du triangle collapsé (≈ 93% × 93%).
+   On dégage 4 px supplémentaires (calc + 4 px) pour éviter que le logo
+   ne soit collé au ContactButton fixé en bas à droite du viewport. */
+.ProjectsGaming-column--fivem .ProjectsGaming-cornerLogo {
+    bottom: calc(7% + 4px);
+    right: calc(7% + 4px);
+    transform: translate(50%, 50%);
 }
 
 .ProjectsGaming-description {
@@ -949,7 +1056,8 @@
 
 /* Roblox column (left) — content slides outward to the LEFT, fast & visible */
 .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-description,
-.Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-cards {
+.Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-cards,
+.Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-controls {
     opacity: 0;
     transform: translateX(-220px);
     pointer-events: none;
@@ -960,13 +1068,24 @@
 
 /* FiveM column (right) — content slides outward to the RIGHT, fast & visible */
 .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-description,
-.Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-cards {
+.Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-cards,
+.Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-controls {
     opacity: 0;
     transform: translateX(220px);
     pointer-events: none;
     transition:
         opacity 250ms cubic-bezier(0, 0, 0.2, 1) 0ms,
         transform 380ms cubic-bezier(0, 0, 0.2, 1) 0ms;
+}
+
+/* Le bouton mute "soundControl" est positionné absolu dans le coin haut-droit
+   de la colonne. On le fait disparaître aussi en sibling-collapse pour que
+   seule l'icône logo reste visible dans le triangle réduit. */
+.Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-soundControl,
+.Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-soundControl {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 220ms cubic-bezier(0, 0, 0.2, 1) 0ms;
 }
 
 .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-title {
@@ -977,6 +1096,20 @@
 .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-title {
     transform: rotate(90deg) scale(0.55);
     transition: transform 600ms cubic-bezier(0.65, 0, 0.35, 1) 200ms;
+}
+
+/* Sibling-collapsed : on cache l'ensemble du bloc titre (logo inline + texte)
+   pour ne laisser que le corner logo visible dans le triangle réduit. */
+.Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-titleWrap,
+.Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-titleWrap {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 220ms cubic-bezier(0, 0, 0.2, 1) 0ms;
+}
+
+.Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-cornerLogo,
+.Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-cornerLogo {
+    opacity: 1;
 }
 
 /* Hovered column expands to a near-full pentagon, leaving a small corner
@@ -1043,6 +1176,12 @@
 .ProjectsGaming-column--immersive:hover .ProjectsGaming-content {
     opacity: 1;
     pointer-events: auto;
+}
+
+/* En immersive, le corner logo n'a plus de raison d'être (le hover-sibling
+   ne s'applique pas et le content lui-même est déjà géré ci-dessus). */
+.ProjectsGaming-column--immersive .ProjectsGaming-cornerLogo {
+    opacity: 0;
 }
 
 .ProjectsGaming-card {
@@ -1881,6 +2020,11 @@ html.Projects-snap .Footer {
         align-items: flex-end;
     }
 
+    /* Roblox = triangle top-left → contenu ancré en haut, suit la géométrie. */
+    .ProjectsGaming-column--roblox {
+        align-items: flex-start;
+    }
+
     /* Titre roblox reste anchored left, fivem anchored right — cohérent
        avec les triangles top-left / bottom-right de la diagonale. */
 
@@ -1898,22 +2042,51 @@ html.Projects-snap .Footer {
         align-items: flex-end;
     }
 
+    /* Roblox conserve son anchor top-left même en hover (cohérence avec le
+       triangle top-left). */
+    .Projects-section--gaming .ProjectsGaming-column--roblox:hover {
+        align-items: flex-start;
+    }
+
     /* Pas de rotation du titre de la colonne réduite. */
     .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-title,
     .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-title {
         transform: none;
     }
 
-    /* Pas de slide-out ni de fade pour la description / cards :
+    /* Pas de slide-out ni de fade pour la description / cards / controls :
        le contenu reste à sa place, il est juste clippé par la colonne
        réduite (overflow: hidden déjà actif). */
     .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-description,
     .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-cards,
+    .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-controls,
     .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-description,
-    .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-cards {
+    .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-cards,
+    .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-controls {
         opacity: 1;
         transform: none;
         pointer-events: auto;
+    }
+
+    /* Idem pour le bouton soundControl en tablette : il reste visible
+       (clippé par le polygone de la colonne réduite). */
+    .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-soundControl,
+    .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-soundControl {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* Idem pour le titleWrap : sur tablette, on garde le titre + logo inline
+       visibles (clip-only). Et donc pas de corner logo non plus, qui ferait
+       double emploi. */
+    .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-titleWrap,
+    .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-titleWrap {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .ProjectsGaming-cornerLogo {
+        display: none;
     }
 
     .ProjectsGaming-cards {

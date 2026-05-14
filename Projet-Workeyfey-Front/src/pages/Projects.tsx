@@ -14,6 +14,8 @@ import { useTunnel } from '../tunnel/TunnelContext';
 import ScanlineSweep from '../tunnel/ScanlineSweep';
 import Typewriter from '../tunnel/Typewriter';
 import generatedPalettesRaw from '../data/generatedPalettes.json';
+import robloxLogo from '../assets/roblox-logo.png';
+import fivemLogo from '../assets/fivem-logo.jpg';
 import './Projects.css';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -449,6 +451,7 @@ function GamingColumn({
     titleCursorColor,
     description,
     revealStart,
+    logo,
 }: {
     columnClass: 'ProjectsGaming-column--roblox' | 'ProjectsGaming-column--fivem';
     accent: Accent;
@@ -458,6 +461,7 @@ function GamingColumn({
     titleCursorColor: 'cyan' | 'magenta';
     description: string;
     revealStart: boolean;
+    logo: string;
 }) {
     const [activeIndex, setActiveIndex] = useState(0);
     const [fading, setFading] = useState(false);
@@ -784,15 +788,34 @@ function GamingColumn({
                     </svg>
                 )}
             </button>
+            {/* Corner logo — surface l'univers comme marqueur unique quand le
+                sibling-column est en hover (titre + description + cards cachés
+                par la règle :not(:hover)). Vit en frère du content block pour
+                pouvoir se centrer dans le triangle collapsé indépendamment du
+                flux flex. */}
+            <img
+                src={logo}
+                alt=""
+                aria-hidden="true"
+                className="ProjectsGaming-cornerLogo"
+            />
             <div className="ProjectsGaming-content">
-                <Typewriter
-                    as="h2"
-                    text={title}
-                    delay={titleDelay}
-                    className="ProjectsGaming-title"
-                    cursorColor={titleCursorColor}
-                    play={revealStart}
-                />
+                <div className="ProjectsGaming-titleWrap">
+                    <img
+                        src={logo}
+                        alt=""
+                        aria-hidden="true"
+                        className="ProjectsGaming-titleLogo"
+                    />
+                    <Typewriter
+                        as="h2"
+                        text={title}
+                        delay={titleDelay}
+                        className="ProjectsGaming-title"
+                        cursorColor={titleCursorColor}
+                        play={revealStart}
+                    />
+                </div>
                 <p className="ProjectsGaming-description">{description}</p>
                 <div className="ProjectsGaming-cards">
                     {games.map((g, i) => (
@@ -1741,6 +1764,7 @@ export default function Projects() {
                     titleCursorColor="cyan"
                     description="Immersive experiences built with Lua scripting, custom physics engines, and advanced monetization systems."
                     revealStart={revealStart}
+                    logo={robloxLogo}
                 />
 
                 <GamingColumn
@@ -1752,6 +1776,7 @@ export default function Projects() {
                     titleCursorColor="magenta"
                     description="Advanced GTA V multiplayer servers with custom React-based HUDs, real-time economy systems, and fully scripted roleplay mechanics."
                     revealStart={revealStart}
+                    logo={fivemLogo}
                 />
                 </div>
             </section>
