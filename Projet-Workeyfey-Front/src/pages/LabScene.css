@@ -1,0 +1,146 @@
+.LabScene {
+    min-height: 100vh;
+    background: #06070b;
+    color: #d8dde6;
+}
+
+.LabScene-index {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 18vh 32px 12vh;
+}
+
+.LabScene-eyebrow {
+    margin: 0 0 18px;
+    font-size: 12px;
+    letter-spacing: 0.32em;
+    color: #00d9ff;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+.LabScene-title {
+    margin: 0 0 16px;
+    font-size: clamp(36px, 5vw, 56px);
+    line-height: 1.05;
+    font-weight: 300;
+    letter-spacing: -0.01em;
+}
+
+.LabScene-desc {
+    margin: 0 0 64px;
+    max-width: 560px;
+    color: #8a93a3;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.LabScene-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.LabScene-card {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 24px;
+    padding: 22px 28px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 0.25s ease, background 0.25s ease, transform 0.25s ease;
+}
+
+.LabScene-card:hover {
+    border-color: rgba(0, 217, 255, 0.4);
+    background: linear-gradient(180deg, rgba(0, 217, 255, 0.05), rgba(0, 217, 255, 0));
+    transform: translateX(4px);
+}
+
+.LabScene-card-code {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 13px;
+    color: #00d9ff;
+    letter-spacing: 0.2em;
+}
+
+.LabScene-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.LabScene-card-title {
+    font-size: 19px;
+    font-weight: 400;
+    letter-spacing: -0.005em;
+}
+
+.LabScene-card-subtitle {
+    font-size: 13px;
+    color: #8a93a3;
+}
+
+.LabScene-card-status {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+}
+
+.LabScene-card-status--wip {
+    color: #f0a020;
+}
+
+.LabScene-card-status--ready {
+    color: #00d9ff;
+}
+
+.LabScene-card-arrow {
+    font-size: 20px;
+    color: #6f7686;
+    transition: color 0.25s ease, transform 0.25s ease;
+}
+
+.LabScene-card:hover .LabScene-card-arrow {
+    color: #00d9ff;
+    transform: translateX(6px);
+}
+
+.LabScene-stage {
+    width: 100%;
+    height: 100vh;
+    background: #06070b;
+    position: relative;
+    overflow: hidden;
+}
+
+.LabScene-back {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 10;
+    padding: 8px 14px;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    color: #d8dde6;
+    background: rgba(6, 7, 11, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    text-decoration: none;
+    backdrop-filter: blur(8px);
+    transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.LabScene-back:hover {
+    color: #00d9ff;
+    border-color: rgba(0, 217, 255, 0.5);
+}
