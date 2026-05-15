@@ -866,17 +866,32 @@
     box-sizing: border-box;
     overflow: hidden;
     cursor: pointer;
-    filter: grayscale(0.9) brightness(0.55);
     transition:
         clip-path 700ms cubic-bezier(0.65, 0, 0.35, 1),
-        padding 700ms cubic-bezier(0.65, 0, 0.35, 1),
-        filter 500ms cubic-bezier(0.65, 0, 0.35, 1);
+        padding 700ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* Le filtre grayscale est porté par ::before en backdrop-filter au lieu
+   d'être directement sur la colonne, pour que le cornerLogo (z-index 2,
+   au-dessus du ::before) échappe au filtre et reste en couleur dans le
+   triangle collapsé. */
+.ProjectsGaming-column::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    backdrop-filter: grayscale(0.9) brightness(0.55);
+    -webkit-backdrop-filter: grayscale(0.9) brightness(0.55);
+    transition:
+        backdrop-filter 500ms cubic-bezier(0.65, 0, 0.35, 1),
+        -webkit-backdrop-filter 500ms cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 .ProjectsGaming-column--roblox {
     background:
-        radial-gradient(ellipse 70% 60% at 30% 100%, rgba(0, 51, 204, 0.45), transparent 70%),
-        linear-gradient(to top, rgba(0, 51, 204, 0.25), transparent 60%);
+        radial-gradient(ellipse 70% 60% at 30% 0%, rgba(0, 51, 204, 0.45), transparent 70%),
+        linear-gradient(to bottom, rgba(0, 51, 204, 0.25), transparent 60%);
     /* Top-left triangle: (0,0) → (100%,0) → (0,100%). Vertices 3 and 5 are
        duplicated so the polygon has 5 points and can morph into the
        hover/immersive pentagons below. */
@@ -976,27 +991,43 @@
 
 .ProjectsGaming-cornerLogo {
     position: absolute;
-    width: clamp(40px, 6vw, 72px);
+    width: clamp(32px, 4vw, 48px);
     height: auto;
-    z-index: 2;
+    z-index: 3;
     opacity: 0;
     pointer-events: none;
+    /* Halo blanc diffus pour décoller le logo noir Roblox du bleu très
+       sombre (et donner du punch au logo orange FiveM sur fond vert
+       sombre). Deux drop-shadow empilés : un halo serré (5 px, 70 %)
+       qui dessine un liseré lumineux net, et un halo large (14 px,
+       30 %) qui crée la dispersion "le logo émet de la lumière". Suit
+       le canal alpha du PNG donc la silhouette exacte du logo, pas un
+       rectangle. */
+    filter:
+        drop-shadow(0 0 5px rgba(255, 255, 255, 0.7))
+        drop-shadow(0 0 14px rgba(255, 255, 255, 0.3));
     transition: opacity 320ms cubic-bezier(0.22, 1, 0.36, 1) 120ms;
 }
 
-/* Centré dans le coin haut-gauche du triangle collapsé (≈ 7% × 7%). */
+/* Roblox : centre à 12%/12% (x+y = 24%), pile au milieu de la bande
+   parallèle entre la coupe FiveM expanded (x+y = 20%) et l'hypoténuse
+   Roblox collapsed (x+y = 30%) — symétrique à FiveM qui est centré à
+   88%/88% (x+y = 176%) au milieu de sa bande 170%–180%. Le logo plonge
+   ainsi dans la "vidéo bleutée désaturée" de la même façon que le
+   logo orange plonge dans la vidéo verte désaturée bas-droite. */
 .ProjectsGaming-column--roblox .ProjectsGaming-cornerLogo {
-    top: 7%;
-    left: 7%;
+    top: 12%;
+    left: 12%;
     transform: translate(-50%, -50%);
 }
 
-/* Centré dans le coin bas-droite du triangle collapsé (≈ 93% × 93%).
-   On dégage 4 px supplémentaires (calc + 4 px) pour éviter que le logo
-   ne soit collé au ContactButton fixé en bas à droite du viewport. */
+/* FiveM : centre à 88%/88% (bottom 12% + translate 50%) pour s'éloigner
+   du ContactButton fixé en bas-droite du viewport (à 32 px du bord).
+   Le triangle collapsé fait 30% × 30% (hypoténuse x+y = 170%), le logo
+   tient à l'intérieur. */
 .ProjectsGaming-column--fivem .ProjectsGaming-cornerLogo {
-    bottom: calc(7% + 4px);
-    right: calc(7% + 4px);
+    bottom: 12%;
+    right: 12%;
     transform: translate(50%, 50%);
 }
 
@@ -1027,36 +1058,41 @@
    triangle while the hovered column expands. Polygon vertices stay at 5
    to interpolate smoothly from the idle triangle. */
 .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) {
-    clip-path: polygon(0 0, 20% 0, 20% 0, 0 20%, 0 20%);
+    clip-path: polygon(0 0, 30% 0, 30% 0, 0 30%, 0 30%);
     padding: 32px 12px;
 }
 
 .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) {
-    clip-path: polygon(100% 80%, 100% 80%, 100% 100%, 80% 100%, 80% 100%);
+    clip-path: polygon(100% 70%, 100% 70%, 100% 100%, 70% 100%, 70% 100%);
     padding: 32px 12px;
 }
 
-/* Roblox column (left) — content slides outward to the LEFT, fast & visible */
+/* Roblox column (left) — disparition instantanée (opacity + visibility) pour
+   que seul le cornerLogo reste, sans flash de description / cards / controls. */
 .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-description,
 .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-cards,
 .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-controls {
     opacity: 0;
+    visibility: hidden;
     transform: translateX(-220px);
     pointer-events: none;
     transition:
-        opacity 250ms cubic-bezier(0, 0, 0.2, 1) 0ms,
+        opacity 120ms cubic-bezier(0, 0, 0.2, 1) 0ms,
+        visibility 0s linear 120ms,
         transform 380ms cubic-bezier(0, 0, 0.2, 1) 0ms;
 }
 
-/* FiveM column (right) — content slides outward to the RIGHT, fast & visible */
+/* FiveM column (right) — idem mais slide vers la droite. */
 .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-description,
 .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-cards,
 .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-controls {
     opacity: 0;
+    visibility: hidden;
     transform: translateX(220px);
     pointer-events: none;
     transition:
-        opacity 250ms cubic-bezier(0, 0, 0.2, 1) 0ms,
+        opacity 120ms cubic-bezier(0, 0, 0.2, 1) 0ms,
+        visibility 0s linear 120ms,
         transform 380ms cubic-bezier(0, 0, 0.2, 1) 0ms;
 }
 
@@ -1066,8 +1102,11 @@
 .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-soundControl,
 .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-soundControl {
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
-    transition: opacity 220ms cubic-bezier(0, 0, 0.2, 1) 0ms;
+    transition:
+        opacity 120ms cubic-bezier(0, 0, 0.2, 1) 0ms,
+        visibility 0s linear 120ms;
 }
 
 .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-title {
@@ -1085,8 +1124,11 @@
 .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-titleWrap,
 .Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-titleWrap {
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
-    transition: opacity 220ms cubic-bezier(0, 0, 0.2, 1) 0ms;
+    transition:
+        opacity 120ms cubic-bezier(0, 0, 0.2, 1) 0ms,
+        visibility 0s linear 120ms;
 }
 
 .Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-cornerLogo,
@@ -1094,19 +1136,52 @@
     opacity: 1;
 }
 
+/* Côté collapsé : on coupe la vidéo de fond pour ne laisser que le triangle
+   couleur + corner logo. Sinon on voit encore une bande de vidéo bouger dans
+   le coin alors que tous les autres contenus (titre / description / cards)
+   sont déjà cachés. */
+.Projects-section--gaming:hover .ProjectsGaming-column--roblox:not(:hover) .ProjectsGaming-bg-video,
+.Projects-section--gaming:hover .ProjectsGaming-column--fivem:not(:hover) .ProjectsGaming-bg-video {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+        opacity 120ms cubic-bezier(0, 0, 0.2, 1) 0ms,
+        visibility 0s linear 120ms;
+}
+
 /* Hovered column expands to a near-full pentagon, leaving a small corner
    for the sibling. The diagonal stays consistent (top-right ↔ bottom-left
    axis), just shifted further into the sibling's territory. */
 .Projects-section--gaming .ProjectsGaming-column--roblox:hover {
     clip-path: polygon(0 0, 100% 0, 100% 80%, 80% 100%, 0 100%);
-    filter: none;
     padding: 64px 80px;
 }
 
 .Projects-section--gaming .ProjectsGaming-column--fivem:hover {
     clip-path: polygon(20% 0, 100% 0, 100% 100%, 0 100%, 0 20%);
-    filter: none;
     padding: 64px 80px;
+}
+
+/* Colonne survolée : on lève le grayscale du ::before pour révéler la couleur. */
+.Projects-section--gaming .ProjectsGaming-column--roblox:hover::before,
+.Projects-section--gaming .ProjectsGaming-column--fivem:hover::before {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+/* Symétrie haut-gauche : par défaut FiveM est après Roblox dans le DOM,
+   donc FiveM est rendu au-dessus. C'est ce qui crée l'effet "vidéo
+   désaturée entre les deux diagonales parallèles" côté bas-droite : le
+   ::before de FiveM (collapsed, grayscale actif) descature la vidéo
+   Roblox qui passe dessous. Côté haut-gauche on a l'inverse — c'est
+   Roblox qui est collapsed mais il reste sous FiveM, donc son ::before
+   grayscale n'atteint pas la vidéo FiveM qui peint dessus. On élève
+   Roblox au-dessus de FiveM quand FiveM est hovered, pour rétablir la
+   même chaîne et obtenir une bande symétrique en haut-gauche. */
+.Projects-section--gaming:has(.ProjectsGaming-column--fivem:hover)
+    .ProjectsGaming-column--roblox {
+    z-index: 2;
 }
 
 /* ── Immersive mode (click-to-focus, YouTube-style) ──────────────────
@@ -1122,14 +1197,12 @@
 .Projects-section--gaming:has(.ProjectsGaming-column--roblox.ProjectsGaming-column--immersive)
     .ProjectsGaming-column--roblox {
     clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 100%);
-    filter: none;
     padding: 64px 80px;
 }
 
 .Projects-section--gaming:has(.ProjectsGaming-column--fivem.ProjectsGaming-column--immersive)
     .ProjectsGaming-column--fivem {
     clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 100%);
-    filter: none;
     padding: 64px 80px;
 }
 
@@ -1138,7 +1211,6 @@
     clip-path: polygon(100% 0, 100% 0, 100% 0, 100% 0, 100% 0);
     padding: 0;
     pointer-events: none;
-    filter: none;
 }
 
 .Projects-section--gaming:has(.ProjectsGaming-column--fivem.ProjectsGaming-column--immersive)
@@ -1146,7 +1218,12 @@
     clip-path: polygon(0 0, 0 0, 0 0, 0 0, 0 0);
     padding: 0;
     pointer-events: none;
-    filter: none;
+}
+
+/* Immersive : la colonne active passe en couleur (lift du grayscale). */
+.ProjectsGaming-column--immersive::before {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
 .ProjectsGaming-column--immersive .ProjectsGaming-content {

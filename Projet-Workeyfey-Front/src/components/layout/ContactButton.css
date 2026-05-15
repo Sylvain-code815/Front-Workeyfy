@@ -24,6 +24,15 @@
     right: 32px;
     bottom: 32px;
     z-index: 100;
+    transition: transform 280ms ease, opacity 280ms ease, box-shadow 200ms ease;
+}
+
+/* Auto-hide when the Footer enters the viewport — the Footer's own
+   "Démarrer un projet" CTA becomes the single point of contact. */
+.ContactButton--hidden {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+    pointer-events: none;
 }
 
 /* iPhone-SE / mobile : on retire le bouton flottant qui chevauche les

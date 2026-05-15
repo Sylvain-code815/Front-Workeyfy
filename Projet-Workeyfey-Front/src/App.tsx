@@ -5,6 +5,12 @@ import Footer from './components/layout/Footer';
 import Home from './pages/Home';
 import Projects from './pages/Projects';
 import Lab from './pages/Lab';
+import LabScene from './pages/LabScene';
+import NeuralCableLab from './pages/labs/NeuralCableLab';
+import HoloScreenLab from './pages/labs/HoloScreenLab';
+import CinematicLightRayLab from './pages/labs/CinematicLightRayLab';
+import DataPortLab from './pages/labs/DataPortLab';
+import GroundFogLab from './pages/labs/GroundFogLab';
 import { PageThemeProvider } from './contexts/PageThemeContext';
 import { TunnelProvider } from './tunnel/TunnelContext';
 import QuantumTunnelOverlay from './tunnel/QuantumTunnelOverlay';
@@ -31,6 +37,12 @@ function App() {
                     <Route path="/" element={<Home />} />
                     <Route path="/projects" element={<Projects />} />
                     <Route path="/lab" element={<Lab />} />
+                    <Route path="/lab-scene" element={<LabScene />} />
+                    <Route path="/lab-scene/neural-cable" element={<NeuralCableLab />} />
+                    <Route path="/lab-scene/holo-screen" element={<HoloScreenLab />} />
+                    <Route path="/lab-scene/cinematic-light-ray" element={<CinematicLightRayLab />} />
+                    <Route path="/lab-scene/data-port" element={<DataPortLab />} />
+                    <Route path="/lab-scene/ground-fog" element={<GroundFogLab />} />
                 </Routes>
                 <Footer />
             </PageThemeProvider>

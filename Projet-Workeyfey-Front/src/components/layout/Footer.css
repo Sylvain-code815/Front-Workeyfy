@@ -6,130 +6,112 @@
     --ink-soft: rgba(244, 248, 255, 0.62);
     --ink-mute: rgba(244, 248, 255, 0.42);
     --line: rgba(244, 248, 255, 0.08);
-    --line-strong: rgba(244, 248, 255, 0.55);
     --accent-blue: #1E73FF;
     --accent-green: #4ADE80;
 
     position: relative;
     width: 100%;
-    background-color: var(--bg);
+    min-height: 100vh;
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
     color: var(--ink);
     font-family: var(--font-family-base);
+    background-color: #02050a;
     overflow: hidden;
     isolation: isolate;
 }
 
-/* Subtle radial wash at top — picks up the blue/green data-fluid theme so
-   the footer reads as a continuation of the page, not a separate slab. */
-.Footer::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background:
-        radial-gradient(60% 50% at 50% 0%, rgba(30, 115, 255, 0.18), transparent 70%),
-        radial-gradient(50% 40% at 80% 100%, rgba(74, 222, 128, 0.10), transparent 70%),
-        radial-gradient(120% 80% at 50% 120%, #050810 30%, rgba(5, 8, 16, 0) 100%);
-    pointer-events: none;
-    z-index: 0;
-}
-
 /* ──────────────────────────────────────────
-   1. WebGL Canvas Layer (Background — z-0)
+   1. POWER zone — 75% — Three.js hero CTA
    ────────────────────────────────────────── */
-.Footer-stage {
+.Footer-power {
     position: relative;
-    width: 100%;
-    height: 400px;
+    flex: 0 0 75vh;
+    flex: 0 0 75svh;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.Footer-power-canvas {
+    position: absolute;
+    inset: 0;
     z-index: 0;
 }
 
-.Footer-canvas {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    background:
-        radial-gradient(45% 60% at 50% 50%, rgba(30, 115, 255, 0.06), transparent 70%);
-    outline: 1px dashed rgba(244, 248, 255, 0.06);
-    outline-offset: -24px;
+.Footer-power-canvas-gl {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
 }
 
-/* Fade DOWN into the dark page background instead of UP into white. */
-.Footer-stage-fade {
+/* Invisible scrim — gradient fades the canvas down to the EXACT colour
+   the info zone uses, so the eye never catches a seam between the
+   Three.js render and the CSS info layer. */
+.Footer-power-scrim {
     position: absolute;
-    inset: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 45%;
+    z-index: 1;
     background: linear-gradient(
         to bottom,
-        rgba(7, 9, 15, 0) 0%,
-        rgba(7, 9, 15, 0.45) 55%,
-        rgba(7, 9, 15, 0.92) 88%,
-        var(--bg) 100%
+        rgba(2, 5, 10, 0) 0%,
+        rgba(2, 5, 10, 0.25) 35%,
+        rgba(2, 5, 10, 0.65) 65%,
+        rgba(2, 5, 10, 0.92) 90%,
+        #02050a 100%
     );
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
     pointer-events: none;
 }
 
-/* ──────────────────────────────────────────
-   2. UI Layer (Foreground — z-10)
-   ────────────────────────────────────────── */
-.Footer-inner {
+.Footer-power-content {
     position: relative;
-    z-index: 10;
-    max-width: 1280px;
-    margin: 0 auto;
-    padding: 96px 48px;
-    display: flex;
-    flex-direction: column;
-    gap: 96px;
-}
-
-/* — Climax / CTA — */
-.Footer-climax {
+    z-index: 2;
+    width: 100%;
+    height: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
+    gap: 48px;
+    padding: 0 48px;
     text-align: center;
-    gap: 40px;
-    margin-top: -120px;
 }
 
 .Footer-headline {
-    font-size: 48px;
-    line-height: 1.05;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    /* Subtle blue→green data-fluid gradient — references the Roblox blue +
-       FiveM green palette running through the upper sections. */
-    background: linear-gradient(
-        100deg,
-        #FFFFFF 0%,
-        #BFE2FF 35%,
-        var(--accent-blue) 60%,
-        var(--accent-green) 95%
-    );
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
-    max-width: 720px;
     margin: 0;
+    font-size: clamp(56px, 7vw, 96px);
+    line-height: 1.02;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    max-width: 14ch;
+    /* Hollow / glass title — interior is almost fully transparent so the
+       Three.js bubble field renders THROUGH each letter. A thin white stroke
+       keeps the typography legible like Apple's etched-glass headlines.
+       As a bubble drifts behind a letter, its blue/green hue shows inside
+       that letter; once the bubble leaves, the letter goes back to its
+       faint white glass. */
+    color: rgba(255, 255, 255, 0.06);
+    -webkit-text-fill-color: rgba(255, 255, 255, 0.06);
+    -webkit-text-stroke: 1px rgba(255, 255, 255, 0.55);
+    text-shadow: 0 0 32px rgba(127, 227, 255, 0.10);
 }
 
 .Footer-cta-row {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 32px;
     flex-wrap: wrap;
-    justify-content: center;
 }
 
 .Footer-cta-primary {
     position: relative;
     display: inline-flex;
     align-items: center;
-    gap: 14px;
-    padding: 18px 32px;
+    padding: 20px 36px;
     border-radius: 999px;
     font: inherit;
     font-size: 16px;
@@ -137,30 +119,32 @@
     letter-spacing: 0.01em;
     color: var(--ink);
     cursor: pointer;
-    background: rgba(244, 248, 255, 0.04);
-    border: 1px solid rgba(244, 248, 255, 0.18);
-    box-shadow:
-        inset 0 1px 0 rgba(244, 248, 255, 0.08),
-        0 0 0 0 rgba(30, 115, 255, 0);
-    transition:
-        transform 220ms ease,
-        border-color 220ms ease,
-        box-shadow 320ms ease,
-        background 220ms ease,
-        color 220ms ease;
+    background:
+        linear-gradient(135deg, rgba(30, 115, 255, 0.22), rgba(74, 222, 128, 0.18)),
+        rgba(244, 248, 255, 0.04);
+    border: 1px solid rgba(244, 248, 255, 0.22);
+    will-change: transform;
+    transform: translate3d(0, 0, 0);
+    transition: transform 320ms cubic-bezier(.22,.61,.36,1), background 220ms ease, border-color 220ms ease, color 220ms ease;
+}
+
+.Footer-cta-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    will-change: transform;
+    transform: translate3d(0, 0, 0);
+    transition: transform 320ms cubic-bezier(.22,.61,.36,1);
 }
 
 .Footer-cta-primary:hover {
-    transform: translateY(-1px);
     background: linear-gradient(135deg, var(--accent-blue), var(--accent-green));
     color: #050810;
     border-color: transparent;
-    box-shadow:
-        0 8px 28px rgba(30, 115, 255, 0.35),
-        0 0 24px rgba(74, 222, 128, 0.25);
 }
 
 .Footer-cta-arrow {
+    display: inline-block;
     transition: transform 220ms ease;
 }
 
@@ -168,33 +152,70 @@
     transform: translateX(4px);
 }
 
+/* ──────────────────────────────────────────
+   2. INFO zone — 25% — lean dark footer
+   ────────────────────────────────────────── */
+.Footer-info {
+    position: relative;
+    z-index: 2;
+    flex: 0 0 25vh;
+    flex: 0 0 25svh;
+    height: 25vh;
+    height: 25svh;
+    min-height: 0;
+    box-sizing: border-box;
+    background-color: #02050a;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+    gap: 14px;
+    padding: 18px 48px;
+    overflow: hidden;
+}
+
+/* Subtle bubble-coloured afterglow at the top of the info zone — extends
+   the chromatic palette of the power zone into the info area so the two
+   slots read as one continuous gradient instead of a hard cut. */
+.Footer-info::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60%;
+    pointer-events: none;
+    background:
+        radial-gradient(70% 100% at 40% 0%, rgba(30, 115, 255, 0.07), transparent 70%),
+        radial-gradient(60% 100% at 70% 0%, rgba(74, 222, 128, 0.05), transparent 70%);
+}
+
 .Footer-grid {
+    position: relative;
+    z-index: 1;
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0;
-    border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 40px;
+    max-width: 1280px;
+    width: 100%;
+    margin: 0 auto;
+    align-items: start;
+    min-height: 0;
 }
 
 .Footer-col {
-    padding: 48px 40px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    align-items: center;
+    gap: 10px;
+    min-width: 0;
 }
 
 .Footer-col--brand {
-    grid-column: 1 / -1;
-    border-bottom: 1px solid var(--line);
-}
-
-.Footer-col--nav + .Footer-col--legal {
-    border-left: 1px solid var(--line);
+    gap: 8px;
 }
 
 .Footer-logo {
-    font-size: 22px;
+    font-size: 18px;
     font-weight: 700;
     letter-spacing: 0.18em;
     color: var(--ink);
@@ -203,14 +224,14 @@
 
 .Footer-tagline {
     margin: 0;
-    font-size: 14px;
-    line-height: 1.6;
+    font-size: 13px;
+    line-height: 1.55;
     color: var(--ink-soft);
-    max-width: 340px;
+    max-width: 380px;
 }
 
 .Footer-col-title {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.18em;
     text-transform: uppercase;
@@ -223,12 +244,12 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 6px;
 }
 
 .Footer-col a {
     position: relative;
-    font-size: 15px;
+    font-size: 13px;
     color: var(--ink-soft);
     text-decoration: none;
     transition: color 220ms ease, padding-left 220ms ease;
@@ -256,102 +277,79 @@
     transform: translateY(-50%) scaleX(1);
 }
 
-/* — Baseline — */
 .Footer-baseline {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 16px;
-    font-size: 13px;
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    padding: 0;
+    font-size: 11px;
     color: var(--ink-mute);
     letter-spacing: 0.02em;
+    text-align: center;
 }
 
 /* ──────────────────────────────────────────
-   Responsive
+   Responsive — preserve 75/25 immersion ratio
    ────────────────────────────────────────── */
-@media (max-width: 960px) {
-    .Footer-stage { height: 320px; }
-    .Footer-inner { padding: 72px 28px; gap: 72px; }
-    .Footer-headline { font-size: 36px; }
-    .Footer-climax { margin-top: -80px; }
-
-    .Footer-grid { grid-template-columns: 1fr; }
-    .Footer-col { padding: 32px 4px; }
-    .Footer-col--nav + .Footer-col--legal {
-        border-left: none;
-        border-top: 1px solid var(--line);
-    }
-}
-
-@media (max-width: 560px) {
-    .Footer-headline { font-size: 30px; }
-    .Footer-cta-row { flex-direction: column; gap: 20px; }
-}
-
-/* Mobile : le Footer doit tenir dans 100svh pour que le scroll-snap JS
-   de Projects.tsx (cible Footer.offsetTop ligne ~1050) atterrisse
-   proprement sur une section complète. Le Footer-stage WebGL (400px de
-   canvas câble 3D) est masqué — l'effort GPU n'apporte rien sur petit
-   écran et il dépasse l'enveloppe 100svh. La colonne brand qui dépasse
-   est masquée pour garder l'essentiel : climax + nav + connect + baseline. */
-@media (max-width: 768px) {
-    .Footer-stage { display: none; }
-    .Footer {
-        min-height: 100svh;
-        display: flex;
-        flex-direction: column;
-    }
-    .Footer-inner {
-        flex: 1 1 auto;
-        padding: 48px 20px 32px;
-        gap: 32px;
-        justify-content: space-between;
-        align-items: stretch;
-    }
-    .Footer-climax {
-        margin-top: 0;
-        gap: 24px;
+@media (max-width: 1024px) {
+    .Footer-power-content {
+        padding: 0 32px;
+        gap: 36px;
     }
     .Footer-headline {
-        font-size: clamp(1.5rem, 7vw, 2rem);
-        line-height: 1.1;
+        font-size: clamp(40px, 7vw, 64px);
     }
-    .Footer-cta-row {
-        width: 100%;
-        justify-content: center;
-    }
-    .Footer-cta-primary {
-        padding: 14px 24px;
-        font-size: 14px;
+
+    /* Info zone — stack columns vertically, not swap.
+       Per "Width reduction = stack", columns merge by stacking. */
+    .Footer-info {
+        padding: 18px 28px;
+        gap: 12px;
     }
     .Footer-grid {
-        gap: 0;
-        width: 100%;
+        grid-template-columns: 1fr;
+        gap: 14px;
     }
-    /* Les colonnes Nav/Connect : on aligne tout l'intérieur en CENTRE
-       (titre, liens) au lieu du mix actuel `align-items: center` sur la
-       colonne + texte du <ul> aligné à gauche, qui faisait visuellement
-       un escalier. */
-    .Footer-col {
-        padding: 24px 4px;
+    .Footer-col--brand {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .Footer-power {
+        flex: 0 0 75vh;
+        flex: 0 0 75svh;
+    }
+    .Footer-power-content {
+        padding: 0 20px;
+        gap: 28px;
+    }
+    .Footer-headline {
+        font-size: clamp(32px, 8vw, 44px);
+        letter-spacing: -0.02em;
+    }
+    .Footer-cta-primary {
+        padding: 16px 28px;
+        font-size: 14px;
+    }
+
+    .Footer-info {
+        flex: 1 1 auto;
+        min-height: 25svh;
+        padding: 18px;
         gap: 12px;
-        align-items: center;
+    }
+    .Footer-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
         text-align: center;
+    }
+    .Footer-col {
+        align-items: center;
     }
     .Footer-col ul {
         align-items: center;
-        gap: 10px;
-        width: auto;
     }
-    .Footer-col li {
-        text-align: center;
-    }
-    /* Le hover-dash absolute (left: -16px) saute hors-flux quand on
-       centre les liens et finit en travers du caractère précédent. Sur
-       mobile on remplace le tiret par un simple changement de couleur
-       net, sans translation horizontale. */
     .Footer-col a::before {
         display: none;
     }
@@ -359,32 +357,21 @@
         padding-left: 0;
         color: var(--ink);
     }
-    .Footer-col--brand { display: none; }
-    .Footer-col--nav + .Footer-col--legal {
-        border-left: 0;
-        border-top: 1px solid var(--line);
-    }
-
-    /* Baseline copyright : un seul <span>, l'ancien
-       `justify-content: space-between` le collait à gauche. Centrage
-       net + texte ramassé pour qu'il rentre sans wrap moche. */
     .Footer-baseline {
         font-size: 11px;
-        justify-content: center;
-        text-align: center;
     }
 }
 
-/* Très petit écran (iPhone SE, 320px) : on empile le bouton CTA sous
-   le headline avec un peu plus d'air, et le grid Nav/Connect reste
-   single-column. */
 @media (max-width: 380px) {
     .Footer-cta-row {
-        flex-direction: column;
-        gap: 14px;
+        width: 100%;
     }
     .Footer-cta-primary {
         width: 100%;
         justify-content: center;
+    }
+    .Footer-grid {
+        grid-template-columns: 1fr;
+        gap: 14px;
     }
 }

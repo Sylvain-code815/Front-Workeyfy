@@ -15,6 +15,7 @@ const items: NavItem[] = [
     { kind: 'route', to: '/', label: 'Home' },
     { kind: 'route', to: '/projects', label: 'Projects' },
     { kind: 'route', to: '/lab', label: 'Lab' },
+    { kind: 'route', to: '/lab-scene', label: 'Lab Scene' },
     { kind: 'mailto', href: 'mailto:hello@workify.com', label: 'Contact' },
 ];
 
